@@ -33,7 +33,8 @@
 - [x] Implement attachment lifecycle (`pending` -> `committed`, cleanup job).
 
 ## Phase 4: Hardening
-- [ ] Add integration tests for key API flows.
-- [ ] Add idempotency guards for write endpoints.
+- [x] Add integration tests for key API flows.
+- [x] Add idempotency guards for write endpoints.
+- [ ] Add idempotency key retention cleanup job.
 - [ ] Add startup and health diagnostics.
 - [ ] Add dev seed script and developer docs.

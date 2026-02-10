@@ -8,6 +8,7 @@ import type { ApiContext } from "../../lib/apiContext.js";
 import { ApiError } from "../../lib/apiError.js";
 import { authContextResolve } from "../../lib/authContextResolve.js";
 import { apiResponseOk } from "../../lib/apiResponseOk.js";
+import { idempotencyGuard } from "../../lib/idempotencyGuard.js";
 
 const orgIdSchema = z.string().min(1);
 const uploadInitBodySchema = z.object({
@@ -41,45 +42,47 @@ export async function fileRoutesRegister(app: FastifyInstance, context: ApiConte
     const body = uploadInitBodySchema.parse(request.body);
     const auth = await authContextResolve(request, context, params.orgid);
 
-    const fileId = createId();
-    const safeFileName = fileNameSanitize(body.filename);
-    const storageKey = `${params.orgid}/${auth.user.id}/${fileId}/${safeFileName}`;
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const fileId = createId();
+      const safeFileName = fileNameSanitize(body.filename);
+      const storageKey = `${params.orgid}/${auth.user.id}/${fileId}/${safeFileName}`;
 
-    const file = await context.db.fileAsset.create({
-      data: {
-        id: fileId,
-        organizationId: params.orgid,
-        createdByUserId: auth.user.id,
-        storageKey,
-        contentHash: body.contentHash.toLowerCase(),
-        mimeType: body.mimeType,
-        sizeBytes: body.sizeBytes,
-        status: "PENDING",
-        expiresAt: new Date(Date.now() + PENDING_FILE_TTL_MS)
-      }
-    });
+      const file = await context.db.fileAsset.create({
+        data: {
+          id: fileId,
+          organizationId: params.orgid,
+          createdByUserId: auth.user.id,
+          storageKey,
+          contentHash: body.contentHash.toLowerCase(),
+          mimeType: body.mimeType,
+          sizeBytes: body.sizeBytes,
+          status: "PENDING",
+          expiresAt: new Date(Date.now() + PENDING_FILE_TTL_MS)
+        }
+      });
 
-    await context.updates.publishToUsers([auth.user.id], "file.pending", {
-      orgId: params.orgid,
-      fileId: file.id
-    });
+      await context.updates.publishToUsers([auth.user.id], "file.pending", {
+        orgId: params.orgid,
+        fileId: file.id
+      });
 
-    return apiResponseOk({
-      file: {
-        id: file.id,
-        organizationId: file.organizationId,
-        contentHash: file.contentHash,
-        mimeType: file.mimeType,
-        sizeBytes: file.sizeBytes,
-        status: file.status.toLowerCase(),
-        createdAt: file.createdAt.getTime(),
-        expiresAt: file.expiresAt?.getTime() ?? null
-      },
-      upload: {
-        method: "POST",
-        contentType: "application/json",
-        url: `/api/org/${params.orgid}/files/${file.id}/upload`
-      }
+      return apiResponseOk({
+        file: {
+          id: file.id,
+          organizationId: file.organizationId,
+          contentHash: file.contentHash,
+          mimeType: file.mimeType,
+          sizeBytes: file.sizeBytes,
+          status: file.status.toLowerCase(),
+          createdAt: file.createdAt.getTime(),
+          expiresAt: file.expiresAt?.getTime() ?? null
+        },
+        upload: {
+          method: "POST",
+          contentType: "application/json",
+          url: `/api/org/${params.orgid}/files/${file.id}/upload`
+        }
+      });
     });
   });
 
@@ -88,72 +91,74 @@ export async function fileRoutesRegister(app: FastifyInstance, context: ApiConte
     const body = uploadBodySchema.parse(request.body);
     const auth = await authContextResolve(request, context, params.orgid);
 
-    const file = await context.db.fileAsset.findFirst({
-      where: {
-        id: params.fileId,
-        organizationId: params.orgid
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const file = await context.db.fileAsset.findFirst({
+        where: {
+          id: params.fileId,
+          organizationId: params.orgid
+        }
+      });
+
+      if (!file || file.status !== "PENDING") {
+        throw new ApiError(404, "NOT_FOUND", "Pending file not found");
       }
-    });
 
-    if (!file || file.status !== "PENDING") {
-      throw new ApiError(404, "NOT_FOUND", "Pending file not found");
-    }
-
-    if (file.createdByUserId !== auth.user.id) {
-      throw new ApiError(403, "FORBIDDEN", "You can upload only files initialized by your account");
-    }
-
-    const encodedLengthLimit = Math.ceil(file.sizeBytes * 1.5) + 16;
-    if (body.payloadBase64.length > encodedLengthLimit) {
-      throw new ApiError(400, "VALIDATION_ERROR", "Uploaded payload is larger than initialized size");
-    }
-
-    const payload = Buffer.from(body.payloadBase64, "base64");
-    if (payload.length !== file.sizeBytes) {
-      throw new ApiError(400, "VALIDATION_ERROR", "Uploaded payload size does not match initialized size");
-    }
-
-    const uploadsRoot = path.resolve(process.cwd(), ".daycare", "uploads");
-    const uploadPath = path.resolve(uploadsRoot, file.storageKey);
-    if (!uploadPath.startsWith(uploadsRoot + path.sep)) {
-      throw new ApiError(400, "VALIDATION_ERROR", "Resolved upload path escapes uploads root");
-    }
-
-    const contentHash = createHash("sha256").update(payload).digest("hex");
-    if (contentHash !== file.contentHash.toLowerCase()) {
-      throw new ApiError(400, "VALIDATION_ERROR", "Uploaded payload hash does not match initialized hash");
-    }
-
-    await mkdir(path.dirname(uploadPath), { recursive: true });
-    await writeFile(uploadPath, payload);
-
-    const committed = await context.db.fileAsset.update({
-      where: {
-        id: file.id
-      },
-      data: {
-        status: "COMMITTED",
-        committedAt: new Date(),
-        expiresAt: null
+      if (file.createdByUserId !== auth.user.id) {
+        throw new ApiError(403, "FORBIDDEN", "You can upload only files initialized by your account");
       }
-    });
 
-    await context.updates.publishToUsers([auth.user.id], "file.committed", {
-      orgId: params.orgid,
-      fileId: file.id
-    });
-
-    return apiResponseOk({
-      file: {
-        id: committed.id,
-        organizationId: committed.organizationId,
-        contentHash: committed.contentHash,
-        mimeType: committed.mimeType,
-        sizeBytes: committed.sizeBytes,
-        status: committed.status.toLowerCase(),
-        createdAt: committed.createdAt.getTime(),
-        committedAt: committed.committedAt?.getTime() ?? null
+      const encodedLengthLimit = Math.ceil(file.sizeBytes * 1.5) + 16;
+      if (body.payloadBase64.length > encodedLengthLimit) {
+        throw new ApiError(400, "VALIDATION_ERROR", "Uploaded payload is larger than initialized size");
       }
+
+      const payload = Buffer.from(body.payloadBase64, "base64");
+      if (payload.length !== file.sizeBytes) {
+        throw new ApiError(400, "VALIDATION_ERROR", "Uploaded payload size does not match initialized size");
+      }
+
+      const uploadsRoot = path.resolve(process.cwd(), ".daycare", "uploads");
+      const uploadPath = path.resolve(uploadsRoot, file.storageKey);
+      if (!uploadPath.startsWith(uploadsRoot + path.sep)) {
+        throw new ApiError(400, "VALIDATION_ERROR", "Resolved upload path escapes uploads root");
+      }
+
+      const contentHash = createHash("sha256").update(payload).digest("hex");
+      if (contentHash !== file.contentHash.toLowerCase()) {
+        throw new ApiError(400, "VALIDATION_ERROR", "Uploaded payload hash does not match initialized hash");
+      }
+
+      await mkdir(path.dirname(uploadPath), { recursive: true });
+      await writeFile(uploadPath, payload);
+
+      const committed = await context.db.fileAsset.update({
+        where: {
+          id: file.id
+        },
+        data: {
+          status: "COMMITTED",
+          committedAt: new Date(),
+          expiresAt: null
+        }
+      });
+
+      await context.updates.publishToUsers([auth.user.id], "file.committed", {
+        orgId: params.orgid,
+        fileId: file.id
+      });
+
+      return apiResponseOk({
+        file: {
+          id: committed.id,
+          organizationId: committed.organizationId,
+          contentHash: committed.contentHash,
+          mimeType: committed.mimeType,
+          sizeBytes: committed.sizeBytes,
+          status: committed.status.toLowerCase(),
+          createdAt: committed.createdAt.getTime(),
+          committedAt: committed.committedAt?.getTime() ?? null
+        }
+      });
     });
   });
 }

@@ -8,6 +8,7 @@ import { authContextResolve } from "../../lib/authContextResolve.js";
 import { ApiError } from "../../lib/apiError.js";
 import { apiResponseOk } from "../../lib/apiResponseOk.js";
 import { organizationRecipientIdsResolve } from "../../lib/organizationRecipientIdsResolve.js";
+import { idempotencyGuard } from "../../lib/idempotencyGuard.js";
 
 const organizationCreateSchema = z.object({
   slug: z.string().trim().min(2).max(64),
@@ -63,48 +64,50 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
     const account = await accountSessionResolve(request, context);
     const body = organizationCreateSchema.parse(request.body);
 
-    let org: Organization;
-    try {
-      org = await context.db.organization.create({
-        data: {
-          id: createId(),
-          slug: body.slug,
-          name: body.name,
-          users: {
-            create: {
-              id: createId(),
-              accountId: account.accountId,
-              kind: "HUMAN",
-              firstName: body.firstName,
-              username: body.username
+    return await idempotencyGuard(request, context, { type: "account", id: account.accountId }, async () => {
+      let org: Organization;
+      try {
+        org = await context.db.organization.create({
+          data: {
+            id: createId(),
+            slug: body.slug,
+            name: body.name,
+            users: {
+              create: {
+                id: createId(),
+                accountId: account.accountId,
+                kind: "HUMAN",
+                firstName: body.firstName,
+                username: body.username
+              }
             }
           }
+        });
+      } catch (error) {
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        ) {
+          throw new ApiError(409, "CONFLICT", "Organization slug is already taken");
+        }
+        throw error;
+      }
+
+      const recipients = await organizationRecipientIdsResolve(context, org.id);
+      await context.updates.publishToUsers(recipients, "organization.created", {
+        orgId: org.id
+      });
+
+      return apiResponseOk({
+        organization: {
+          id: org.id,
+          slug: org.slug,
+          name: org.name,
+          avatarUrl: org.avatarUrl,
+          createdAt: org.createdAt.getTime(),
+          updatedAt: org.updatedAt.getTime()
         }
       });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === "P2002"
-      ) {
-        throw new ApiError(409, "CONFLICT", "Organization slug is already taken");
-      }
-      throw error;
-    }
-
-    const recipients = await organizationRecipientIdsResolve(context, org.id);
-    await context.updates.publishToUsers(recipients, "organization.created", {
-      orgId: org.id
-    });
-
-    return apiResponseOk({
-      organization: {
-        id: org.id,
-        slug: org.slug,
-        name: org.name,
-        avatarUrl: org.avatarUrl,
-        createdAt: org.createdAt.getTime(),
-        updatedAt: org.updatedAt.getTime()
-      }
     });
   });
 
@@ -113,78 +116,80 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
     const body = organizationJoinSchema.parse(request.body);
     const account = await accountSessionResolve(request, context);
 
-    if (!context.allowOpenOrgJoin) {
-      throw new ApiError(403, "FORBIDDEN", "Open organization join is disabled");
-    }
-
-    const organization = await context.db.organization.findUnique({
-      where: {
-        id: params.orgid
+    return await idempotencyGuard(request, context, { type: "account", id: account.accountId }, async () => {
+      if (!context.allowOpenOrgJoin) {
+        throw new ApiError(403, "FORBIDDEN", "Open organization join is disabled");
       }
-    });
 
-    if (!organization) {
-      throw new ApiError(404, "NOT_FOUND", "Organization not found");
-    }
+      const organization = await context.db.organization.findUnique({
+        where: {
+          id: params.orgid
+        }
+      });
 
-    let user = await context.db.user.findFirst({
-      where: {
-        accountId: account.accountId,
-        organizationId: organization.id
+      if (!organization) {
+        throw new ApiError(404, "NOT_FOUND", "Organization not found");
       }
-    });
 
-    if (!user) {
-      try {
-        user = await context.db.user.create({
-          data: {
-            id: createId(),
-            organizationId: organization.id,
-            accountId: account.accountId,
-            kind: "HUMAN",
-            firstName: body.firstName,
-            username: body.username
-          }
-        });
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2002"
-        ) {
-          user = await context.db.user.findFirst({
-            where: {
+      let user = await context.db.user.findFirst({
+        where: {
+          accountId: account.accountId,
+          organizationId: organization.id
+        }
+      });
+
+      if (!user) {
+        try {
+          user = await context.db.user.create({
+            data: {
+              id: createId(),
+              organizationId: organization.id,
               accountId: account.accountId,
-              organizationId: organization.id
+              kind: "HUMAN",
+              firstName: body.firstName,
+              username: body.username
             }
           });
-        } else {
-          throw error;
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === "P2002"
+          ) {
+            user = await context.db.user.findFirst({
+              where: {
+                accountId: account.accountId,
+                organizationId: organization.id
+              }
+            });
+          } else {
+            throw error;
+          }
         }
       }
-    }
 
-    if (!user) {
-      throw new ApiError(500, "INTERNAL_ERROR", "Failed to join organization");
-    }
-
-    const recipients = await organizationRecipientIdsResolve(context, organization.id);
-    await context.updates.publishToUsers(recipients, "organization.member.joined", {
-      orgId: organization.id,
-      userId: user.id
-    });
-
-    return apiResponseOk({
-      joined: true,
-      user: {
-        id: user.id,
-        organizationId: user.organizationId,
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        avatarUrl: user.avatarUrl,
-        createdAt: user.createdAt.getTime(),
-        updatedAt: user.updatedAt.getTime()
+      if (!user) {
+        throw new ApiError(500, "INTERNAL_ERROR", "Failed to join organization");
       }
+
+      const recipients = await organizationRecipientIdsResolve(context, organization.id);
+      await context.updates.publishToUsers(recipients, "organization.member.joined", {
+        orgId: organization.id,
+        userId: user.id
+      });
+
+      return apiResponseOk({
+        joined: true,
+        user: {
+          id: user.id,
+          organizationId: user.organizationId,
+          username: user.username,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          avatarUrl: user.avatarUrl,
+          createdAt: user.createdAt.getTime(),
+          updatedAt: user.updatedAt.getTime()
+        }
+      });
     });
   });
 
@@ -268,41 +273,43 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
     const auth = await authContextResolve(request, context, params.orgid);
     const body = profilePatchSchema.parse(request.body);
 
-    const updated = await context.db.user.update({
-      where: {
-        id: auth.user.id
-      },
-      data: {
-        firstName: body.firstName,
-        lastName: body.lastName,
-        username: body.username,
-        bio: body.bio,
-        timezone: body.timezone,
-        avatarUrl: body.avatarUrl
-      }
-    });
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const updated = await context.db.user.update({
+        where: {
+          id: auth.user.id
+        },
+        data: {
+          firstName: body.firstName,
+          lastName: body.lastName,
+          username: body.username,
+          bio: body.bio,
+          timezone: body.timezone,
+          avatarUrl: body.avatarUrl
+        }
+      });
 
-    const recipients = await organizationRecipientIdsResolve(context, updated.organizationId);
-    await context.updates.publishToUsers(recipients, "user.updated", {
-      orgId: updated.organizationId,
-      userId: updated.id
-    });
+      const recipients = await organizationRecipientIdsResolve(context, updated.organizationId);
+      await context.updates.publishToUsers(recipients, "user.updated", {
+        orgId: updated.organizationId,
+        userId: updated.id
+      });
 
-    return apiResponseOk({
-      profile: {
-        id: updated.id,
-        organizationId: updated.organizationId,
-        kind: updated.kind.toLowerCase(),
-        username: updated.username,
-        firstName: updated.firstName,
-        lastName: updated.lastName,
-        bio: updated.bio,
-        timezone: updated.timezone,
-        avatarUrl: updated.avatarUrl,
-        systemPrompt: updated.systemPrompt,
-        createdAt: updated.createdAt.getTime(),
-        updatedAt: updated.updatedAt.getTime()
-      }
+      return apiResponseOk({
+        profile: {
+          id: updated.id,
+          organizationId: updated.organizationId,
+          kind: updated.kind.toLowerCase(),
+          username: updated.username,
+          firstName: updated.firstName,
+          lastName: updated.lastName,
+          bio: updated.bio,
+          timezone: updated.timezone,
+          avatarUrl: updated.avatarUrl,
+          systemPrompt: updated.systemPrompt,
+          createdAt: updated.createdAt.getTime(),
+          updatedAt: updated.updatedAt.getTime()
+        }
+      });
     });
   });
 }

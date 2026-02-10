@@ -8,6 +8,7 @@ import { apiResponseOk } from "../../lib/apiResponseOk.js";
 import { authContextResolve } from "../../lib/authContextResolve.js";
 import { chatMembershipEnsure } from "../../lib/chatMembershipEnsure.js";
 import { chatRecipientIdsResolve } from "../../lib/chatRecipientIdsResolve.js";
+import { idempotencyGuard } from "../../lib/idempotencyGuard.js";
 
 const messageListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -267,105 +268,107 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
     const body = messageSendBodySchema.parse(request.body);
     const auth = await authContextResolve(request, context, params.orgid);
 
-    await chatMembershipEnsure(context, body.channelId, auth.user.id);
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      await chatMembershipEnsure(context, body.channelId, auth.user.id);
 
-    const threadId = body.threadId ?? null;
-    if (threadId) {
-      const root = await context.db.message.findFirst({
-        where: {
-          id: threadId,
-          chatId: body.channelId
-        }
-      });
-
-      if (!root) {
-        throw new ApiError(404, "NOT_FOUND", "Thread root message not found");
-      }
-
-      await context.db.thread.upsert({
-        where: {
-          id: threadId
-        },
-        create: {
-          id: threadId,
-          chatId: body.channelId
-        },
-        update: {
-          updatedAt: new Date()
-        }
-      });
-    }
-
-    const usernames = mentionUsernamesExtract(body.text);
-    const mentionedUsers = usernames.length > 0
-      ? await context.db.user.findMany({
+      const threadId = body.threadId ?? null;
+      if (threadId) {
+        const root = await context.db.message.findFirst({
           where: {
-            organizationId: params.orgid,
-            username: {
-              in: usernames
-            }
-          },
-          select: {
-            id: true
+            id: threadId,
+            chatId: body.channelId
           }
-        })
-      : [];
+        });
 
-    const message = await context.db.message.create({
-      data: {
-        id: createId(),
-        chatId: body.channelId,
-        senderUserId: auth.user.id,
-        threadId,
-        text: body.text,
-        mentions: {
-          create: mentionedUsers.map((mentionedUser) => ({
-            id: createId(),
-            mentionedUserId: mentionedUser.id
-          }))
-        },
-        attachments: {
-          create: (body.attachments ?? []).map((attachment, index) => ({
-            id: createId(),
-            sortOrder: index,
-            kind: attachment.kind,
-            url: attachment.url,
-            mimeType: attachment.mimeType,
-            fileName: attachment.fileName,
-            sizeBytes: attachment.sizeBytes
-          }))
+        if (!root) {
+          throw new ApiError(404, "NOT_FOUND", "Thread root message not found");
         }
-      },
-      include: {
-        senderUser: true,
-        attachments: true,
-        reactions: true
-      }
-    });
 
-    if (threadId) {
-      await context.db.message.update({
-        where: {
-          id: threadId
-        },
-        data: {
-          threadReplyCount: {
-            increment: 1
+        await context.db.thread.upsert({
+          where: {
+            id: threadId
           },
-          threadLastReplyAt: message.createdAt
+          create: {
+            id: threadId,
+            chatId: body.channelId
+          },
+          update: {
+            updatedAt: new Date()
+          }
+        });
+      }
+
+      const usernames = mentionUsernamesExtract(body.text);
+      const mentionedUsers = usernames.length > 0
+        ? await context.db.user.findMany({
+            where: {
+              organizationId: params.orgid,
+              username: {
+                in: usernames
+              }
+            },
+            select: {
+              id: true
+            }
+          })
+        : [];
+
+      const message = await context.db.message.create({
+        data: {
+          id: createId(),
+          chatId: body.channelId,
+          senderUserId: auth.user.id,
+          threadId,
+          text: body.text,
+          mentions: {
+            create: mentionedUsers.map((mentionedUser) => ({
+              id: createId(),
+              mentionedUserId: mentionedUser.id
+            }))
+          },
+          attachments: {
+            create: (body.attachments ?? []).map((attachment, index) => ({
+              id: createId(),
+              sortOrder: index,
+              kind: attachment.kind,
+              url: attachment.url,
+              mimeType: attachment.mimeType,
+              fileName: attachment.fileName,
+              sizeBytes: attachment.sizeBytes
+            }))
+          }
+        },
+        include: {
+          senderUser: true,
+          attachments: true,
+          reactions: true
         }
       });
-    }
 
-    const recipients = await chatRecipientIdsResolve(context, message.chatId);
-    await context.updates.publishToUsers(recipients, "message.created", {
-      orgId: params.orgid,
-      channelId: message.chatId,
-      messageId: message.id
-    });
+      if (threadId) {
+        await context.db.message.update({
+          where: {
+            id: threadId
+          },
+          data: {
+            threadReplyCount: {
+              increment: 1
+            },
+            threadLastReplyAt: message.createdAt
+          }
+        });
+      }
 
-    return apiResponseOk({
-      message: messageSerialize(message)
+      const recipients = await chatRecipientIdsResolve(context, message.chatId);
+      await context.updates.publishToUsers(recipients, "message.created", {
+        orgId: params.orgid,
+        channelId: message.chatId,
+        messageId: message.id
+      });
+
+      return apiResponseOk({
+        message: messageSerialize(message)
+      });
     });
   });
 
@@ -374,68 +377,70 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
     const body = messageEditBodySchema.parse(request.body);
     const auth = await authContextResolve(request, context, params.orgid);
 
-    const message = await context.db.message.findUnique({
-      where: {
-        id: params.messageId
-      }
-    });
-
-    if (!message || message.deletedAt) {
-      throw new ApiError(404, "NOT_FOUND", "Message not found");
-    }
-
-    await chatMembershipEnsure(context, message.chatId, auth.user.id);
-
-    if (message.senderUserId !== auth.user.id) {
-      throw new ApiError(403, "FORBIDDEN", "Only author can edit message");
-    }
-
-    const usernames = mentionUsernamesExtract(body.text);
-    const mentionedUsers = usernames.length > 0
-      ? await context.db.user.findMany({
-          where: {
-            organizationId: params.orgid,
-            username: {
-              in: usernames
-            }
-          },
-          select: {
-            id: true
-          }
-        })
-      : [];
-
-    const updated = await context.db.message.update({
-      where: {
-        id: message.id
-      },
-      data: {
-        text: body.text,
-        editedAt: new Date(),
-        mentions: {
-          deleteMany: {},
-          create: mentionedUsers.map((mentionedUser) => ({
-            id: createId(),
-            mentionedUserId: mentionedUser.id
-          }))
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const message = await context.db.message.findUnique({
+        where: {
+          id: params.messageId
         }
-      },
-      include: {
-        senderUser: true,
-        attachments: true,
-        reactions: true
+      });
+
+      if (!message || message.deletedAt) {
+        throw new ApiError(404, "NOT_FOUND", "Message not found");
       }
-    });
 
-    const recipients = await chatRecipientIdsResolve(context, updated.chatId);
-    await context.updates.publishToUsers(recipients, "message.updated", {
-      orgId: params.orgid,
-      channelId: updated.chatId,
-      messageId: updated.id
-    });
+      await chatMembershipEnsure(context, message.chatId, auth.user.id);
 
-    return apiResponseOk({
-      message: messageSerialize(updated)
+      if (message.senderUserId !== auth.user.id) {
+        throw new ApiError(403, "FORBIDDEN", "Only author can edit message");
+      }
+
+      const usernames = mentionUsernamesExtract(body.text);
+      const mentionedUsers = usernames.length > 0
+        ? await context.db.user.findMany({
+            where: {
+              organizationId: params.orgid,
+              username: {
+                in: usernames
+              }
+            },
+            select: {
+              id: true
+            }
+          })
+        : [];
+
+      const updated = await context.db.message.update({
+        where: {
+          id: message.id
+        },
+        data: {
+          text: body.text,
+          editedAt: new Date(),
+          mentions: {
+            deleteMany: {},
+            create: mentionedUsers.map((mentionedUser) => ({
+              id: createId(),
+              mentionedUserId: mentionedUser.id
+            }))
+          }
+        },
+        include: {
+          senderUser: true,
+          attachments: true,
+          reactions: true
+        }
+      });
+
+      const recipients = await chatRecipientIdsResolve(context, updated.chatId);
+      await context.updates.publishToUsers(recipients, "message.updated", {
+        orgId: params.orgid,
+        channelId: updated.chatId,
+        messageId: updated.id
+      });
+
+      return apiResponseOk({
+        message: messageSerialize(updated)
+      });
     });
   });
 
@@ -443,41 +448,43 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
     const params = z.object({ orgid: z.string().min(1), messageId: z.string().min(1) }).parse(request.params);
     const auth = await authContextResolve(request, context, params.orgid);
 
-    const message = await context.db.message.findUnique({
-      where: {
-        id: params.messageId
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const message = await context.db.message.findUnique({
+        where: {
+          id: params.messageId
+        }
+      });
+
+      if (!message || message.deletedAt) {
+        throw new ApiError(404, "NOT_FOUND", "Message not found");
       }
-    });
 
-    if (!message || message.deletedAt) {
-      throw new ApiError(404, "NOT_FOUND", "Message not found");
-    }
+      await chatMembershipEnsure(context, message.chatId, auth.user.id);
 
-    await chatMembershipEnsure(context, message.chatId, auth.user.id);
-
-    if (message.senderUserId !== auth.user.id) {
-      throw new ApiError(403, "FORBIDDEN", "Only author can delete message");
-    }
-
-    const updated = await context.db.message.update({
-      where: {
-        id: message.id
-      },
-      data: {
-        deletedAt: new Date()
+      if (message.senderUserId !== auth.user.id) {
+        throw new ApiError(403, "FORBIDDEN", "Only author can delete message");
       }
-    });
 
-    const recipients = await chatRecipientIdsResolve(context, updated.chatId);
-    await context.updates.publishToUsers(recipients, "message.deleted", {
-      orgId: params.orgid,
-      channelId: updated.chatId,
-      messageId: updated.id
-    });
+      const updated = await context.db.message.update({
+        where: {
+          id: message.id
+        },
+        data: {
+          deletedAt: new Date()
+        }
+      });
 
-    return apiResponseOk({
-      deleted: true,
-      messageId: updated.id
+      const recipients = await chatRecipientIdsResolve(context, updated.chatId);
+      await context.updates.publishToUsers(recipients, "message.deleted", {
+        orgId: params.orgid,
+        channelId: updated.chatId,
+        messageId: updated.id
+      });
+
+      return apiResponseOk({
+        deleted: true,
+        messageId: updated.id
+      });
     });
   });
 
@@ -486,47 +493,49 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
     const body = reactionBodySchema.parse(request.body);
     const auth = await authContextResolve(request, context, params.orgid);
 
-    const message = await context.db.message.findUnique({
-      where: {
-        id: params.messageId
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const message = await context.db.message.findUnique({
+        where: {
+          id: params.messageId
+        }
+      });
+
+      if (!message || message.deletedAt) {
+        throw new ApiError(404, "NOT_FOUND", "Message not found");
       }
-    });
 
-    if (!message || message.deletedAt) {
-      throw new ApiError(404, "NOT_FOUND", "Message not found");
-    }
+      await chatMembershipEnsure(context, message.chatId, auth.user.id);
 
-    await chatMembershipEnsure(context, message.chatId, auth.user.id);
-
-    await context.db.messageReaction.upsert({
-      where: {
-        messageId_userId_shortcode: {
+      await context.db.messageReaction.upsert({
+        where: {
+          messageId_userId_shortcode: {
+            messageId: message.id,
+            userId: auth.user.id,
+            shortcode: body.shortcode
+          }
+        },
+        create: {
+          id: createId(),
           messageId: message.id,
           userId: auth.user.id,
           shortcode: body.shortcode
-        }
-      },
-      create: {
-        id: createId(),
+        },
+        update: {}
+      });
+
+      const recipients = await chatRecipientIdsResolve(context, message.chatId);
+      await context.updates.publishToUsers(recipients, "message.reaction", {
+        orgId: params.orgid,
+        channelId: message.chatId,
         messageId: message.id,
+        action: "add",
         userId: auth.user.id,
         shortcode: body.shortcode
-      },
-      update: {}
-    });
+      });
 
-    const recipients = await chatRecipientIdsResolve(context, message.chatId);
-    await context.updates.publishToUsers(recipients, "message.reaction", {
-      orgId: params.orgid,
-      channelId: message.chatId,
-      messageId: message.id,
-      action: "add",
-      userId: auth.user.id,
-      shortcode: body.shortcode
-    });
-
-    return apiResponseOk({
-      added: true
+      return apiResponseOk({
+        added: true
+      });
     });
   });
 
@@ -535,38 +544,40 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
     const body = reactionBodySchema.parse(request.body);
     const auth = await authContextResolve(request, context, params.orgid);
 
-    const message = await context.db.message.findUnique({
-      where: {
-        id: params.messageId
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const message = await context.db.message.findUnique({
+        where: {
+          id: params.messageId
+        }
+      });
+
+      if (!message || message.deletedAt) {
+        throw new ApiError(404, "NOT_FOUND", "Message not found");
       }
-    });
 
-    if (!message || message.deletedAt) {
-      throw new ApiError(404, "NOT_FOUND", "Message not found");
-    }
+      await chatMembershipEnsure(context, message.chatId, auth.user.id);
 
-    await chatMembershipEnsure(context, message.chatId, auth.user.id);
+      await context.db.messageReaction.deleteMany({
+        where: {
+          messageId: message.id,
+          userId: auth.user.id,
+          shortcode: body.shortcode
+        }
+      });
 
-    await context.db.messageReaction.deleteMany({
-      where: {
+      const recipients = await chatRecipientIdsResolve(context, message.chatId);
+      await context.updates.publishToUsers(recipients, "message.reaction", {
+        orgId: params.orgid,
+        channelId: message.chatId,
         messageId: message.id,
+        action: "remove",
         userId: auth.user.id,
         shortcode: body.shortcode
-      }
-    });
+      });
 
-    const recipients = await chatRecipientIdsResolve(context, message.chatId);
-    await context.updates.publishToUsers(recipients, "message.reaction", {
-      orgId: params.orgid,
-      channelId: message.chatId,
-      messageId: message.id,
-      action: "remove",
-      userId: auth.user.id,
-      shortcode: body.shortcode
-    });
-
-    return apiResponseOk({
-      removed: true
+      return apiResponseOk({
+        removed: true
+      });
     });
   });
 }

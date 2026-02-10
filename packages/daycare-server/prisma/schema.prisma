@@ -294,3 +294,18 @@ model UserUpdate {
   @@unique([userId, seqno])
   @@index([userId, createdAt])
 }
+
+model IdempotencyKey {
+  id           String   @id
+  subjectType  String
+  subjectId    String
+  scope        String
+  key          String
+  requestHash  String
+  responseJson Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([subjectType, subjectId, scope, key])
+  @@index([createdAt])
+}

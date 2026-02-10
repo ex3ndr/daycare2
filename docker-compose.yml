@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: daycare-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: daycare
+      POSTGRES_PASSWORD: daycare
+      POSTGRES_DB: daycare
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U daycare -d daycare"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - ./.daycare/postgres:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: daycare-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - ./.daycare/redis:/data
+
+  s3:
+    image: minio/minio:latest
+    container_name: daycare-s3
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./.daycare/minio:/data

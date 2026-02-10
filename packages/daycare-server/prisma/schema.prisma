@@ -1,0 +1,292 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserKind {
+  HUMAN
+  AI
+}
+
+enum ChatKind {
+  CHANNEL
+  DIRECT
+}
+
+enum ChatVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum ChatMemberRole {
+  OWNER
+  MEMBER
+}
+
+enum NotificationLevel {
+  ALL
+  MENTIONS_ONLY
+  MUTED
+}
+
+enum FileAssetStatus {
+  PENDING
+  COMMITTED
+  DELETED
+}
+
+model Organization {
+  id        String   @id
+  slug      String   @unique
+  name      String
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+  chats Chat[]
+  files FileAsset[]
+
+  @@index([createdAt])
+}
+
+model Account {
+  id        String   @id
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users    User[]
+  sessions Session[]
+}
+
+model User {
+  id             String    @id
+  organizationId String
+  accountId      String?
+  kind           UserKind
+  firstName      String
+  lastName       String?
+  username       String
+  bio            String?
+  timezone       String?
+  avatarUrl      String?
+  systemPrompt   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastSeenAt     DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account      Account?     @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  createdChats Chat[] @relation("ChatCreator")
+  memberships ChatMember[]
+  sentMessages Message[]       @relation("MessageSender")
+  reactions   MessageReaction[]
+  typingState ChatTypingState[]
+  mentions    MessageMention[] @relation("MentionedUser")
+  updates     UserUpdate[]
+
+  @@unique([organizationId, username])
+  @@unique([organizationId, accountId])
+  @@index([organizationId, kind])
+}
+
+model Session {
+  id         String    @id
+  accountId  String
+  tokenHash  String    @unique
+  createdAt  DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastSeenAt DateTime?
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, expiresAt])
+}
+
+model Chat {
+  id              String          @id
+  organizationId  String
+  createdByUserId String?
+  kind            ChatKind
+  visibility      ChatVisibility?
+  name            String?
+  topic           String?
+  directKey       String?         @unique
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  archivedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser User?       @relation("ChatCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  members  ChatMember[]
+  threads  Thread[]
+  typing   ChatTypingState[]
+  messages Message[]
+
+  @@index([organizationId, kind, updatedAt])
+}
+
+model ChatMember {
+  id                String            @id
+  chatId            String
+  userId            String
+  role              ChatMemberRole
+  notificationLevel NotificationLevel
+  muteForever       Boolean           @default(false)
+  muteUntil         DateTime?
+  lastReadAt        DateTime?
+  joinedAt          DateTime          @default(now())
+  leftAt            DateTime?
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+  @@index([userId, leftAt])
+}
+
+model Thread {
+  id        String   @id
+  chatId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chat        Chat      @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  rootMessage Message   @relation("ThreadRootMessage", fields: [id], references: [id], onDelete: Cascade)
+  replies     Message[] @relation("ThreadReplies")
+
+  @@index([chatId, updatedAt])
+}
+
+model Message {
+  id                String    @id
+  chatId            String
+  senderUserId      String
+  threadId          String?
+  text              String
+  metadata          Json?
+  createdAt         DateTime  @default(now())
+  editedAt          DateTime?
+  deletedAt         DateTime?
+  threadReplyCount  Int       @default(0)
+  threadLastReplyAt DateTime?
+
+  chat         Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  senderUser   User     @relation("MessageSender", fields: [senderUserId], references: [id], onDelete: Restrict)
+  thread       Thread?  @relation("ThreadReplies", fields: [threadId], references: [id], onDelete: SetNull)
+  rootOfThread Thread?  @relation("ThreadRootMessage")
+  mentions     MessageMention[]
+  attachments  MessageAttachment[]
+  reactions    MessageReaction[]
+
+  @@index([chatId, createdAt])
+  @@index([chatId, threadId, createdAt])
+  @@index([senderUserId, createdAt])
+}
+
+model MessageMention {
+  id              String   @id
+  messageId       String
+  mentionedUserId String
+  createdAt       DateTime @default(now())
+
+  message       Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  mentionedUser User    @relation("MentionedUser", fields: [mentionedUserId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, mentionedUserId])
+  @@index([mentionedUserId, createdAt])
+}
+
+model MessageAttachment {
+  id        String   @id
+  messageId String
+  fileId    String?
+  sortOrder Int
+  kind      String
+  url       String
+  mimeType  String?
+  fileName  String?
+  sizeBytes Int?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  message Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  file    FileAsset? @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@unique([messageId, sortOrder])
+  @@index([messageId])
+  @@index([fileId])
+  @@index([kind])
+}
+
+model MessageReaction {
+  id        String   @id
+  messageId String
+  userId    String
+  shortcode String
+  createdAt DateTime @default(now())
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, shortcode])
+  @@index([messageId, shortcode])
+  @@index([userId, createdAt])
+}
+
+model FileAsset {
+  id             String          @id
+  organizationId String
+  storageKey     String          @unique
+  contentHash    String
+  mimeType       String
+  sizeBytes      Int
+  status         FileAssetStatus
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  expiresAt      DateTime?
+  committedAt    DateTime?
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  attachments  MessageAttachment[]
+
+  @@index([organizationId, status, createdAt])
+  @@index([contentHash])
+}
+
+model ChatTypingState {
+  id        String   @id
+  chatId    String
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, userId])
+  @@index([chatId, expiresAt])
+}
+
+model UserUpdate {
+  id          String   @id
+  userId      String
+  seqno       Int
+  eventType   String
+  payloadJson Json
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, seqno])
+  @@index([userId, createdAt])
+}

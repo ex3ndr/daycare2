@@ -8,7 +8,9 @@
 ## Architecture
 - monorepo: `packages/daycare-server` (Fastify API + SSE), `packages/daycare-web` (Vite + React SPA)
 - server owns all state; client is a thin UI that subscribes to events
-- SQLite (`better-sqlite3`) for persistence, raw SQL, sequential migrations
+- PostgreSQL + Prisma ORM for persistent state
+- Redis for ephemeral realtime/cache state
+- Docker Compose for local infrastructure (api, db, redis, s3)
 - REST for CRUD, SSE for real-time events
 
 ## Conventions
@@ -40,11 +42,12 @@
 - Group files into domain folders: `channels/`, `messages/`, `users/`, `auth/`, `ai/`.
 
 ## Database
-- SQLite via `better-sqlite3`. Single file. No ORM.
-- Migrations: `sources/db/migrations/001_init.sql`, `002_...sql`, etc.
-- Typed query helpers — one function per query, return plain objects.
+- PostgreSQL via Prisma ORM.
+- Schema: `packages/daycare-server/prisma/schema.prisma`.
+- Migrations: `packages/daycare-server/prisma/migrations/*` (Prisma Migrate).
+- Prefer Prisma models/queries and typed data access helpers.
 - All IDs are strings (cuid2).
-- Timestamps are unix milliseconds stored as integers.
+- DB timestamps are Prisma `DateTime`; use unix milliseconds at API boundaries.
 
 ## API & SSE
 - REST: `POST /api/auth/login`, `GET /api/channels`, `GET /api/channels/:id/messages`, etc.

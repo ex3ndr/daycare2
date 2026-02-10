@@ -9,14 +9,29 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx sources/main.ts",
+    "dev": "tsx --env-file=.env.dev sources/main.ts",
+    "start": "node dist/main.js",
+    "prisma:generate": "prisma generate --schema prisma/schema.prisma",
+    "migrate:dev": "dotenv -e .env.dev -- prisma migrate dev --schema prisma/schema.prisma",
+    "migrate:deploy": "dotenv -e .env.dev -- prisma migrate deploy --schema prisma/schema.prisma",
+    "infra:up": "docker compose -f ../../docker-compose.yml up -d db redis s3",
+    "infra:down": "docker compose -f ../../docker-compose.yml down",
+    "postinstall": "yarn prisma:generate",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@fastify/cors": "^10.1.0",
+    "@prisma/client": "^6.11.1",
+    "fastify": "^5.6.1",
+    "ioredis": "^5.6.1",
+    "zod": "^3.25.76"
+  },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "dotenv-cli": "^8.0.0",
+    "prisma": "^6.11.1",
     "tsx": "^4.19.2",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"

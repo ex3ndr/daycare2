@@ -57,9 +57,8 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users          User[]
-  chats          Chat[]
-  activeSessions Session[]
+  users User[]
+  chats Chat[]
 
   @@index([createdAt])
 }
@@ -105,17 +104,15 @@ model User {
 }
 
 model Session {
-  id                   String @id
-  accountId            String
-  activeOrganizationId String?
-  tokenHash            String @unique
-  createdAt            DateTime @default(now())
-  expiresAt            DateTime
-  revokedAt            DateTime?
-  lastSeenAt           DateTime?
+  id         String @id
+  accountId  String
+  tokenHash  String @unique
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastSeenAt DateTime?
 
-  account            Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  activeOrganization Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId, expiresAt])
 }
@@ -212,7 +209,7 @@ A `Session` is one authenticated login context (for example: one browser/device 
 - It binds an auth token (`tokenHash`) to an `Account`.
 - It has lifecycle timestamps (`createdAt`, `expiresAt`, optional `revokedAt`).
 - It stores activity (`lastSeenAt`) for idle/online handling.
-- It stores `activeOrganizationId` to track which organization the user is currently operating in.
+- It is organization-agnostic; the same session can access any organization the account has membership in.
 
 ## Service-level invariants
 

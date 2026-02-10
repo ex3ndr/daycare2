@@ -29,8 +29,7 @@ describe("authRoutesRegister", () => {
       nodeEnv: "development",
       db: {
         account: {
-          findUnique: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockResolvedValue({
+          upsert: vi.fn().mockResolvedValue({
             id: "account-1",
             email: "dev@example.com",
             createdAt: new Date("2026-02-10T00:00:00.000Z"),

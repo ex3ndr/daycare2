@@ -1,9 +1,10 @@
 import type { FileAsset } from "@prisma/client";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
 import { ApiError } from "@/apps/api/lib/apiError.js";
+import { databaseTransactionRun } from "@/modules/database/databaseTransactionRun.js";
 
 type FileUploadCommitInput = {
   organizationId: string;
@@ -53,23 +54,51 @@ export async function fileUploadCommit(
   }
 
   await mkdir(path.dirname(uploadPath), { recursive: true });
-  await writeFile(uploadPath, payload);
 
-  const committed = await context.db.fileAsset.update({
-    where: {
-      id: file.id
-    },
-    data: {
-      status: "COMMITTED",
-      committedAt: new Date(),
-      expiresAt: null
+  let wroteFile = false;
+  try {
+    await writeFile(uploadPath, payload);
+    wroteFile = true;
+
+    const committed = await databaseTransactionRun(context.db, async (tx) => {
+      // Optimistic transaction: TOCTU between validation and commit is acceptable here.
+      const fresh = await tx.fileAsset.findFirst({
+        where: {
+          id: file.id,
+          organizationId: input.organizationId
+        }
+      });
+
+      if (!fresh || fresh.status !== "PENDING") {
+        throw new ApiError(404, "NOT_FOUND", "Pending file not found");
+      }
+
+      return await tx.fileAsset.update({
+        where: {
+          id: file.id
+        },
+        data: {
+          status: "COMMITTED",
+          committedAt: new Date(),
+          expiresAt: null
+        }
+      });
+    });
+
+    await context.updates.publishToUsers([input.userId], "file.committed", {
+      orgId: input.organizationId,
+      fileId: file.id
+    });
+
+    return committed;
+  } catch (error) {
+    if (wroteFile) {
+      try {
+        await unlink(uploadPath);
+      } catch {
+        // Ignore cleanup errors to preserve the original failure.
+      }
     }
-  });
-
-  await context.updates.publishToUsers([input.userId], "file.committed", {
-    orgId: input.organizationId,
-    fileId: file.id
-  });
-
-  return committed;
+    throw error;
+  }
 }

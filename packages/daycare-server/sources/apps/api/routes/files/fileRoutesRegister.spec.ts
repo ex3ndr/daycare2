@@ -24,6 +24,24 @@ import { createHash } from "node:crypto";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { fileRoutesRegister } from "./fileRoutesRegister.js";
 
+type TransactionRunner<DB extends object> = {
+  $transaction: <T>(fn: (tx: DB) => Promise<T>) => Promise<T>;
+};
+
+function dbWithTransaction<DB extends object>(db: DB): DB & TransactionRunner<DB> {
+  return {
+    ...db,
+    $transaction: async <T>(fn: (tx: DB) => Promise<T>) => fn(db)
+  };
+}
+
+function contextWithTransaction(context: ApiContext): ApiContext {
+  return {
+    ...context,
+    db: dbWithTransaction(context.db as unknown as Record<string, unknown>)
+  } as unknown as ApiContext;
+}
+
 describe("fileRoutesRegister", () => {
   it("initializes a pending file and returns upload instructions", async () => {
     const handlers: Record<string, (request: any, reply: any) => Promise<unknown>> = {};
@@ -62,7 +80,7 @@ describe("fileRoutesRegister", () => {
       user: { id: "user-1", organizationId: "org-1" } as any
     });
 
-    await fileRoutesRegister(app, context);
+    await fileRoutesRegister(app, contextWithTransaction(context));
 
     const uploadInit = handlers["/api/org/:orgid/files/upload-init"];
     if (!uploadInit) {
@@ -144,7 +162,7 @@ describe("fileRoutesRegister", () => {
       user: { id: "user-1", organizationId: "org-1" } as any
     });
 
-    await fileRoutesRegister(app, context);
+    await fileRoutesRegister(app, contextWithTransaction(context));
 
     const upload = handlers["/api/org/:orgid/files/:fileId/upload"];
     if (!upload) {
@@ -196,7 +214,7 @@ describe("fileRoutesRegister", () => {
       user: { id: "user-1", organizationId: "org-1" } as any
     });
 
-    await fileRoutesRegister(app, context);
+    await fileRoutesRegister(app, contextWithTransaction(context));
 
     const upload = handlers["/api/org/:orgid/files/:fileId/upload"];
     if (!upload) {
@@ -246,7 +264,7 @@ describe("fileRoutesRegister", () => {
       user: { id: "user-1", organizationId: "org-1" } as any
     });
 
-    await fileRoutesRegister(app, context);
+    await fileRoutesRegister(app, contextWithTransaction(context));
 
     const upload = handlers["/api/org/:orgid/files/:fileId/upload"];
     if (!upload) {
@@ -296,7 +314,7 @@ describe("fileRoutesRegister", () => {
       user: { id: "user-1", organizationId: "org-1" } as any
     });
 
-    await fileRoutesRegister(app, context);
+    await fileRoutesRegister(app, contextWithTransaction(context));
 
     const upload = handlers["/api/org/:orgid/files/:fileId/upload"];
     if (!upload) {
@@ -350,7 +368,7 @@ describe("fileRoutesRegister", () => {
       user: { id: "user-1", organizationId: "org-1" } as any
     });
 
-    await fileRoutesRegister(app, context);
+    await fileRoutesRegister(app, contextWithTransaction(context));
 
     const upload = handlers["/api/org/:orgid/files/:fileId/upload"];
     if (!upload) {
@@ -403,7 +421,7 @@ describe("fileRoutesRegister", () => {
       user: { id: "user-1", organizationId: "org-1" } as any
     });
 
-    await fileRoutesRegister(app, context);
+    await fileRoutesRegister(app, contextWithTransaction(context));
 
     const upload = handlers["/api/org/:orgid/files/:fileId/upload"];
     if (!upload) {

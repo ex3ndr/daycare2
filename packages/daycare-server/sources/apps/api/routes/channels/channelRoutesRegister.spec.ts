@@ -30,6 +30,17 @@ import { chatRecipientIdsResolve } from "@/apps/api/lib/chatRecipientIdsResolve.
 import { organizationRecipientIdsResolve } from "@/apps/api/lib/organizationRecipientIdsResolve.js";
 import { channelRoutesRegister } from "./channelRoutesRegister.js";
 
+type TransactionRunner<DB extends object> = {
+  $transaction: <T>(fn: (tx: DB) => Promise<T>) => Promise<T>;
+};
+
+function dbWithTransaction<DB extends object>(db: DB): DB & TransactionRunner<DB> {
+  return {
+    ...db,
+    $transaction: async <T>(fn: (tx: DB) => Promise<T>) => fn(db)
+  };
+}
+
 function appCreate(context: ApiContext) {
   const app = Fastify();
   app.setErrorHandler((error, _request, reply) => {
@@ -38,7 +49,11 @@ function appCreate(context: ApiContext) {
     }
     return reply.status(500).send(apiResponseFail("INTERNAL_ERROR", "Unexpected server error"));
   });
-  void channelRoutesRegister(app, context);
+  const appContext = {
+    ...context,
+    db: dbWithTransaction(context.db as unknown as Record<string, unknown>)
+  } as unknown as ApiContext;
+  void channelRoutesRegister(app, appContext);
   return app;
 }
 

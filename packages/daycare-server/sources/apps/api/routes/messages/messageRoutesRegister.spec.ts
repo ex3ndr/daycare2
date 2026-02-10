@@ -25,6 +25,17 @@ import { chatMembershipEnsure } from "@/apps/api/lib/chatMembershipEnsure.js";
 import { chatRecipientIdsResolve } from "@/apps/api/lib/chatRecipientIdsResolve.js";
 import { messageRoutesRegister } from "./messageRoutesRegister.js";
 
+type TransactionRunner<DB extends object> = {
+  $transaction: <T>(fn: (tx: DB) => Promise<T>) => Promise<T>;
+};
+
+function dbWithTransaction<DB extends object>(db: DB): DB & TransactionRunner<DB> {
+  return {
+    ...db,
+    $transaction: async <T>(fn: (tx: DB) => Promise<T>) => fn(db)
+  };
+}
+
 type SenderUser = {
   id: string;
   kind: "HUMAN" | "AI";
@@ -103,7 +114,11 @@ function appCreate(context: ApiContext) {
     }
     return reply.status(500).send(apiResponseFail("INTERNAL_ERROR", "Unexpected server error"));
   });
-  void messageRoutesRegister(app, context);
+  const appContext = {
+    ...context,
+    db: dbWithTransaction(context.db as unknown as Record<string, unknown>)
+  } as unknown as ApiContext;
+  void messageRoutesRegister(app, appContext);
   return app;
 }
 

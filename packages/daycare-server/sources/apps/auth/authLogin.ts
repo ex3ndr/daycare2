@@ -17,20 +17,16 @@ type AuthLoginResult = {
 };
 
 export async function authLogin(context: ApiContext, email: string): Promise<AuthLoginResult> {
-  let account = await context.db.account.findUnique({
+  const account = await context.db.account.upsert({
     where: {
       email
-    }
+    },
+    create: {
+      id: createId(),
+      email
+    },
+    update: {}
   });
-
-  if (!account) {
-    account = await context.db.account.create({
-      data: {
-        id: createId(),
-        email
-      }
-    });
-  }
 
   const sessionId = createId();
   const token = await context.tokens.issue(sessionId, {

@@ -5,6 +5,7 @@ import { configRead } from "./modules/config/configRead.js";
 import { databaseConnect } from "./modules/database/databaseConnect.js";
 import { databaseCreate } from "./modules/database/databaseCreate.js";
 import { fileCleanupStart } from "./modules/files/fileCleanupStart.js";
+import { idempotencyCleanupStart } from "./modules/idempotency/idempotencyCleanupStart.js";
 import { redisConnect } from "./modules/redis/redisConnect.js";
 import { redisCreate } from "./modules/redis/redisCreate.js";
 import { updatesServiceCreate } from "./modules/updates/updatesServiceCreate.js";
@@ -43,6 +44,10 @@ async function main(): Promise<void> {
   const stopFileCleanup = fileCleanupStart(database);
   onShutdown("files.cleanup", async () => {
     stopFileCleanup();
+  });
+  const stopIdempotencyCleanup = idempotencyCleanupStart(database);
+  onShutdown("idempotency.cleanup", async () => {
+    stopIdempotencyCleanup();
   });
 
   const app = await apiCreate({

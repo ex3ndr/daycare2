@@ -35,6 +35,6 @@
 ## Phase 4: Hardening
 - [x] Add integration tests for key API flows.
 - [x] Add idempotency guards for write endpoints.
-- [ ] Add idempotency key retention cleanup job.
+- [x] Add idempotency key retention cleanup job.
 - [x] Add startup and health diagnostics.
 - [ ] Add dev seed script and developer docs.

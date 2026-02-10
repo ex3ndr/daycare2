@@ -19,6 +19,7 @@ Monorepo with two packages:
 - **daycare-web** — SPA client. TypeScript, Vite, React.
 
 Server owns all state; client is a thin UI that subscribes to events.
+Realtime transport is **SSE only** in v1. WebSockets are out of scope.
 
 ## 3. Tech Stack
 
@@ -48,10 +49,10 @@ Optional for dev:
 
 - Each organization has a limited number of users (target: < 5000).
 - This allows a simplified realtime model:
-  - socket updates can be broadcast to all users in the organization;
+  - SSE updates can be broadcast to all users in the organization;
   - additional routing/filtering is allowed but not required.
 - Push notifications are not implemented in v1.
-- Typing events are implemented via simple socket notifications (no persistence).
+- Typing indicators are persisted with a short TTL and delivered via SSE updates.
 - Calls and voice messages are not implemented.
 
 ## 6. Server Project Structure
@@ -141,14 +142,14 @@ AI users have an additional `systemPrompt` field.
 
 AI agents are defined as system prompts and profiles. They exist as `User` records with `kind: "ai"` and a `systemPrompt` field describing their behavior.
 
-In v1, agents do not connect to the server or actively react to events. They are passive definitions. In the future, agents will connect via WebSocket and react to mentions and messages in real time.
+In v1, agents do not connect to the server or actively react to events. They are passive definitions. In the future, agents may subscribe to SSE streams and react to mentions and messages via REST commands.
 
 ### 10.3 Typing Events
 
-Typing indicators are delivered as simple socket notifications:
-- Client sends a `typing` event to the server with `chatId`.
-- Server broadcasts `user.typing` to all members of the chat via the socket.
-- No persistence — typing events are ephemeral and not stored.
+Typing indicators are persisted as short-lived state and delivered via SSE:
+- Client sends a typing signal to the server with `chatId` (REST endpoint).
+- Server stores typing state with TTL and broadcasts `user.typing` updates to chat members via SSE.
+- Expired typing states are cleaned automatically by TTL.
 - Client-side timeout: show "typing" for **5 seconds** after the last event.
 
 ## 11. Authentication
@@ -320,7 +321,7 @@ Recommended base endpoint groups:
 - `GET /chats/:chatId/messages` — supports `before`, `after`, `around` params for bidirectional pagination
 - `POST /messages/send` — also commits any attached pending files
 - `POST /updates/diff`
-- `GET /updates/stream` (long-lived stream/WS endpoint)
+- `GET /updates/stream` (long-lived SSE endpoint)
 - `POST /files/upload-init`
 - `POST /users/avatar` — uploads and commits avatar in one call
 
@@ -331,7 +332,7 @@ Redis is used as an auxiliary realtime/cache layer:
 - online statuses (ping/timeout);
 - pub/sub acceleration for live update delivery between backend instances;
 - temporary keys for rate limits and OTP throttling;
-- typing event relay (ephemeral, no persistence).
+- typing state persistence with TTL and realtime relay.
 
 The primary DB (via Prisma) remains the source of truth for chat state and updates.
 

@@ -3,13 +3,13 @@
 ## Goals
 - AI-focused messenger (Slack-like)
 - humans and AI agents coexist as first-class participants in channels
-- keep the core minimal; ship v1 with text-only messaging, no threading
+- keep the core minimal; ship v1 with threads, attachments, reactions, persisted typing, and computed unread counters
 
 ## Architecture
-- monorepo: `packages/daycare-server` (Fastify API + WebSocket), `packages/daycare-web` (Vite + React SPA)
+- monorepo: `packages/daycare-server` (Fastify API + SSE), `packages/daycare-web` (Vite + React SPA)
 - server owns all state; client is a thin UI that subscribes to events
 - SQLite (`better-sqlite3`) for persistence, raw SQL, sequential migrations
-- REST for CRUD, WebSocket for real-time events
+- REST for CRUD, SSE for real-time events
 
 ## Conventions
 - typescript only, esm output
@@ -46,11 +46,11 @@
 - All IDs are strings (cuid2).
 - Timestamps are unix milliseconds stored as integers.
 
-## API & WebSocket
+## API & SSE
 - REST: `POST /api/auth/login`, `GET /api/channels`, `GET /api/channels/:id/messages`, etc.
-- WebSocket events from server: `message.created`, `channel.created`, `member.joined`, `member.left`.
-- WebSocket commands from client: `message.send`.
-- Auth: session-based, bearer token in `Authorization` header (REST) and as query param on WS connect.
+- SSE events from server: `message.created`, `channel.created`, `member.joined`, `member.left`.
+- Client commands are REST calls (for example `POST /api/messages/send`), not socket commands.
+- Auth: session-based bearer token in `Authorization` header for REST and SSE requests.
 
 ## Central Types (`@/types`)
 - Cross-cutting types (User, Channel, Message, Session) go in `sources/types.ts`.

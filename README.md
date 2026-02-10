@@ -49,6 +49,10 @@ Optional for dev:
 
 See `docs/development.md` for local setup, migrations, seed data, and test flows.
 
+## 4.2 Deployment
+
+See `docs/deployment.md` for Kubernetes manifests and required environment variables.
+
 ## 5. Constraints and Assumptions
 
 - Each organization has a limited number of users (target: < 5000).

@@ -1,7 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { createBackoff, exponentialBackoffDelay } from "./time.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { createBackoff, delay, exponentialBackoffDelay } from "./time.js";
 
 describe("time utilities", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("returns bounded backoff delay", () => {
     const value = exponentialBackoffDelay(3, 100, 1000, 10);
     expect(value).toBeGreaterThanOrEqual(0);
@@ -22,5 +26,19 @@ describe("time utilities", () => {
 
     expect(result).toBe("ok");
     expect(attempts).toBe(3);
+  });
+
+  it("resolves delay after timer elapses", async () => {
+    vi.useFakeTimers();
+
+    const done = vi.fn();
+    const promise = delay(25).then(done);
+
+    await vi.advanceTimersByTimeAsync(24);
+    expect(done).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await promise;
+    expect(done).toHaveBeenCalledTimes(1);
   });
 });

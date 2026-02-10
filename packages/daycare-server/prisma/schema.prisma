@@ -90,6 +90,7 @@ model User {
   typingState ChatTypingState[]
   mentions    MessageMention[] @relation("MentionedUser")
   updates     UserUpdate[]
+  createdFiles FileAsset[]
 
   @@unique([organizationId, username])
   @@unique([organizationId, accountId])
@@ -245,6 +246,7 @@ model MessageReaction {
 model FileAsset {
   id             String          @id
   organizationId String
+  createdByUserId String?
   storageKey     String          @unique
   contentHash    String
   mimeType       String
@@ -256,10 +258,12 @@ model FileAsset {
   committedAt    DateTime?
 
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser User?              @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
   attachments  MessageAttachment[]
 
   @@index([organizationId, status, createdAt])
   @@index([contentHash])
+  @@index([createdByUserId])
 }
 
 model ChatTypingState {

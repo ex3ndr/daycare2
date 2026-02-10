@@ -6,6 +6,8 @@ import { authContextResolve } from "../../lib/authContextResolve.js";
 import { ApiError } from "../../lib/apiError.js";
 import { apiResponseOk } from "../../lib/apiResponseOk.js";
 import { chatMembershipEnsure } from "../../lib/chatMembershipEnsure.js";
+import { chatRecipientIdsResolve } from "../../lib/chatRecipientIdsResolve.js";
+import { organizationRecipientIdsResolve } from "../../lib/organizationRecipientIdsResolve.js";
 
 const channelCreateSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -84,6 +86,12 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
       }
     });
 
+    const recipients = await organizationRecipientIdsResolve(context, chat.organizationId);
+    await context.updates.publishToUsers(recipients, "channel.created", {
+      orgId: chat.organizationId,
+      channelId: chat.id
+    });
+
     return apiResponseOk({
       channel: {
         id: chat.id,
@@ -126,6 +134,12 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
         name: body.name,
         topic: body.topic
       }
+    });
+
+    const recipients = await chatRecipientIdsResolve(context, channel.id);
+    await context.updates.publishToUsers(recipients, "channel.updated", {
+      orgId: channel.organizationId,
+      channelId: channel.id
     });
 
     return apiResponseOk({
@@ -206,6 +220,13 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
       }
     }
 
+    const recipients = await chatRecipientIdsResolve(context, params.channelId);
+    await context.updates.publishToUsers(recipients, "channel.member.joined", {
+      orgId: channel.organizationId,
+      channelId: params.channelId,
+      userId: auth.user.id
+    });
+
     return apiResponseOk({
       joined: true,
       membership: {
@@ -241,6 +262,13 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
       data: {
         leftAt: new Date()
       }
+    });
+
+    const recipients = await chatRecipientIdsResolve(context, params.channelId);
+    await context.updates.publishToUsers(recipients, "channel.member.left", {
+      orgId: auth.user.organizationId,
+      channelId: params.channelId,
+      userId: auth.user.id
     });
 
     return apiResponseOk({

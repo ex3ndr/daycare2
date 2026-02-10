@@ -7,6 +7,7 @@ import { ApiError } from "../../lib/apiError.js";
 import { apiResponseOk } from "../../lib/apiResponseOk.js";
 import { authContextResolve } from "../../lib/authContextResolve.js";
 import { chatMembershipEnsure } from "../../lib/chatMembershipEnsure.js";
+import { chatRecipientIdsResolve } from "../../lib/chatRecipientIdsResolve.js";
 
 const messageListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -97,20 +98,6 @@ function messageSerialize(message: MessageWithRelations) {
       createdAt: reaction.createdAt.getTime()
     }))
   };
-}
-
-async function messageRecipientsResolve(context: ApiContext, chatId: string): Promise<string[]> {
-  const members = await context.db.chatMember.findMany({
-    where: {
-      chatId,
-      leftAt: null
-    },
-    select: {
-      userId: true
-    }
-  });
-
-  return members.map((member) => member.userId);
 }
 
 export async function messageRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
@@ -370,7 +357,7 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
       });
     }
 
-    const recipients = await messageRecipientsResolve(context, message.chatId);
+    const recipients = await chatRecipientIdsResolve(context, message.chatId);
     await context.updates.publishToUsers(recipients, "message.created", {
       orgId: params.orgid,
       channelId: message.chatId,
@@ -440,7 +427,7 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
       }
     });
 
-    const recipients = await messageRecipientsResolve(context, updated.chatId);
+    const recipients = await chatRecipientIdsResolve(context, updated.chatId);
     await context.updates.publishToUsers(recipients, "message.updated", {
       orgId: params.orgid,
       channelId: updated.chatId,
@@ -481,7 +468,7 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
       }
     });
 
-    const recipients = await messageRecipientsResolve(context, updated.chatId);
+    const recipients = await chatRecipientIdsResolve(context, updated.chatId);
     await context.updates.publishToUsers(recipients, "message.deleted", {
       orgId: params.orgid,
       channelId: updated.chatId,
@@ -528,7 +515,7 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
       update: {}
     });
 
-    const recipients = await messageRecipientsResolve(context, message.chatId);
+    const recipients = await chatRecipientIdsResolve(context, message.chatId);
     await context.updates.publishToUsers(recipients, "message.reaction", {
       orgId: params.orgid,
       channelId: message.chatId,
@@ -568,7 +555,7 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
       }
     });
 
-    const recipients = await messageRecipientsResolve(context, message.chatId);
+    const recipients = await chatRecipientIdsResolve(context, message.chatId);
     await context.updates.publishToUsers(recipients, "message.reaction", {
       orgId: params.orgid,
       channelId: message.chatId,

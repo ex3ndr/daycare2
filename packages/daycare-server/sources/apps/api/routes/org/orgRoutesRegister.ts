@@ -7,6 +7,7 @@ import { accountSessionResolve } from "../../lib/accountSessionResolve.js";
 import { authContextResolve } from "../../lib/authContextResolve.js";
 import { ApiError } from "../../lib/apiError.js";
 import { apiResponseOk } from "../../lib/apiResponseOk.js";
+import { organizationRecipientIdsResolve } from "../../lib/organizationRecipientIdsResolve.js";
 
 const organizationCreateSchema = z.object({
   slug: z.string().trim().min(2).max(64),
@@ -90,6 +91,11 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
       throw error;
     }
 
+    const recipients = await organizationRecipientIdsResolve(context, org.id);
+    await context.updates.publishToUsers(recipients, "organization.created", {
+      orgId: org.id
+    });
+
     return apiResponseOk({
       organization: {
         id: org.id,
@@ -160,6 +166,12 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
     if (!user) {
       throw new ApiError(500, "INTERNAL_ERROR", "Failed to join organization");
     }
+
+    const recipients = await organizationRecipientIdsResolve(context, organization.id);
+    await context.updates.publishToUsers(recipients, "organization.member.joined", {
+      orgId: organization.id,
+      userId: user.id
+    });
 
     return apiResponseOk({
       joined: true,
@@ -268,6 +280,12 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
         timezone: body.timezone,
         avatarUrl: body.avatarUrl
       }
+    });
+
+    const recipients = await organizationRecipientIdsResolve(context, updated.organizationId);
+    await context.updates.publishToUsers(recipients, "user.updated", {
+      orgId: updated.organizationId,
+      userId: updated.id
     });
 
     return apiResponseOk({

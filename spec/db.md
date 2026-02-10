@@ -7,6 +7,7 @@ This document defines a Prisma-first schema proposal for Daycare v1.
 - IDs are generated in application code as `cuid2` strings.
 - Database timestamps use Prisma `DateTime`.
 - Use `createdAt DateTime @default(now())` and `updatedAt DateTime @updatedAt` for standard row lifecycle fields.
+- JSON fields are typed via `prisma-json-types-generator`.
 - Convert timestamps to unix milliseconds only at API boundaries if needed.
 - Primary database is PostgreSQL.
 - v1 is text-only messaging (no threads, attachments, or reactions yet).
@@ -17,6 +18,12 @@ This document defines a Prisma-first schema proposal for Daycare v1.
 ```prisma
 generator client {
   provider = "prisma-client-js"
+}
+
+generator json {
+  provider  = "prisma-json-types-generator"
+  namespace = "PrismaJson"
+  allowAny  = false
 }
 
 datasource db {
@@ -54,6 +61,8 @@ model Organization {
   id        String   @id
   slug      String   @unique
   name      String
+  /// [ImageRef]
+  avatar    Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -83,7 +92,8 @@ model User {
   username       String
   bio            String?
   timezone       String?
-  avatarUrl      String?
+  /// [ImageRef]
+  avatar         Json?
   systemPrompt   String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -201,6 +211,27 @@ model UserUpdate {
   @@index([userId, createdAt])
 }
 ```
+
+## Prisma JSON type declarations
+
+Create a declaration file included by `tsconfig.json` (example: `packages/daycare-server/sources/prisma-json.d.ts`):
+
+```ts
+export {};
+
+declare global {
+  namespace PrismaJson {
+    type ImageRef = {
+      fullUrl: string;
+      width: number;
+      height: number;
+      thumbhash: string;
+    };
+  }
+}
+```
+
+`ImageRef` is used by avatar fields (`Organization.avatar` and `User.avatar`).
 
 ## What `Session` is
 

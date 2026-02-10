@@ -1,7 +1,7 @@
 import type { PrismaClient, Session, User } from "@prisma/client";
 import type Redis from "ioredis";
-import type { TokenService } from "../../../modules/auth/tokenServiceCreate.js";
-import type { UpdatesService } from "../../../modules/updates/updatesServiceCreate.js";
+import type { TokenService } from "@/modules/auth/tokenServiceCreate.js";
+import type { UpdatesService } from "@/modules/updates/updatesServiceCreate.js";
 
 export type AuthContext = {
   session: Session;

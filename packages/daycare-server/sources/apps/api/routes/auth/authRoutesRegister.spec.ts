@@ -1,14 +1,14 @@
 import Fastify from "fastify";
-import type { ApiContext } from "../../lib/apiContext.js";
-import { ApiError } from "../../lib/apiError.js";
-import { apiResponseFail } from "../../lib/apiResponseFail.js";
+import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { ApiError } from "@/apps/api/lib/apiError.js";
+import { apiResponseFail } from "@/apps/api/lib/apiResponseFail.js";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../../lib/accountSessionResolve.js", () => ({
+vi.mock("@/apps/api/lib/accountSessionResolve.js", () => ({
   accountSessionResolve: vi.fn()
 }));
 
-import { accountSessionResolve } from "../../lib/accountSessionResolve.js";
+import { accountSessionResolve } from "@/apps/api/lib/accountSessionResolve.js";
 import { authRoutesRegister } from "./authRoutesRegister.js";
 
 function appCreate(context: ApiContext) {

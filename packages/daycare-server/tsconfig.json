@@ -11,7 +11,7 @@
     "rootDir": "sources",
     "baseUrl": ".",
     "paths": {
-      "@/types": ["./sources/types.ts"]
+      "@/*": ["./sources/*"]
     },
     "strict": true,
     "noUncheckedIndexedAccess": true,

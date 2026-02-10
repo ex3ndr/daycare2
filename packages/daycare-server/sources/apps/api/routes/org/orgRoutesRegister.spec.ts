@@ -1,28 +1,28 @@
 import Fastify from "fastify";
-import type { ApiContext } from "../../lib/apiContext.js";
-import { ApiError } from "../../lib/apiError.js";
-import { apiResponseFail } from "../../lib/apiResponseFail.js";
+import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { ApiError } from "@/apps/api/lib/apiError.js";
+import { apiResponseFail } from "@/apps/api/lib/apiResponseFail.js";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../../lib/accountSessionResolve.js", () => ({
+vi.mock("@/apps/api/lib/accountSessionResolve.js", () => ({
   accountSessionResolve: vi.fn()
 }));
 
-vi.mock("../../lib/authContextResolve.js", () => ({
+vi.mock("@/apps/api/lib/authContextResolve.js", () => ({
   authContextResolve: vi.fn()
 }));
 
-vi.mock("../../lib/organizationRecipientIdsResolve.js", () => ({
+vi.mock("@/apps/api/lib/organizationRecipientIdsResolve.js", () => ({
   organizationRecipientIdsResolve: vi.fn()
 }));
 
-vi.mock("../../lib/idempotencyGuard.js", () => ({
+vi.mock("@/apps/api/lib/idempotencyGuard.js", () => ({
   idempotencyGuard: vi.fn((request: unknown, context: unknown, subject: unknown, handler: () => Promise<unknown>) => handler())
 }));
 
-import { accountSessionResolve } from "../../lib/accountSessionResolve.js";
-import { authContextResolve } from "../../lib/authContextResolve.js";
-import { organizationRecipientIdsResolve } from "../../lib/organizationRecipientIdsResolve.js";
+import { accountSessionResolve } from "@/apps/api/lib/accountSessionResolve.js";
+import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
+import { organizationRecipientIdsResolve } from "@/apps/api/lib/organizationRecipientIdsResolve.js";
 import { orgRoutesRegister } from "./orgRoutesRegister.js";
 
 function appCreate(context: ApiContext) {

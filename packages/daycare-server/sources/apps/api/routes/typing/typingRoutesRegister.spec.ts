@@ -1,17 +1,17 @@
 import type { FastifyInstance } from "fastify";
-import type { ApiContext } from "../../lib/apiContext.js";
+import type { ApiContext } from "@/apps/api/lib/apiContext.js";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../../lib/authContextResolve.js", () => ({
+vi.mock("@/apps/api/lib/authContextResolve.js", () => ({
   authContextResolve: vi.fn()
 }));
 
-vi.mock("../../lib/chatMembershipEnsure.js", () => ({
+vi.mock("@/apps/api/lib/chatMembershipEnsure.js", () => ({
   chatMembershipEnsure: vi.fn()
 }));
 
-import { authContextResolve } from "../../lib/authContextResolve.js";
-import { chatMembershipEnsure } from "../../lib/chatMembershipEnsure.js";
+import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
+import { chatMembershipEnsure } from "@/apps/api/lib/chatMembershipEnsure.js";
 import { typingRoutesRegister } from "./typingRoutesRegister.js";
 
 describe("typingRoutesRegister", () => {

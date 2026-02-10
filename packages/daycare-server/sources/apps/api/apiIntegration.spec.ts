@@ -3,12 +3,12 @@ import type { PrismaClient } from "@prisma/client";
 import type Redis from "ioredis";
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 import { apiCreate } from "./apiCreate.js";
-import { databaseConnect } from "../../modules/database/databaseConnect.js";
-import { databaseCreate } from "../../modules/database/databaseCreate.js";
-import { redisConnect } from "../../modules/redis/redisConnect.js";
-import { redisCreate } from "../../modules/redis/redisCreate.js";
-import { tokenServiceCreate } from "../../modules/auth/tokenServiceCreate.js";
-import { updatesServiceCreate } from "../../modules/updates/updatesServiceCreate.js";
+import { databaseConnect } from "@/modules/database/databaseConnect.js";
+import { databaseCreate } from "@/modules/database/databaseCreate.js";
+import { redisConnect } from "@/modules/redis/redisConnect.js";
+import { redisCreate } from "@/modules/redis/redisCreate.js";
+import { tokenServiceCreate } from "@/modules/auth/tokenServiceCreate.js";
+import { updatesServiceCreate } from "@/modules/updates/updatesServiceCreate.js";
 
 const integrationEnabled = process.env.INTEGRATION === "1";
 const databaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;

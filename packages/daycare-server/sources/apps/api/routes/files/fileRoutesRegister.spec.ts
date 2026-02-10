@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { ApiContext } from "../../lib/apiContext.js";
+import type { ApiContext } from "@/apps/api/lib/apiContext.js";
 import { describe, expect, it, vi } from "vitest";
 
 const { mkdirMock, writeFileMock } = vi.hoisted(() => ({
@@ -12,16 +12,16 @@ vi.mock("node:fs/promises", () => ({
   writeFile: writeFileMock
 }));
 
-vi.mock("../../lib/authContextResolve.js", () => ({
+vi.mock("@/apps/api/lib/authContextResolve.js", () => ({
   authContextResolve: vi.fn()
 }));
 
-vi.mock("../../lib/idempotencyGuard.js", () => ({
+vi.mock("@/apps/api/lib/idempotencyGuard.js", () => ({
   idempotencyGuard: vi.fn((request: unknown, context: unknown, subject: unknown, handler: () => Promise<unknown>) => handler())
 }));
 
 import { createHash } from "node:crypto";
-import { authContextResolve } from "../../lib/authContextResolve.js";
+import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { fileRoutesRegister } from "./fileRoutesRegister.js";
 
 describe("fileRoutesRegister", () => {

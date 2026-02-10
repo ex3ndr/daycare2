@@ -2,10 +2,10 @@ import { createId } from "@paralleldrive/cuid2";
 import type { FastifyInstance } from "fastify";
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import type { ApiContext } from "../../lib/apiContext.js";
-import { accountSessionResolve } from "../../lib/accountSessionResolve.js";
-import { ApiError } from "../../lib/apiError.js";
-import { apiResponseOk } from "../../lib/apiResponseOk.js";
+import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { accountSessionResolve } from "@/apps/api/lib/accountSessionResolve.js";
+import { ApiError } from "@/apps/api/lib/apiError.js";
+import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
 
 const loginBodySchema = z.object({
   email: z.string().email().trim().toLowerCase()

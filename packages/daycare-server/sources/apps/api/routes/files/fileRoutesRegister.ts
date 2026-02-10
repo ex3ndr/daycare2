@@ -4,11 +4,11 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { z } from "zod";
-import type { ApiContext } from "../../lib/apiContext.js";
-import { ApiError } from "../../lib/apiError.js";
-import { authContextResolve } from "../../lib/authContextResolve.js";
-import { apiResponseOk } from "../../lib/apiResponseOk.js";
-import { idempotencyGuard } from "../../lib/idempotencyGuard.js";
+import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { ApiError } from "@/apps/api/lib/apiError.js";
+import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
+import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
+import { idempotencyGuard } from "@/apps/api/lib/idempotencyGuard.js";
 
 const orgIdSchema = z.string().min(1);
 const uploadInitBodySchema = z.object({

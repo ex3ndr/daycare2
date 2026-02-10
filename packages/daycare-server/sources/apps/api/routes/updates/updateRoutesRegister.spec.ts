@@ -1,13 +1,13 @@
 import { EventEmitter } from "node:events";
 import type { FastifyInstance } from "fastify";
-import type { ApiContext } from "../../lib/apiContext.js";
+import type { ApiContext } from "@/apps/api/lib/apiContext.js";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../../lib/authContextResolve.js", () => ({
+vi.mock("@/apps/api/lib/authContextResolve.js", () => ({
   authContextResolve: vi.fn()
 }));
 
-import { authContextResolve } from "../../lib/authContextResolve.js";
+import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { updateRoutesRegister } from "./updateRoutesRegister.js";
 
 describe("updateRoutesRegister", () => {

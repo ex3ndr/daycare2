@@ -2,13 +2,13 @@ import { createId } from "@paralleldrive/cuid2";
 import type { FastifyInstance } from "fastify";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
-import type { ApiContext } from "../../lib/apiContext.js";
-import { ApiError } from "../../lib/apiError.js";
-import { apiResponseOk } from "../../lib/apiResponseOk.js";
-import { authContextResolve } from "../../lib/authContextResolve.js";
-import { chatMembershipEnsure } from "../../lib/chatMembershipEnsure.js";
-import { chatRecipientIdsResolve } from "../../lib/chatRecipientIdsResolve.js";
-import { idempotencyGuard } from "../../lib/idempotencyGuard.js";
+import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { ApiError } from "@/apps/api/lib/apiError.js";
+import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
+import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
+import { chatMembershipEnsure } from "@/apps/api/lib/chatMembershipEnsure.js";
+import { chatRecipientIdsResolve } from "@/apps/api/lib/chatRecipientIdsResolve.js";
+import { idempotencyGuard } from "@/apps/api/lib/idempotencyGuard.js";
 
 const messageListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),

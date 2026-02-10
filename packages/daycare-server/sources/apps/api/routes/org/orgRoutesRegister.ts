@@ -2,13 +2,13 @@ import { createId } from "@paralleldrive/cuid2";
 import type { FastifyInstance } from "fastify";
 import { Prisma, type Organization } from "@prisma/client";
 import { z } from "zod";
-import type { ApiContext } from "../../lib/apiContext.js";
-import { accountSessionResolve } from "../../lib/accountSessionResolve.js";
-import { authContextResolve } from "../../lib/authContextResolve.js";
-import { ApiError } from "../../lib/apiError.js";
-import { apiResponseOk } from "../../lib/apiResponseOk.js";
-import { organizationRecipientIdsResolve } from "../../lib/organizationRecipientIdsResolve.js";
-import { idempotencyGuard } from "../../lib/idempotencyGuard.js";
+import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { accountSessionResolve } from "@/apps/api/lib/accountSessionResolve.js";
+import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
+import { ApiError } from "@/apps/api/lib/apiError.js";
+import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
+import { organizationRecipientIdsResolve } from "@/apps/api/lib/organizationRecipientIdsResolve.js";
+import { idempotencyGuard } from "@/apps/api/lib/idempotencyGuard.js";
 
 const organizationCreateSchema = z.object({
   slug: z.string().trim().min(2).max(64),

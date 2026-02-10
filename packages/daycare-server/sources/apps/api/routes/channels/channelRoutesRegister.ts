@@ -1,14 +1,14 @@
 import { createId } from "@paralleldrive/cuid2";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { ApiContext } from "../../lib/apiContext.js";
-import { authContextResolve } from "../../lib/authContextResolve.js";
-import { ApiError } from "../../lib/apiError.js";
-import { apiResponseOk } from "../../lib/apiResponseOk.js";
-import { chatMembershipEnsure } from "../../lib/chatMembershipEnsure.js";
-import { chatRecipientIdsResolve } from "../../lib/chatRecipientIdsResolve.js";
-import { organizationRecipientIdsResolve } from "../../lib/organizationRecipientIdsResolve.js";
-import { idempotencyGuard } from "../../lib/idempotencyGuard.js";
+import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
+import { ApiError } from "@/apps/api/lib/apiError.js";
+import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
+import { chatMembershipEnsure } from "@/apps/api/lib/chatMembershipEnsure.js";
+import { chatRecipientIdsResolve } from "@/apps/api/lib/chatRecipientIdsResolve.js";
+import { organizationRecipientIdsResolve } from "@/apps/api/lib/organizationRecipientIdsResolve.js";
+import { idempotencyGuard } from "@/apps/api/lib/idempotencyGuard.js";
 
 const channelCreateSchema = z.object({
   name: z.string().trim().min(1).max(120),

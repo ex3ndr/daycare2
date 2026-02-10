@@ -1,8 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { ApiContext } from "../../lib/apiContext.js";
-import { authContextResolve } from "../../lib/authContextResolve.js";
-import { apiResponseOk } from "../../lib/apiResponseOk.js";
+import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
+import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
 
 const diffBodySchema = z.object({
   offset: z.number().int().min(0).default(0),

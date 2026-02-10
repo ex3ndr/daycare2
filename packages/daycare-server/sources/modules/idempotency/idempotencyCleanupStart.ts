@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { getLogger } from "../../utils/getLogger.js";
+import { getLogger } from "@/utils/getLogger.js";
 
 type CleanupOptions = {
   intervalMs?: number;

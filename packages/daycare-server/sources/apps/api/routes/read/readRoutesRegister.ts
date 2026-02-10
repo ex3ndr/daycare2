@@ -1,9 +1,9 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { ApiContext } from "../../lib/apiContext.js";
-import { authContextResolve } from "../../lib/authContextResolve.js";
-import { apiResponseOk } from "../../lib/apiResponseOk.js";
-import { chatMembershipEnsure } from "../../lib/chatMembershipEnsure.js";
+import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
+import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
+import { chatMembershipEnsure } from "@/apps/api/lib/chatMembershipEnsure.js";
 
 export async function readRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
   app.post("/api/org/:orgid/channels/:channelId/read", async (request) => {

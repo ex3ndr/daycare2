@@ -1,10 +1,12 @@
 import { apiCreate } from "./apps/api/apiCreate.js";
 import { apiStart } from "./apps/api/apiStart.js";
+import { tokenServiceCreate } from "./modules/auth/tokenServiceCreate.js";
 import { configRead } from "./modules/config/configRead.js";
 import { databaseConnect } from "./modules/database/databaseConnect.js";
 import { databaseCreate } from "./modules/database/databaseCreate.js";
 import { redisConnect } from "./modules/redis/redisConnect.js";
 import { redisCreate } from "./modules/redis/redisCreate.js";
+import { updatesServiceCreate } from "./modules/updates/updatesServiceCreate.js";
 import { getLogger } from "./utils/getLogger.js";
 import { awaitShutdown, onShutdown } from "./utils/shutdown.js";
 
@@ -25,7 +27,17 @@ async function main(): Promise<void> {
     await redis.quit();
   });
 
-  const app = await apiCreate();
+  const tokens = await tokenServiceCreate(config.tokenService, config.tokenSeed);
+  const updates = updatesServiceCreate(database);
+
+  const app = await apiCreate({
+    db: database,
+    redis,
+    tokens,
+    updates,
+    nodeEnv: config.nodeEnv,
+    allowOpenOrgJoin: config.allowOpenOrgJoin
+  });
   await apiStart(app, config.host, config.port);
   onShutdown("api", async () => {
     await app.close();

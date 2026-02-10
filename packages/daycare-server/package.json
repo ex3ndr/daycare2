@@ -23,9 +23,11 @@
   },
   "dependencies": {
     "@fastify/cors": "^10.1.0",
+    "@paralleldrive/cuid2": "^2.2.2",
     "@prisma/client": "^6.11.1",
     "fastify": "^5.6.1",
     "ioredis": "^5.6.1",
+    "privacy-kit": "0.0.25",
     "zod": "^3.25.76"
   },
   "devDependencies": {

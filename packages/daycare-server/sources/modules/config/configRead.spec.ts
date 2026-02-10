@@ -8,7 +8,8 @@ describe("configRead", () => {
       HOST: "127.0.0.1",
       PORT: "4001",
       DATABASE_URL: "postgresql://daycare:daycare@localhost:5432/daycare?schema=public",
-      REDIS_URL: "redis://localhost:6379"
+      REDIS_URL: "redis://localhost:6379",
+      TOKEN_SEED: "daycare-local-token-seed-0001"
     });
 
     expect(config).toEqual({
@@ -16,7 +17,24 @@ describe("configRead", () => {
       host: "127.0.0.1",
       port: 4001,
       databaseUrl: "postgresql://daycare:daycare@localhost:5432/daycare?schema=public",
-      redisUrl: "redis://localhost:6379"
+      redisUrl: "redis://localhost:6379",
+      tokenService: "daycare",
+      tokenSeed: "daycare-local-token-seed-0001",
+      allowOpenOrgJoin: true
     });
+  });
+
+  it("respects explicit ALLOW_OPEN_ORG_JOIN=false", () => {
+    const config = configRead({
+      NODE_ENV: "production",
+      HOST: "127.0.0.1",
+      PORT: "4001",
+      DATABASE_URL: "postgresql://daycare:daycare@localhost:5432/daycare?schema=public",
+      REDIS_URL: "redis://localhost:6379",
+      TOKEN_SEED: "daycare-local-token-seed-0001",
+      ALLOW_OPEN_ORG_JOIN: "false"
+    });
+
+    expect(config.allowOpenOrgJoin).toBe(false);
   });
 });

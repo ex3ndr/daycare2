@@ -1,0 +1,211 @@
+import type { Prisma, PrismaClient, UserUpdate } from "@prisma/client";
+import type { FastifyReply } from "fastify";
+import { createId } from "@paralleldrive/cuid2";
+
+type UpdatePayload = Record<string, unknown>;
+
+type UpdateClient = {
+  id: string;
+  userId: string;
+  orgId: string;
+  reply: FastifyReply;
+};
+
+export type UpdateEnvelope = {
+  id: string;
+  userId: string;
+  seqno: number;
+  eventType: string;
+  payload: UpdatePayload;
+  createdAt: number;
+};
+
+export type UpdatesDiffResult = {
+  updates: UpdateEnvelope[];
+  headOffset: number;
+  resetRequired: boolean;
+};
+
+export type UpdatesService = {
+  subscribe: (userId: string, orgId: string, reply: FastifyReply) => () => void;
+  publishToUsers: (userIds: string[], eventType: string, payload: UpdatePayload) => Promise<void>;
+  diffGet: (userId: string, offset: number, limit?: number) => Promise<UpdatesDiffResult>;
+};
+
+const MAX_RETAINED_UPDATES = 5000;
+
+function updateToEnvelope(update: UserUpdate): UpdateEnvelope {
+  return {
+    id: update.id,
+    userId: update.userId,
+    seqno: update.seqno,
+    eventType: update.eventType,
+    payload: update.payloadJson as UpdatePayload,
+    createdAt: update.createdAt.getTime()
+  };
+}
+
+export function updatesServiceCreate(db: PrismaClient): UpdatesService {
+  const clientsByUser = new Map<string, Map<string, UpdateClient>>();
+
+  const subscribe = (userId: string, orgId: string, reply: FastifyReply): (() => void) => {
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive"
+    });
+    reply.raw.write("event: ready\ndata: {}\n\n");
+
+    const client: UpdateClient = {
+      id: createId(),
+      userId,
+      orgId,
+      reply
+    };
+
+    const userClients = clientsByUser.get(userId) ?? new Map<string, UpdateClient>();
+    userClients.set(client.id, client);
+    clientsByUser.set(userId, userClients);
+
+    return () => {
+      const existing = clientsByUser.get(userId);
+      if (!existing) {
+        return;
+      }
+
+      existing.delete(client.id);
+      if (existing.size === 0) {
+        clientsByUser.delete(userId);
+      }
+    };
+  };
+
+  const publishToUsers = async (userIds: string[], eventType: string, payload: UpdatePayload): Promise<void> => {
+    const uniqueUserIds = Array.from(new Set(userIds));
+    await Promise.all(uniqueUserIds.map(async (userId) => {
+      const update = await updateCreateWithRetry(db, userId, eventType, payload);
+      const envelope = updateToEnvelope(update);
+      const clients = clientsByUser.get(userId);
+
+      if (!clients) {
+        return;
+      }
+
+      for (const client of clients.values()) {
+        client.reply.raw.write(`event: update\ndata: ${JSON.stringify(envelope)}\n\n`);
+      }
+    }));
+  };
+
+  const diffGet = async (userId: string, offset: number, limit = 200): Promise<UpdatesDiffResult> => {
+    const head = await db.userUpdate.findFirst({
+      where: { userId },
+      orderBy: { seqno: "desc" },
+      select: { seqno: true }
+    });
+
+    const updates = await db.userUpdate.findMany({
+      where: {
+        userId,
+        seqno: {
+          gt: offset
+        }
+      },
+      orderBy: {
+        seqno: "asc"
+      },
+      take: limit
+    });
+
+    const earliest = await db.userUpdate.findFirst({
+      where: { userId },
+      orderBy: { seqno: "asc" },
+      select: { seqno: true }
+    });
+
+    const resetRequired = earliest ? offset < earliest.seqno - 1 : false;
+
+    return {
+      updates: updates.map(updateToEnvelope),
+      headOffset: head?.seqno ?? 0,
+      resetRequired
+    };
+  };
+
+  return {
+    subscribe,
+    publishToUsers,
+    diffGet
+  };
+}
+
+async function updateCreateWithRetry(
+  db: PrismaClient,
+  userId: string,
+  eventType: string,
+  payload: UpdatePayload
+): Promise<UserUpdate> {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    try {
+      const update = await db.$transaction(async (tx) => {
+        // Serialize seqno allocation for each user in PostgreSQL.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${userId}))`;
+
+        const latest = await tx.userUpdate.findFirst({
+          where: { userId },
+          orderBy: { seqno: "desc" },
+          select: { seqno: true }
+        });
+
+        const created = await tx.userUpdate.create({
+          data: {
+            id: createId(),
+            userId,
+            seqno: (latest?.seqno ?? 0) + 1,
+            eventType,
+            payloadJson: payload as Prisma.InputJsonObject
+          }
+        });
+
+        if (created.seqno > MAX_RETAINED_UPDATES && created.seqno % 100 === 0) {
+          await updatesTrim(tx, userId);
+        }
+
+        return created;
+      });
+      return update;
+    } catch (error) {
+      const message = String(error);
+      const uniqueConstraintViolation = message.includes("UserUpdate_userId_seqno_key");
+      if (!uniqueConstraintViolation || attempt >= 5) {
+        throw error;
+      }
+    }
+  }
+
+  throw new Error("Failed to write user update after retries");
+}
+
+async function updatesTrim(
+  db: PrismaClient | Prisma.TransactionClient,
+  userId: string
+): Promise<void> {
+  const oldUpdates = await db.userUpdate.findMany({
+    where: { userId },
+    orderBy: { seqno: "desc" },
+    skip: MAX_RETAINED_UPDATES,
+    select: { id: true }
+  });
+
+  if (oldUpdates.length === 0) {
+    return;
+  }
+
+  await db.userUpdate.deleteMany({
+    where: {
+      id: {
+        in: oldUpdates.map((item) => item.id)
+      }
+    }
+  });
+}

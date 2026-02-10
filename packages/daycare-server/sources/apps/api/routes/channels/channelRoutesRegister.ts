@@ -5,6 +5,7 @@ import type { ApiContext } from "../../lib/apiContext.js";
 import { authContextResolve } from "../../lib/authContextResolve.js";
 import { ApiError } from "../../lib/apiError.js";
 import { apiResponseOk } from "../../lib/apiResponseOk.js";
+import { chatMembershipEnsure } from "../../lib/chatMembershipEnsure.js";
 
 const channelCreateSchema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -16,20 +17,6 @@ const channelPatchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
   topic: z.string().trim().max(1024).nullable().optional()
 });
-
-async function chatMembershipEnsure(context: ApiContext, chatId: string, userId: string): Promise<void> {
-  const membership = await context.db.chatMember.findFirst({
-    where: {
-      chatId,
-      userId,
-      leftAt: null
-    }
-  });
-
-  if (!membership) {
-    throw new ApiError(403, "FORBIDDEN", "Not a member of this chat");
-  }
-}
 
 export async function channelRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
   app.get("/api/org/:orgid/channels", async (request) => {

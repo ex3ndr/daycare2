@@ -4,10 +4,18 @@ import { healthRouteRegister } from "./healthRouteRegister.js";
 import { authRoutesRegister } from "./auth/authRoutesRegister.js";
 import { orgRoutesRegister } from "./org/orgRoutesRegister.js";
 import { channelRoutesRegister } from "./channels/channelRoutesRegister.js";
+import { messageRoutesRegister } from "./messages/messageRoutesRegister.js";
+import { typingRoutesRegister } from "./typing/typingRoutesRegister.js";
+import { readRoutesRegister } from "./read/readRoutesRegister.js";
+import { updateRoutesRegister } from "./updates/updateRoutesRegister.js";
 
 export async function routesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
   await healthRouteRegister(app);
   await authRoutesRegister(app, context);
   await orgRoutesRegister(app, context);
   await channelRoutesRegister(app, context);
+  await messageRoutesRegister(app, context);
+  await typingRoutesRegister(app, context);
+  await readRoutesRegister(app, context);
+  await updateRoutesRegister(app, context);
 }

@@ -13,6 +13,7 @@
     "infra:down": "docker compose down",
     "infra:logs": "docker compose logs -f db redis s3",
     "test": "yarn workspaces run test",
+    "test:coverage": "yarn workspace daycare-server run test:coverage",
     "test:watch": "yarn workspaces run test:watch",
     "typecheck": "yarn workspaces run typecheck"
   }

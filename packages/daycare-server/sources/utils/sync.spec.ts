@@ -20,6 +20,26 @@ describe("InvalidateSync", () => {
 
     expect(runs).toBe(2);
   });
+
+  it("returns immediately when queue is idle", async () => {
+    const sync = new InvalidateSync(async () => {});
+
+    await sync.awaitQueue();
+  });
+
+  it("resolves pending awaits on stop", async () => {
+    let runs = 0;
+    const sync = new InvalidateSync(async () => {
+      runs += 1;
+      await wait(5);
+    });
+
+    const pending = sync.invalidateAndAwait();
+    sync.stop();
+
+    await pending;
+    expect(runs).toBeLessThanOrEqual(1);
+  });
 });
 
 describe("ValueSync", () => {
@@ -38,5 +58,21 @@ describe("ValueSync", () => {
 
     expect(processed[0]).toBe(1);
     expect(processed[processed.length - 1]).toBe(3);
+  });
+
+  it("resolves setValueAndAwait and skips work after stop", async () => {
+    const processed: number[] = [];
+    const sync = new ValueSync<number>(async (value) => {
+      processed.push(value);
+    });
+
+    await sync.setValueAndAwait(1);
+
+    sync.stop();
+    sync.setValue(2);
+    await sync.awaitQueue();
+
+    expect(processed).toContain(1);
+    expect(processed).not.toContain(2);
   });
 });

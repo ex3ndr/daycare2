@@ -70,4 +70,55 @@ describe("fileCleanupStart", () => {
 
     stop();
   });
+
+  it("skips disk delete when storage key escapes uploads root", async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      { id: "f1", storageKey: "../escape.txt" }
+    ]);
+    const deleteMany = vi.fn().mockResolvedValue({ count: 1 });
+
+    const db = {
+      fileAsset: {
+        findMany,
+        deleteMany
+      }
+    } as any;
+
+    const { fileCleanupStart } = await import("./fileCleanupStart.js");
+    const stop = fileCleanupStart(db, { intervalMs: 1000 });
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(accessMock).not.toHaveBeenCalled();
+    expect(rmMock).not.toHaveBeenCalled();
+    expect(deleteMany).toHaveBeenCalledTimes(1);
+
+    stop();
+  });
+
+  it("ignores missing files on disk", async () => {
+    accessMock.mockRejectedValue(new Error("missing"));
+
+    const findMany = vi.fn().mockResolvedValue([
+      { id: "f1", storageKey: "org/user/f1/file.txt" }
+    ]);
+    const deleteMany = vi.fn().mockResolvedValue({ count: 1 });
+
+    const db = {
+      fileAsset: {
+        findMany,
+        deleteMany
+      }
+    } as any;
+
+    const { fileCleanupStart } = await import("./fileCleanupStart.js");
+    const stop = fileCleanupStart(db, { intervalMs: 1000 });
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(rmMock).not.toHaveBeenCalled();
+    expect(deleteMany).toHaveBeenCalledTimes(1);
+
+    stop();
+  });
 });

@@ -20,6 +20,7 @@
     "postinstall": "yarn prisma:generate",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^1.6.0",
     "dotenv-cli": "^8.0.0",
     "prisma": "^6.11.1",
     "tsx": "^4.19.2",

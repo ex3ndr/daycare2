@@ -109,4 +109,85 @@ describe("updatesServiceCreate", () => {
       }
     ]);
   });
+
+  it("publishes updates even without active subscribers", async () => {
+    const transaction = vi.fn().mockImplementation(async (callback: (tx: unknown) => Promise<UserUpdate>) => {
+      const tx = {
+        $executeRaw: vi.fn().mockResolvedValue(undefined),
+        userUpdate: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue(userUpdateCreate(1)),
+          findMany: vi.fn().mockResolvedValue([]),
+          deleteMany: vi.fn().mockResolvedValue({ count: 0 })
+        }
+      };
+      return await callback(tx);
+    });
+
+    const db = {
+      $transaction: transaction
+    } as unknown as PrismaClient;
+
+    const service = updatesServiceCreate(db);
+    await service.publishToUsers(["user-1"], "message.created", { messageId: "m-1" });
+
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries on unique constraint violations and trims old updates", async () => {
+    const txCapture: { deleteMany?: () => Promise<{ count: number }> } = {};
+
+    const transaction = vi.fn()
+      .mockImplementationOnce(async () => {
+        throw new Error("UserUpdate_userId_seqno_key");
+      })
+      .mockImplementationOnce(async (callback: (tx: unknown) => Promise<UserUpdate>) => {
+        const tx = {
+          $executeRaw: vi.fn().mockResolvedValue(undefined),
+          userUpdate: {
+            findFirst: vi.fn().mockResolvedValue({ seqno: 5099 }),
+            create: vi.fn().mockResolvedValue(userUpdateCreate(5100)),
+            findMany: vi.fn().mockResolvedValue([{ id: "old-1" }]),
+            deleteMany: vi.fn().mockResolvedValue({ count: 1 })
+          }
+        };
+        txCapture.deleteMany = tx.userUpdate.deleteMany;
+        return await callback(tx);
+      });
+
+    const db = {
+      $transaction: transaction
+    } as unknown as PrismaClient;
+
+    const writes: string[] = [];
+    const writeSpy = vi.fn((chunk: string) => {
+      writes.push(chunk);
+    });
+    const reply = replyCreate(writeSpy);
+
+    const service = updatesServiceCreate(db);
+    service.subscribe("user-1", "org-1", reply);
+
+    await service.publishToUsers(["user-1"], "message.created", { messageId: "m-5100" });
+
+    expect(transaction).toHaveBeenCalledTimes(2);
+    expect(txCapture.deleteMany).toBeDefined();
+    expect(writes.some((chunk) => chunk.includes("event: update"))).toBe(true);
+  });
+
+  it("returns diff with resetRequired false when no history exists", async () => {
+    const db = {
+      userUpdate: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        findMany: vi.fn().mockResolvedValue([])
+      }
+    } as unknown as PrismaClient;
+
+    const service = updatesServiceCreate(db);
+    const result = await service.diffGet("user-1", 0, 50);
+
+    expect(result.headOffset).toBe(0);
+    expect(result.resetRequired).toBe(false);
+    expect(result.updates).toEqual([]);
+  });
 });

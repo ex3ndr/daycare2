@@ -149,7 +149,8 @@ describe("fileRoutesRegister", () => {
       db: {
         fileAsset: {
           findFirst: vi.fn().mockResolvedValue(pendingFile),
-          update: vi.fn().mockResolvedValue(committed)
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+          findUnique: vi.fn().mockResolvedValue(committed)
         }
       },
       updates: {
@@ -180,7 +181,7 @@ describe("fileRoutesRegister", () => {
 
     expect(mkdirMock).toHaveBeenCalled();
     expect(writeFileMock).toHaveBeenCalled();
-    expect(context.db.fileAsset.update).toHaveBeenCalled();
+    expect(context.db.fileAsset.updateMany).toHaveBeenCalled();
     expect(context.updates.publishToUsers).toHaveBeenCalled();
     expect(result).toMatchObject({
       ok: true,

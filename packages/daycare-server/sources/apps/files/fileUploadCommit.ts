@@ -61,21 +61,12 @@ export async function fileUploadCommit(
     wroteFile = true;
 
     const committed = await databaseTransactionRun(context.db, async (tx) => {
-      // Optimistic transaction: TOCTU between validation and commit is acceptable here.
-      const fresh = await tx.fileAsset.findFirst({
+      // Optimistic transaction: TOCTU is acceptable; updateMany prevents multi-instance double-commit.
+      const updateResult = await tx.fileAsset.updateMany({
         where: {
           id: file.id,
-          organizationId: input.organizationId
-        }
-      });
-
-      if (!fresh || fresh.status !== "PENDING") {
-        throw new ApiError(404, "NOT_FOUND", "Pending file not found");
-      }
-
-      return await tx.fileAsset.update({
-        where: {
-          id: file.id
+          organizationId: input.organizationId,
+          status: "PENDING"
         },
         data: {
           status: "COMMITTED",
@@ -83,6 +74,22 @@ export async function fileUploadCommit(
           expiresAt: null
         }
       });
+
+      if (updateResult.count === 0) {
+        throw new ApiError(404, "NOT_FOUND", "Pending file not found");
+      }
+
+      const fresh = await tx.fileAsset.findUnique({
+        where: {
+          id: file.id
+        }
+      });
+
+      if (!fresh) {
+        throw new ApiError(404, "NOT_FOUND", "Committed file not found");
+      }
+
+      return fresh;
     });
 
     await context.updates.publishToUsers([input.userId], "file.committed", {

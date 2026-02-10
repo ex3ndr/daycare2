@@ -1,79 +1,392 @@
-# Diker
+# Daycare Backend Specification (v1)
 
-AI-focused messenger. Slack-like architecture with first-class AI agent participation.
+AI-first messenger, Slack-like architecture with first-class AI agent participation.
 
-## Architecture
+## 1. Goal
+
+Minimal backend for an AI-first messenger:
+- channels and direct chats;
+- text messages with attachments, reactions, and mentions;
+- threads within channels and direct chats;
+- simple and predictable protocol;
+- priority on reliable update delivery and easy client synchronization.
+
+## 2. Architecture
 
 Monorepo with two packages:
 
 - **daycare-server** — API server. TypeScript, ESM, Fastify.
 - **daycare-web** — SPA client. TypeScript, Vite, React.
 
-Communication between client and server uses WebSocket for real-time messaging and REST for CRUD operations.
+Server owns all state; client is a thin UI that subscribes to events.
 
-## Modules
+## 3. Tech Stack
 
-### Auth
+- Node.js 22+
+- Fastify
+- Zod (validation of all API input/output schemas)
+- Prisma ORM v7
+- Redis (latest)
+- Docker Compose for local and production environments
 
-Session-based authentication. Users authenticate with email + password. Server issues a session token returned as an opaque bearer token. Sessions are stored server-side with expiration. No OAuth, no JWT — simple session table.
+Additionally for Prisma:
+- primary DB: PostgreSQL (recommended for production);
+- Prisma Migrate for migrations.
 
-### Users
+## 4. Docker Compose Setup
 
-Every participant in the system is a **User**. Two kinds:
+Services in `docker-compose.yml`:
+- `api` (Fastify backend)
+- `db` (PostgreSQL)
+- `redis` (latest)
+- `s3` (S3-compatible storage, e.g. MinIO)
 
-- **human** — a real person with credentials.
-- **ai** — an AI agent. Created programmatically. Cannot log in through the auth flow. Operates via internal server APIs.
+Optional for dev:
+- `mailhog`/`smtp` for testing email OTP.
 
-User record: `id`, `kind` (human | ai), `name`, `avatarUrl`, `createdAt`. AI users have an additional `model` field (e.g. `claude-sonnet-4-5-20250929`).
+## 5. Constraints and Assumptions
 
-Presence is not tracked in v1.
+- Each organization has a limited number of users (target: < 5000).
+- This allows a simplified realtime model:
+  - socket updates can be broadcast to all users in the organization;
+  - additional routing/filtering is allowed but not required.
+- Push notifications are not implemented in v1.
+- Typing events are implemented via simple socket notifications (no persistence).
+- Calls and voice messages are not implemented.
 
-### Channels
+## 6. Server Project Structure
 
-A channel is a conversation space. Flat list, no threading in v1.
+Three main folders inside `sources/`:
 
-Channel record: `id`, `name`, `createdAt`. Every channel has a membership list. Users must be members to read or write.
+```
+sources/
+├── apps/       # applications — individual messenger features
+├── modules/    # reusable modules (not domain-specific)
+└── utils/      # utilities
+```
 
-Operations: create channel, rename, list channels, join, leave, list members.
+### 6.1 apps/
 
-### Messages
+Each folder in `apps/` is a separate feature/application:
 
-A message belongs to a channel and is authored by a user (human or ai).
+- **`api/`** — HTTP API. Contains: Fastify server initialization, subfolders with all route definitions.
+- **`users/`** — user management: profile creation, name/avatar changes, permissions, etc.
 
-Message record: `id`, `channelId`, `userId`, `text`, `createdAt`. Plain text only in v1 — no attachments, no markdown rendering, no reactions.
+### 6.2 modules/
 
-New messages are broadcast to all channel members via WebSocket. REST endpoint for history (paginated, cursor-based, newest-first).
+Modules are isolated integrations, algorithms, or approaches that are **not** domain-specific. They are reused by applications in `apps/`. Examples:
 
-### AI
+- Message delivery (event-bus, simple wrapper).
+- Database (connection, helpers).
+- Email sending (Resend integration).
+- Redis (connection, pub/sub).
+- S3 (file upload/download).
 
-AI users participate in channels like regular users. When a human sends a message that mentions an AI user (`@agent-name`), the server invokes the AI agent. The agent receives the recent channel history as context and responds with a message posted under its own user identity.
+### 6.3 utils/
 
-AI dispatch is synchronous in v1 — the server calls the inference provider, waits for the response, and posts it. No streaming to clients yet.
+Pure utility functions with no side-effects.
 
-## Data Storage
+## 7. Server Bootstrap
 
-SQLite via `better-sqlite3`. Single file database. Migrations managed with a simple sequential numbering scheme (`001_init.sql`, `002_add_channels.sql`, ...). No ORM — raw SQL queries with typed helper functions.
+A single async `main` function that sequentially executes:
+1. Connect to DB (Prisma).
+2. Connect to Redis.
+3. Connect to S3.
+4. Initialize modules.
+5. Start API server (Fastify).
 
-## API Design
+Reuse existing code from other projects as much as possible — don't reinvent what's already well-solved.
 
-REST endpoints follow the pattern: `POST /api/channels`, `GET /api/channels/:id/messages`.
+## 8. Specific Technical Decisions
 
-WebSocket connection established after auth. Server pushes events:
+- **Email OTP**: sent via **Resend**.
+- **Tokens**: use **privacy-kit** (`createPersistentTokenGenerator` / `createPersistentTokenVerifier`) for token generation and verification. Import as a library — no custom JWT infrastructure.
+- **All IDs**: **CUID2**, especially public ones and in the database.
 
-- `message.created` — new message in a channel the user is a member of.
-- `channel.created` — a new channel was created.
-- `member.joined` / `member.left` — membership changes.
+## 9. Multi-Organization
 
-Client sends commands over WebSocket:
+- A single user can belong to multiple organizations.
+- `User` entity has a profile that is always filled (no separate `Account`/`Profile` split).
+- User is linked to email (for authentication) and scoped to an organization with its own name, avatar, etc.
+- After authentication, the user selects an organization; if no user exists in it — creates one.
+- In the app, a user works with **one** organization at a time (keep it simple).
+- By default, any user can join any organization. No complex admin controls for now.
 
-- `message.send` — post a message to a channel.
+## 10. Chat Model
 
-## Project Conventions
+Core entities:
+- `Organization`
+- `User` (scoped to an organization, profile always filled)
+- `Channel` (public/private)
+- `DirectChat` (direct message)
+- `Message`
+- `Thread` (message replies within a channel or direct chat)
+
+Chat behavior closely follows Slack:
+- channels;
+- direct chats;
+- threads (replies nested under a parent message).
+
+### 10.1 Users
+
+Two kinds of participants:
+- **human** — real person, authenticates via email OTP.
+- **ai** — AI agent, created as a system prompt and a profile. Does not actively connect or react in v1 — just a definition that the server can invoke in the future.
+
+Required profile fields: `firstName`, `username`.
+Optional: `lastName`, bio, timezone, avatar, etc.
+AI users have an additional `systemPrompt` field.
+
+### 10.2 AI Agents
+
+AI agents are defined as system prompts and profiles. They exist as `User` records with `kind: "ai"` and a `systemPrompt` field describing their behavior.
+
+In v1, agents do not connect to the server or actively react to events. They are passive definitions. In the future, agents will connect via WebSocket and react to mentions and messages in real time.
+
+### 10.3 Typing Events
+
+Typing indicators are delivered as simple socket notifications:
+- Client sends a `typing` event to the server with `chatId`.
+- Server broadcasts `user.typing` to all members of the chat via the socket.
+- No persistence — typing events are ephemeral and not stored.
+- Client-side timeout: show "typing" for **5 seconds** after the last event.
+
+## 11. Authentication
+
+- Email OTP only (one-time password via email, sent through Resend).
+- No other sign-in methods in v1.
+- After OTP verification, a token is issued using **privacy-kit** (`createPersistentTokenGenerator`).
+- Token is passed as Bearer in the `Authorization` header.
+
+## 12. Reliable Update Delivery
+
+All user-facing state changes must be delivered reliably through the persisted update stream (see section 18). This includes:
+- Profile changes (name, avatar, any other fields).
+- Channel membership changes.
+- Message events (created, edited, deleted).
+- Online status changes.
+
+Updates are persisted on the backend and delivered via `diff` + `stream`. The client can always catch up after a disconnect.
+
+## 13. Online Status
+
+Online statuses follow a Telegram-like approach:
+- Online statuses are tracked in **Redis**.
+- Server delivers status changes as persisted updates to all organization members.
+- Clients ping the server every **15 seconds**.
+- Timeout (transition to offline): **30 seconds** without a ping.
+- `User` object includes a `status` field: `online`, `offline`, or `lastSeenAt` (unix ms).
+- Status changes are delivered as `user.status` updates through the update stream.
+
+## 14. Channels
+
+- Users can **join** and **leave** channels.
+- Channel search is available to all organization members.
+- Operations: create, rename, list channels, join, leave, list members.
+
+## 15. Messages
+
+Basic operations:
+- Send a message.
+- Retrieve messages (paginated, cursor-based).
+- Edit a message.
+- Delete a message.
+
+Message retrieval supports **bidirectional pagination**:
+- **Newest-first**: load from the end (default for opening a chat).
+- **Before a message**: load older messages from a given `messageId`.
+- **After a message**: load newer messages from a given `messageId`.
+- **Around a message**: load messages centered on a given `messageId` (for jumping to a specific message, e.g. from search or a link).
+
+New messages are broadcast to all channel members via the update stream.
+
+### 15.1 Threads
+
+- Any message can be a thread root.
+- Replies reference a `threadId` (the root message ID).
+- Thread replies are fetched via the same messages endpoint with a `threadId` filter.
+- Thread reply count and latest reply timestamp are denormalized on the root message.
+- New thread replies generate an update for thread subscribers.
+
+### 15.2 Attachments
+
+- Maximum **10 attachments** per message.
+- Attachment types (extensible):
+  - Images (image).
+  - Documents (document).
+  - Audio (audio).
+- The attachment type system must be **extensible** — easy to add new types in the future.
+
+### 15.3 Reactions
+
+- Format: Slack-style shortcodes — `:emoji_name:` (e.g. `:thumbsup:`, `:fire:`).
+- Designed for future custom organization emoji support.
+
+### 15.4 Mentions
+
+- **Mention parsing is done exclusively on the server**, not the client.
+- Client sends raw text.
+- Server parses the text and extracts all user mentions.
+
+### 15.5 Text Format
+
+- Client sends text in **Slack-flavored markdown** format.
+- Complex markdown is not needed for now.
+
+## 16. Unread Messages
+
+- Separate unread counters are not stored or incremented per message.
+- The count is always computed on load:
+  - from the total number of messages after the user's read position.
+- For each user in each chat, a read state is stored as `lastReadAtMs` — the server-assigned timestamp (unix ms) of the last read message.
+- Time is assumed to be monotonic; backend assigns server timestamps in unix ms.
+
+## 17. Chat Notification Settings
+
+Each user in each chat has notification settings (client-side behavior):
+- all messages
+- mentions only
+- mute for:
+  - 1 hour
+  - 1 day
+  - 1 week
+  - 8 days
+  - forever
+
+Push notifications are not implemented on the backend.
+
+## 18. Update Delivery Protocol (Telegram-like)
+
+Two mechanisms:
+1. `diff` — catch-up synchronization from a given offset.
+2. `stream` — live update stream after synchronization.
+
+Key principles:
+- Each user has their own `offset`.
+- All updates are persisted on the backend, not in an ephemeral queue.
+- No more than 5000 latest updates are stored per user.
+- Each update has a sequential `seqno` (per user). Sequential numbering allows the client to detect holes that would require a `diff` to fill.
+
+### 18.1 diff
+
+- On connect/reconnect, the client calls `diff` with its last `offset`.
+- Backend returns:
+  - list of updates with `seqno > offset`;
+  - current `headOffset`.
+- If `offset` is too old (beyond the 5000-update retention limit), backend returns a `resetRequired` flag, and the client performs a full re-sync via REST endpoints.
+
+### 18.2 stream
+
+- On connect, the stream returns the current `offset` so the client knows its starting point.
+- After `diff`, the client opens a `stream` and receives new updates in real time.
+- The stream contains only events with a sequence number.
+- On disconnect, the client does `diff` again and then reopens the `stream`.
+
+## 19. Files and Images
+
+Files are stored in S3-compatible storage.
+- For each file/image:
+  - a content hash (e.g. SHA-256) is stored and returned in the API;
+  - a reference list tracks where the file is used.
+- On message deletion:
+  - file references from that message are removed;
+  - if no references remain, the file is deleted (or queued for GC).
+
+### 19.1 Deferred Upload Binding
+
+- On upload, the file is initially considered temporary (`pending`).
+- 24 hours are given to attach the file to a message.
+- If unused within 24 hours, the file is deleted by a cleanup process.
+- File commit is **not a separate API call** — it happens implicitly when a message is sent (with attachments) or when an avatar is uploaded.
+
+### 19.2 Avatars
+
+- User avatars also have a hash returned in the API.
+- The hash can be computed by the client or backend.
+- Backend automatically generates required sizes (resize) for the client.
+
+## 20. API Style
+
+- Maximally simple REST-style.
+- GET/POST only.
+- Unified JSON response format.
+- All schemas validated through Zod.
+
+Recommended base endpoint groups:
+- `POST /auth/email/request-otp`
+- `POST /auth/email/verify-otp`
+- `GET /me`
+- `GET /chats`
+- `GET /chats/:chatId/messages` — supports `before`, `after`, `around` params for bidirectional pagination
+- `POST /messages/send` — also commits any attached pending files
+- `POST /updates/diff`
+- `GET /updates/stream` (long-lived stream/WS endpoint)
+- `POST /files/upload-init`
+- `POST /users/avatar` — uploads and commits avatar in one call
+
+## 21. Redis Role
+
+Redis is used as an auxiliary realtime/cache layer:
+- storing ephemeral connection/presence data;
+- online statuses (ping/timeout);
+- pub/sub acceleration for live update delivery between backend instances;
+- temporary keys for rate limits and OTP throttling;
+- typing event relay (ephemeral, no persistence).
+
+The primary DB (via Prisma) remains the source of truth for chat state and updates.
+
+## 22. What Not to Overcomplicate in v1
+
+- No complex queues or brokers for updates.
+- No separate materialization of unread counters.
+- No calls/voice/push.
+- No active AI agent connections (agents are passive definitions).
+- Keep the protocol predictable: `diff` + `stream`.
+- Keep multi-org simple: one user — one active organization.
+- No complex admin controls for organizations.
+
+## 23. Project Conventions
 
 All conventions from `CLAUDE.md` apply. Key points:
 
 - One public function per file, prefix naming (`channelCreate`, `messageSend`).
-- Sources in `packages/daycare-server/sources/`.
+- Server sources in `packages/daycare-server/sources/`.
 - Tests in `*.spec.ts` next to the file under test.
 - Central types via `@/types`.
 - Angular-style commits.
+
+## 24. References
+
+Existing projects and resources to reference during development:
+
+- **~/Developer/daycare** — Reference for project structure, utilities, inference code, and coding principles. Key patterns:
+  - `sources/util/` — reusable utilities (async locks, sync primitives, time helpers, debounce, shutdown hooks)
+  - `sources/engine/` — domain-organized code with prefix naming (`agentNormalize.ts`, `permissionApply.ts`)
+  - One public function per file, `domainVerb.ts` naming convention
+  - Facade pattern for collection management (plural-named classes: `Agents`, `Modules`)
+  - Plugin architecture for contained features
+  - `CLAUDE.md` / `AGENTS.md` for conventions
+
+- **~/Developer/happy** — Reference for monorepo structure, client code, and Electron/Tauri app patterns. Key patterns:
+  - `packages/happy-server/` — Fastify 5 + Prisma + Zod + Redis server (closest to our server architecture)
+  - `packages/happy-app/` — React Native + Expo client with real-time sync engine
+  - `packages/happy-cli/` — CLI wrapper with daemon mode, socket.io, end-to-end encryption
+  - `sources/modules/` for reusable non-domain logic, `sources/apps/` for feature-specific code
+  - `inTx` for database transactions, `afterTx` for post-commit event emission
+  - `InvalidateSync` / `AsyncLock` for async coordination
+  - Idempotent API design
+
+- **~/Developer/privacy-kit** — Import as a library (`privacy-kit`) for token management and cryptographic primitives. Exports:
+  - `createPersistentTokenGenerator` / `createPersistentTokenVerifier` — for auth tokens (replaces JWT)
+  - `createEphemeralTokenGenerator` / `createEphemeralTokenVerifier` — for short-lived tokens (OTP)
+  - `encodeBase64` / `decodeBase64` — always use these instead of `Buffer`
+  - `randomBytes`, `crypto` — safe crypto primitives
+  - `ExpirableMap`, `monotonicNow` — utility collections and time
+
+- **Telegram API Schema** (https://core.telegram.org/schema) — Reference for API design patterns:
+  - Update delivery: sequential `pts`/`seq` numbering for gap detection
+  - Message pagination: offset-based with message ID anchors
+  - Read state: `read_inbox_max_id` / `read_outbox_max_id` per dialog
+  - Typing indicators: `sendMessageTypingAction` broadcast per chat
+  - User profiles: `first_name` + optional `last_name`, `username`, `status`
+  - Threads: `reply_to` header with `top_msg_id` for thread grouping

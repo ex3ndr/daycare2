@@ -1,13 +1,13 @@
-import { createId } from "@paralleldrive/cuid2";
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { channelCreate } from "@/apps/channels/channelCreate.js";
+import { channelJoin } from "@/apps/channels/channelJoin.js";
+import { channelLeave } from "@/apps/channels/channelLeave.js";
+import { channelUpdate } from "@/apps/channels/channelUpdate.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
-import { ApiError } from "@/apps/api/lib/apiError.js";
 import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
 import { chatMembershipEnsure } from "@/apps/api/lib/chatMembershipEnsure.js";
-import { chatRecipientIdsResolve } from "@/apps/api/lib/chatRecipientIdsResolve.js";
-import { organizationRecipientIdsResolve } from "@/apps/api/lib/organizationRecipientIdsResolve.js";
 import { idempotencyGuard } from "@/apps/api/lib/idempotencyGuard.js";
 
 const channelCreateSchema = z.object({
@@ -68,30 +68,12 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
     const body = channelCreateSchema.parse(request.body);
 
     return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
-      const chat = await context.db.chat.create({
-        data: {
-          id: createId(),
-          organizationId: auth.user.organizationId,
-          createdByUserId: auth.user.id,
-          kind: "CHANNEL",
-          name: body.name,
-          topic: body.topic,
-          visibility: body.visibility === "public" ? "PUBLIC" : "PRIVATE",
-          members: {
-            create: {
-              id: createId(),
-              userId: auth.user.id,
-              role: "OWNER",
-              notificationLevel: "ALL"
-            }
-          }
-        }
-      });
-
-      const recipients = await organizationRecipientIdsResolve(context, chat.organizationId);
-      await context.updates.publishToUsers(recipients, "channel.created", {
-        orgId: chat.organizationId,
-        channelId: chat.id
+      const chat = await channelCreate(context, {
+        organizationId: auth.user.organizationId,
+        userId: auth.user.id,
+        name: body.name,
+        topic: body.topic,
+        visibility: body.visibility
       });
 
       return apiResponseOk({
@@ -115,35 +97,12 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
 
     return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
       await chatMembershipEnsure(context, params.channelId, auth.user.id);
-      const channelInOrg = await context.db.chat.findFirst({
-        where: {
-          id: params.channelId,
-          organizationId: params.orgid,
-          kind: "CHANNEL"
-        },
-        select: {
-          id: true
-        }
-      });
 
-      if (!channelInOrg) {
-        throw new ApiError(404, "NOT_FOUND", "Channel not found");
-      }
-
-      const channel = await context.db.chat.update({
-        where: {
-          id: channelInOrg.id
-        },
-        data: {
-          name: body.name,
-          topic: body.topic
-        }
-      });
-
-      const recipients = await chatRecipientIdsResolve(context, channel.id);
-      await context.updates.publishToUsers(recipients, "channel.updated", {
-        orgId: channel.organizationId,
-        channelId: channel.id
+      const channel = await channelUpdate(context, {
+        organizationId: params.orgid,
+        channelId: params.channelId,
+        name: body.name,
+        topic: body.topic
       });
 
       return apiResponseOk({
@@ -165,70 +124,8 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
     const auth = await authContextResolve(request, context, params.orgid);
 
     return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
-      const channel = await context.db.chat.findFirst({
-        where: {
-          id: params.channelId,
-          organizationId: params.orgid,
-          kind: "CHANNEL"
-        }
-      });
-
-      if (!channel) {
-        throw new ApiError(404, "NOT_FOUND", "Channel not found");
-      }
-
-      if (channel.visibility === "PRIVATE") {
-        throw new ApiError(403, "FORBIDDEN", "Private channels require an invitation");
-      }
-
-      const activeMembership = await context.db.chatMember.findFirst({
-        where: {
-          chatId: params.channelId,
-          userId: auth.user.id,
-          leftAt: null
-        }
-      });
-
-      let membership;
-      if (activeMembership) {
-        membership = activeMembership;
-      } else {
-        const historicalMembership = await context.db.chatMember.findFirst({
-          where: {
-            chatId: params.channelId,
-            userId: auth.user.id
-          },
-          orderBy: {
-            joinedAt: "desc"
-          }
-        });
-
-        if (historicalMembership) {
-          membership = await context.db.chatMember.update({
-            where: {
-              id: historicalMembership.id
-            },
-            data: {
-              leftAt: null,
-              joinedAt: new Date()
-            }
-          });
-        } else {
-          membership = await context.db.chatMember.create({
-            data: {
-              id: createId(),
-              chatId: params.channelId,
-              userId: auth.user.id,
-              role: "MEMBER",
-              notificationLevel: "ALL"
-            }
-          });
-        }
-      }
-
-      const recipients = await chatRecipientIdsResolve(context, params.channelId);
-      await context.updates.publishToUsers(recipients, "channel.member.joined", {
-        orgId: channel.organizationId,
+      const { membership } = await channelJoin(context, {
+        organizationId: params.orgid,
         channelId: params.channelId,
         userId: auth.user.id
       });
@@ -251,30 +148,8 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
     const auth = await authContextResolve(request, context, params.orgid);
 
     return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
-      const existing = await context.db.chatMember.findFirst({
-        where: {
-          chatId: params.channelId,
-          userId: auth.user.id,
-          leftAt: null
-        }
-      });
-
-      if (!existing) {
-        throw new ApiError(404, "NOT_FOUND", "Membership not found");
-      }
-
-      const membership = await context.db.chatMember.update({
-        where: {
-          id: existing.id
-        },
-        data: {
-          leftAt: new Date()
-        }
-      });
-
-      const recipients = await chatRecipientIdsResolve(context, params.channelId);
-      await context.updates.publishToUsers(recipients, "channel.member.left", {
-        orgId: auth.user.organizationId,
+      const membership = await channelLeave(context, {
+        organizationId: auth.user.organizationId,
         channelId: params.channelId,
         userId: auth.user.id
       });

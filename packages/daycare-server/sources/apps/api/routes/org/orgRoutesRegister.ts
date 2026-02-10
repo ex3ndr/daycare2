@@ -1,13 +1,13 @@
-import { createId } from "@paralleldrive/cuid2";
 import type { FastifyInstance } from "fastify";
-import { Prisma, type Organization } from "@prisma/client";
 import { z } from "zod";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { organizationCreate } from "@/apps/organizations/organizationCreate.js";
+import { organizationJoin } from "@/apps/organizations/organizationJoin.js";
+import { userProfileUpdate } from "@/apps/users/userProfileUpdate.js";
 import { accountSessionResolve } from "@/apps/api/lib/accountSessionResolve.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { ApiError } from "@/apps/api/lib/apiError.js";
 import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
-import { organizationRecipientIdsResolve } from "@/apps/api/lib/organizationRecipientIdsResolve.js";
 import { idempotencyGuard } from "@/apps/api/lib/idempotencyGuard.js";
 
 const organizationCreateSchema = z.object({
@@ -65,37 +65,12 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
     const body = organizationCreateSchema.parse(request.body);
 
     return await idempotencyGuard(request, context, { type: "account", id: account.accountId }, async () => {
-      let org: Organization;
-      try {
-        org = await context.db.organization.create({
-          data: {
-            id: createId(),
-            slug: body.slug,
-            name: body.name,
-            users: {
-              create: {
-                id: createId(),
-                accountId: account.accountId,
-                kind: "HUMAN",
-                firstName: body.firstName,
-                username: body.username
-              }
-            }
-          }
-        });
-      } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2002"
-        ) {
-          throw new ApiError(409, "CONFLICT", "Organization slug is already taken");
-        }
-        throw error;
-      }
-
-      const recipients = await organizationRecipientIdsResolve(context, org.id);
-      await context.updates.publishToUsers(recipients, "organization.created", {
-        orgId: org.id
+      const org = await organizationCreate(context, {
+        accountId: account.accountId,
+        slug: body.slug,
+        name: body.name,
+        firstName: body.firstName,
+        username: body.username
       });
 
       return apiResponseOk({
@@ -120,61 +95,11 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
       if (!context.allowOpenOrgJoin) {
         throw new ApiError(403, "FORBIDDEN", "Open organization join is disabled");
       }
-
-      const organization = await context.db.organization.findUnique({
-        where: {
-          id: params.orgid
-        }
-      });
-
-      if (!organization) {
-        throw new ApiError(404, "NOT_FOUND", "Organization not found");
-      }
-
-      let user = await context.db.user.findFirst({
-        where: {
-          accountId: account.accountId,
-          organizationId: organization.id
-        }
-      });
-
-      if (!user) {
-        try {
-          user = await context.db.user.create({
-            data: {
-              id: createId(),
-              organizationId: organization.id,
-              accountId: account.accountId,
-              kind: "HUMAN",
-              firstName: body.firstName,
-              username: body.username
-            }
-          });
-        } catch (error) {
-          if (
-            error instanceof Prisma.PrismaClientKnownRequestError &&
-            error.code === "P2002"
-          ) {
-            user = await context.db.user.findFirst({
-              where: {
-                accountId: account.accountId,
-                organizationId: organization.id
-              }
-            });
-          } else {
-            throw error;
-          }
-        }
-      }
-
-      if (!user) {
-        throw new ApiError(500, "INTERNAL_ERROR", "Failed to join organization");
-      }
-
-      const recipients = await organizationRecipientIdsResolve(context, organization.id);
-      await context.updates.publishToUsers(recipients, "organization.member.joined", {
-        orgId: organization.id,
-        userId: user.id
+      const { organization, user } = await organizationJoin(context, {
+        accountId: account.accountId,
+        organizationId: params.orgid,
+        firstName: body.firstName,
+        username: body.username
       });
 
       return apiResponseOk({
@@ -274,24 +199,14 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
     const body = profilePatchSchema.parse(request.body);
 
     return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
-      const updated = await context.db.user.update({
-        where: {
-          id: auth.user.id
-        },
-        data: {
-          firstName: body.firstName,
-          lastName: body.lastName,
-          username: body.username,
-          bio: body.bio,
-          timezone: body.timezone,
-          avatarUrl: body.avatarUrl
-        }
-      });
-
-      const recipients = await organizationRecipientIdsResolve(context, updated.organizationId);
-      await context.updates.publishToUsers(recipients, "user.updated", {
-        orgId: updated.organizationId,
-        userId: updated.id
+      const updated = await userProfileUpdate(context, {
+        userId: auth.user.id,
+        firstName: body.firstName,
+        lastName: body.lastName,
+        username: body.username,
+        bio: body.bio,
+        timezone: body.timezone,
+        avatarUrl: body.avatarUrl
       });
 
       return apiResponseOk({

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { channelReadSet } from "@/apps/channels/channelReadSet.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
 import { chatMembershipEnsure } from "@/apps/api/lib/chatMembershipEnsure.js";
@@ -13,13 +14,9 @@ export async function readRoutesRegister(app: FastifyInstance, context: ApiConte
     const membership = await chatMembershipEnsure(context, params.channelId, auth.user.id);
     const readAt = new Date();
 
-    await context.db.chatMember.update({
-      where: {
-        id: membership.id
-      },
-      data: {
-        lastReadAt: readAt
-      }
+    await channelReadSet(context, {
+      membershipId: membership.id,
+      readAt
     });
 
     return apiResponseOk({

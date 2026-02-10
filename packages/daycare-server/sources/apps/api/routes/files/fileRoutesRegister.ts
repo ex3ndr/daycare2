@@ -1,11 +1,8 @@
-import { createId } from "@paralleldrive/cuid2";
 import type { FastifyInstance } from "fastify";
-import { mkdir, writeFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
-import path from "node:path";
 import { z } from "zod";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
-import { ApiError } from "@/apps/api/lib/apiError.js";
+import { fileUploadCommit } from "@/apps/files/fileUploadCommit.js";
+import { fileUploadInit } from "@/apps/files/fileUploadInit.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
 import { idempotencyGuard } from "@/apps/api/lib/idempotencyGuard.js";
@@ -18,23 +15,10 @@ const uploadInitBodySchema = z.object({
   contentHash: z.string().trim().min(8).max(256)
 });
 
-const PENDING_FILE_TTL_MS = 24 * 60 * 60 * 1000;
 const MAX_BASE64_PAYLOAD_CHARS = 35_000_000;
 const uploadBodySchema = z.object({
   payloadBase64: z.string().min(1).max(MAX_BASE64_PAYLOAD_CHARS)
 });
-
-function fileNameSanitize(fileName: string): string {
-  const baseName = path.basename(fileName).trim();
-  const normalized = baseName.replace(/[\\/]/g, "_").replace(/\.\./g, "_");
-  const safeName = normalized.length > 0 ? normalized : "file";
-
-  if (safeName.includes("..")) {
-    throw new ApiError(400, "VALIDATION_ERROR", "Filename contains invalid path traversal segments");
-  }
-
-  return safeName;
-}
 
 export async function fileRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
   app.post("/api/org/:orgid/files/upload-init", async (request) => {
@@ -43,27 +27,13 @@ export async function fileRoutesRegister(app: FastifyInstance, context: ApiConte
     const auth = await authContextResolve(request, context, params.orgid);
 
     return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
-      const fileId = createId();
-      const safeFileName = fileNameSanitize(body.filename);
-      const storageKey = `${params.orgid}/${auth.user.id}/${fileId}/${safeFileName}`;
-
-      const file = await context.db.fileAsset.create({
-        data: {
-          id: fileId,
-          organizationId: params.orgid,
-          createdByUserId: auth.user.id,
-          storageKey,
-          contentHash: body.contentHash.toLowerCase(),
-          mimeType: body.mimeType,
-          sizeBytes: body.sizeBytes,
-          status: "PENDING",
-          expiresAt: new Date(Date.now() + PENDING_FILE_TTL_MS)
-        }
-      });
-
-      await context.updates.publishToUsers([auth.user.id], "file.pending", {
-        orgId: params.orgid,
-        fileId: file.id
+      const file = await fileUploadInit(context, {
+        organizationId: params.orgid,
+        userId: auth.user.id,
+        filename: body.filename,
+        mimeType: body.mimeType,
+        sizeBytes: body.sizeBytes,
+        contentHash: body.contentHash
       });
 
       return apiResponseOk({
@@ -92,59 +62,11 @@ export async function fileRoutesRegister(app: FastifyInstance, context: ApiConte
     const auth = await authContextResolve(request, context, params.orgid);
 
     return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
-      const file = await context.db.fileAsset.findFirst({
-        where: {
-          id: params.fileId,
-          organizationId: params.orgid
-        }
-      });
-
-      if (!file || file.status !== "PENDING") {
-        throw new ApiError(404, "NOT_FOUND", "Pending file not found");
-      }
-
-      if (file.createdByUserId !== auth.user.id) {
-        throw new ApiError(403, "FORBIDDEN", "You can upload only files initialized by your account");
-      }
-
-      const encodedLengthLimit = Math.ceil(file.sizeBytes * 1.5) + 16;
-      if (body.payloadBase64.length > encodedLengthLimit) {
-        throw new ApiError(400, "VALIDATION_ERROR", "Uploaded payload is larger than initialized size");
-      }
-
-      const payload = Buffer.from(body.payloadBase64, "base64");
-      if (payload.length !== file.sizeBytes) {
-        throw new ApiError(400, "VALIDATION_ERROR", "Uploaded payload size does not match initialized size");
-      }
-
-      const uploadsRoot = path.resolve(process.cwd(), ".daycare", "uploads");
-      const uploadPath = path.resolve(uploadsRoot, file.storageKey);
-      if (!uploadPath.startsWith(uploadsRoot + path.sep)) {
-        throw new ApiError(400, "VALIDATION_ERROR", "Resolved upload path escapes uploads root");
-      }
-
-      const contentHash = createHash("sha256").update(payload).digest("hex");
-      if (contentHash !== file.contentHash.toLowerCase()) {
-        throw new ApiError(400, "VALIDATION_ERROR", "Uploaded payload hash does not match initialized hash");
-      }
-
-      await mkdir(path.dirname(uploadPath), { recursive: true });
-      await writeFile(uploadPath, payload);
-
-      const committed = await context.db.fileAsset.update({
-        where: {
-          id: file.id
-        },
-        data: {
-          status: "COMMITTED",
-          committedAt: new Date(),
-          expiresAt: null
-        }
-      });
-
-      await context.updates.publishToUsers([auth.user.id], "file.committed", {
-        orgId: params.orgid,
-        fileId: file.id
+      const committed = await fileUploadCommit(context, {
+        organizationId: params.orgid,
+        userId: auth.user.id,
+        fileId: params.fileId,
+        payloadBase64: body.payloadBase64
       });
 
       return apiResponseOk({

@@ -13,13 +13,13 @@
   - [x] start Fastify API.
 
 ## Phase 2: Core Utilities (from referenced projects)
-- [ ] Add logger utility with fixed module labels (`getLogger("module.name")`).
-- [ ] Add graceful shutdown coordination utility.
-- [ ] Add async lock utility (`AsyncLock`).
-- [ ] Add sync helpers (`InvalidateSync`, `ValueSync`).
-- [ ] Add time/backoff helpers.
-- [ ] Add debounce helpers.
-- [ ] Add focused tests for utilities.
+- [x] Add logger utility with fixed module labels (`getLogger("module.name")`).
+- [x] Add graceful shutdown coordination utility.
+- [x] Add async lock utility (`AsyncLock`).
+- [x] Add sync helpers (`InvalidateSync`, `ValueSync`).
+- [x] Add time/backoff helpers.
+- [x] Add debounce helpers.
+- [x] Add focused tests for utilities.
 
 ## Phase 3: Server Core (v1)
 - [ ] Implement auth basics (email OTP flow wiring + session token model plumbing).

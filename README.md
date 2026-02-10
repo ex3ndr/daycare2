@@ -45,6 +45,10 @@ Services in `docker-compose.yml`:
 Optional for dev:
 - `mailhog`/`smtp` for testing email OTP.
 
+## 4.1 Development
+
+See `docs/development.md` for local setup, migrations, seed data, and test flows.
+
 ## 5. Constraints and Assumptions
 
 - Each organization has a limited number of users (target: < 5000).

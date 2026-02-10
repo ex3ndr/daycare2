@@ -37,4 +37,4 @@
 - [x] Add idempotency guards for write endpoints.
 - [x] Add idempotency key retention cleanup job.
 - [x] Add startup and health diagnostics.
-- [ ] Add dev seed script and developer docs.
+- [x] Add dev seed script and developer docs.

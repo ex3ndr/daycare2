@@ -14,6 +14,7 @@
     "prisma:generate": "prisma generate --schema prisma/schema.prisma",
     "migrate:dev": "dotenv -e .env.dev -- prisma migrate dev --schema prisma/schema.prisma",
     "migrate:deploy": "dotenv -e .env.dev -- prisma migrate deploy --schema prisma/schema.prisma",
+    "seed:dev": "dotenv -e .env.dev -- tsx sources/seed/seedRun.ts",
     "infra:up": "docker compose -f ../../docker-compose.yml up -d db redis s3",
     "infra:down": "docker compose -f ../../docker-compose.yml down",
     "postinstall": "yarn prisma:generate",

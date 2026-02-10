@@ -33,8 +33,18 @@
 - [x] Implement attachment lifecycle (`pending` -> `committed`, cleanup job).
 
 ## Phase 4: Hardening
-- [x] Add integration tests for key API flows.
-- [x] Add idempotency guards for write endpoints.
-- [x] Add idempotency key retention cleanup job.
-- [x] Add startup and health diagnostics.
-- [x] Add dev seed script and developer docs.
+- [ ] Add integration tests for key API flows.
+- [ ] Add idempotency guards for write endpoints.
+- [ ] Add startup and health diagnostics.
+- [ ] Add dev seed script and developer docs.
+
+## Web UI: Real Server Migration + Slack/IRC Layout
+- [x] Rebase on `main` to pick up real API server.
+- [x] Replace mock API layer with real API client + SSE parsing.
+- [x] Update sync engine to use server diff/stream envelopes.
+- [x] Rework UI flows to match server auth/org/channel/message payloads.
+- [x] Fix API request handling for empty JSON bodies (read-state/logout).
+- [x] Expand component kit in `app/compontnes` (avatar, badges, icon buttons, list rows, sections).
+- [x] Rebuild screens to IRC/Slack layout using the component kit (auth, orgs, workspace).
+- [x] Tighten update handling (read updates, thread refresh rules).
+- [x] Verify screen-to-screen flows with live server.

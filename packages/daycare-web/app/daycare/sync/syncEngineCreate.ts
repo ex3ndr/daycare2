@@ -1,12 +1,9 @@
-import type { Id, UpdatesDiffItem } from "../types";
-import type { MockServer } from "../mock/mockServerCreate";
+import type { UpdateEnvelope, UpdatesDiffResult } from "../types";
 
 type SyncEngineArgs = {
-  token: string;
-  orgId: Id;
-  server: MockServer;
-  initialOffset?: number;
-  onUpdate: (update: UpdatesDiffItem) => void;
+  updatesDiff: (offset: number) => Promise<UpdatesDiffResult>;
+  updatesStreamSubscribe: (onUpdate: (update: UpdateEnvelope) => void, onReady: () => void) => { close: () => void };
+  onUpdate: (update: UpdateEnvelope) => void;
   onOffset: (offset: number) => void;
   onResetRequired: (headOffset: number) => Promise<void> | void;
   onState?: (state: "live" | "recovering") => void;
@@ -21,12 +18,12 @@ export type SyncEngine = {
 };
 
 export function syncEngineCreate(args: SyncEngineArgs): SyncEngine {
-  let offset = args.initialOffset ?? 0;
+  let offset = 0;
   let isRunning = false;
   let recoverPromise: Promise<void> | null = null;
   let closeStream: (() => void) | null = null;
 
-  const updateApply = (update: UpdatesDiffItem): void => {
+  const updateApply = (update: UpdateEnvelope): void => {
     if (update.seqno <= offset) {
       return;
     }
@@ -42,7 +39,7 @@ export function syncEngineCreate(args: SyncEngineArgs): SyncEngine {
     recoverPromise = (async () => {
       try {
         args.onState?.("recovering");
-        const diff = await args.server.updatesDiff(args.token, args.orgId, { offset });
+        const diff = await args.updatesDiff(offset);
         if (diff.resetRequired) {
           await args.onResetRequired(diff.headOffset);
           offset = diff.headOffset;
@@ -65,7 +62,7 @@ export function syncEngineCreate(args: SyncEngineArgs): SyncEngine {
     return recoverPromise;
   };
 
-  const streamHandle = (update: UpdatesDiffItem): void => {
+  const streamHandle = (update: UpdateEnvelope): void => {
     if (!isRunning) {
       return;
     }
@@ -87,11 +84,8 @@ export function syncEngineCreate(args: SyncEngineArgs): SyncEngine {
       }
       isRunning = true;
       try {
-        const stream = await args.server.updatesStreamSubscribe(args.token, args.orgId, streamHandle);
-        closeStream = stream.close;
-        if (offset < stream.headOffset) {
-          await recover();
-        }
+        closeStream = args.updatesStreamSubscribe(streamHandle, () => undefined).close;
+        await recover();
       } catch (error) {
         args.onError?.(error);
         throw error;

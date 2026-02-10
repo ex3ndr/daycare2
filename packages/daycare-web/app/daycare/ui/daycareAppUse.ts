@@ -1,32 +1,45 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { mockServerSingletonGet } from "../mock/mockServerSingletonGet";
+import { apiClientCreate } from "../api/apiClientCreate";
 import { syncEngineCreate, type SyncEngine } from "../sync/syncEngineCreate";
 import type {
   Channel,
-  ChannelReadState,
   Id,
-  MessageView,
+  Message,
+  MessageReaction,
+  MessageAttachment,
   Organization,
-  OrganizationAvailableResponse,
-  OrganizationMembership,
-  TypingIndicator,
-  UpdatesDiffItem,
+  ReadState,
+  TypingState,
+  UpdateEnvelope,
   User
 } from "../types";
 
 type AppPhase = "auth" | "orgs" | "workspace";
+
 type SyncState = "idle" | "syncing" | "live" | "recovering";
 
-type OrganizationCard = {
-  organization: Organization;
-  membership: OrganizationMembership | null;
-  user: User | null;
+type UiReaction = {
+  shortcode: string;
+  userIds: Id[];
+  count: number;
+  updatedAt: number;
 };
 
-type PendingMessage = {
+type UiMessage = {
+  id: Id;
   channelId: Id;
-  optimisticMessageId: Id;
+  authorId: Id;
+  author: Message["sender"];
+  text: string;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt: number | null;
   threadRootMessageId: Id | null;
+  threadReplyCount: number;
+  threadLastReplyAt: number | null;
+  reactions: UiReaction[];
+  attachments: MessageAttachment[];
+  pending?: boolean;
 };
 
 type ContextState = {
@@ -42,48 +55,41 @@ type DaycareModel = {
   busy: boolean;
   error: string | null;
   email: string;
-  otp: string;
-  otpRequested: boolean;
-  sessionToken: string | null;
-  organizations: OrganizationCard[];
+  orgs: Organization[];
   activeOrganization: Organization | null;
   activeUser: User | null;
   channels: Channel[];
   selectedChannelId: Id | null;
-  rootMessages: MessageView[];
+  rootMessages: UiMessage[];
   activeThreadRootId: Id | null;
-  threadMessages: MessageView[];
-  membersById: Record<Id, MessageView["author"]>;
-  typingInSelected: TypingIndicator[];
-  readStatesByChannelId: Record<Id, ChannelReadState>;
+  threadMessages: UiMessage[];
+  membersById: Record<Id, Message["sender"]>;
+  typingInSelected: TypingState[];
+  readStatesByChannelId: Record<Id, ReadState>;
   composerText: string;
   emailSet: (email: string) => void;
-  otpSet: (otp: string) => void;
   composerTextSet: (value: string) => void;
-  requestOtp: () => Promise<void>;
-  verifyOtp: () => Promise<void>;
+  login: () => Promise<void>;
   organizationOpen: (orgId: Id) => Promise<void>;
-  organizationCreate: (name: string) => Promise<void>;
+  organizationCreate: (input: { name: string; slug: string; firstName: string; username: string }) => Promise<void>;
   channelSelect: (channelId: Id) => Promise<void>;
-  channelCreate: (name: string) => Promise<void>;
+  channelCreate: (input: { name: string; topic?: string | null }) => Promise<void>;
   messageSend: () => Promise<void>;
   threadOpen: (rootMessageId: Id) => Promise<void>;
   threadClose: () => void;
   reactionToggle: (messageId: Id, shortcode: string) => Promise<void>;
-  holeSimulate: () => Promise<void>;
   logout: () => Promise<void>;
 };
 
-const byDateAsc = (a: MessageView, b: MessageView): number => a.message.createdAt - b.message.createdAt;
+const channelSlugCreate = (name: string): string =>
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+    .slice(0, 32);
 
-const userPreview = (user: User): MessageView["author"] => ({
-  id: user.id,
-  kind: user.kind,
-  username: user.username,
-  firstName: user.firstName,
-  lastName: user.lastName,
-  avatarUrl: user.avatarUrl
-});
+const byDateAsc = (a: UiMessage, b: UiMessage): number => a.createdAt - b.createdAt;
 
 const errorToMessage = (error: unknown): string => {
   if (error instanceof Error) {
@@ -92,8 +98,41 @@ const errorToMessage = (error: unknown): string => {
   return "Unexpected error";
 };
 
-const messagesUpsert = (messages: MessageView[], incoming: MessageView): MessageView[] => {
-  const existingIndex = messages.findIndex((item) => item.message.id === incoming.message.id);
+const reactionsAggregate = (reactions: MessageReaction[]): UiReaction[] => {
+  const grouped = new Map<string, UiReaction>();
+  for (const reaction of reactions) {
+    const existing = grouped.get(reaction.shortcode) ?? {
+      shortcode: reaction.shortcode,
+      userIds: [],
+      count: 0,
+      updatedAt: 0
+    };
+    existing.userIds.push(reaction.userId);
+    existing.count = existing.userIds.length;
+    existing.updatedAt = Math.max(existing.updatedAt, reaction.createdAt);
+    grouped.set(reaction.shortcode, existing);
+  }
+  return Array.from(grouped.values());
+};
+
+const messageToUi = (message: Message): UiMessage => ({
+  id: message.id,
+  channelId: message.chatId,
+  authorId: message.senderUserId,
+  author: message.sender,
+  text: message.text,
+  createdAt: message.createdAt,
+  updatedAt: message.editedAt ?? message.createdAt,
+  deletedAt: message.deletedAt,
+  threadRootMessageId: message.threadId ?? null,
+  threadReplyCount: message.threadReplyCount,
+  threadLastReplyAt: message.threadLastReplyAt,
+  reactions: reactionsAggregate(message.reactions),
+  attachments: message.attachments
+});
+
+const messagesUpsert = (messages: UiMessage[], incoming: UiMessage): UiMessage[] => {
+  const existingIndex = messages.findIndex((item) => item.id === incoming.id);
   if (existingIndex >= 0) {
     const next = [...messages];
     next[existingIndex] = incoming;
@@ -102,18 +141,9 @@ const messagesUpsert = (messages: MessageView[], incoming: MessageView): Message
   return [...messages, incoming].sort(byDateAsc);
 };
 
-const messagePatch = (messages: MessageView[], messageId: Id, patch: (message: MessageView) => MessageView): MessageView[] => {
-  const index = messages.findIndex((item) => item.message.id === messageId);
-  if (index < 0) {
-    return messages;
-  }
-  const next = [...messages];
-  next[index] = patch(next[index] as MessageView);
-  return next;
-};
-
 export function daycareAppUse(): DaycareModel {
-  const server = useMemo(() => mockServerSingletonGet(), []);
+  const apiBase = (import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE ?? "http://localhost:3005";
+  const api = useMemo(() => apiClientCreate(apiBase), [apiBase]);
 
   const [phase, phaseSet] = useState<AppPhase>("auth");
   const [syncState, syncStateSet] = useState<SyncState>("idle");
@@ -121,40 +151,36 @@ export function daycareAppUse(): DaycareModel {
   const [busy, busySet] = useState(false);
   const [error, errorSet] = useState<string | null>(null);
 
-  const [email, emailSet] = useState("demo@daycare.dev");
-  const [otp, otpSet] = useState("111111");
-  const [otpRequested, otpRequestedSet] = useState(false);
+  const [email, emailSet] = useState("");
   const [sessionToken, sessionTokenSet] = useState<string | null>(null);
 
-  const [organizations, organizationsSet] = useState<OrganizationCard[]>([]);
+  const [orgs, orgsSet] = useState<Organization[]>([]);
   const [activeOrganization, activeOrganizationSet] = useState<Organization | null>(null);
   const [activeUser, activeUserSet] = useState<User | null>(null);
 
   const [channels, channelsSet] = useState<Channel[]>([]);
   const [selectedChannelId, selectedChannelIdSet] = useState<Id | null>(null);
 
-  const [rootMessagesByChannelId, rootMessagesByChannelIdSet] = useState<Record<Id, MessageView[]>>({});
-  const [threadMessagesByRootId, threadMessagesByRootIdSet] = useState<Record<Id, MessageView[]>>({});
+  const [rootMessagesByChannelId, rootMessagesByChannelIdSet] = useState<Record<Id, UiMessage[]>>({});
+  const [threadMessagesByRootId, threadMessagesByRootIdSet] = useState<Record<Id, UiMessage[]>>({});
   const [activeThreadRootId, activeThreadRootIdSet] = useState<Id | null>(null);
 
-  const [membersById, membersByIdSet] = useState<Record<Id, MessageView["author"]>>({});
-  const [typingByChannelId, typingByChannelIdSet] = useState<Record<Id, TypingIndicator[]>>({});
-  const [readStatesByChannelId, readStatesByChannelIdSet] = useState<Record<Id, ChannelReadState>>({});
+  const [membersById, membersByIdSet] = useState<Record<Id, Message["sender"]>>({});
+  const [typingByChannelId, typingByChannelIdSet] = useState<Record<Id, TypingState[]>>({});
+  const [readStatesByChannelId, readStatesByChannelIdSet] = useState<Record<Id, ReadState>>({});
   const [composerText, composerTextSet] = useState("");
 
   const contextRef = useRef<ContextState | null>(null);
   const syncEngineRef = useRef<SyncEngine | null>(null);
-  const pendingMessagesRef = useRef<Map<string, PendingMessage>>(new Map());
-  const lastTypingSignalAtRef = useRef(0);
   const selectedChannelIdRef = useRef<Id | null>(null);
+  const lastTypingSignalAtRef = useRef(0);
 
   const stateReset = useCallback(() => {
     phaseSet("auth");
     syncStateSet("idle");
     syncOffsetSet(0);
-    otpRequestedSet(false);
     sessionTokenSet(null);
-    organizationsSet([]);
+    orgsSet([]);
     activeOrganizationSet(null);
     activeUserSet(null);
     channelsSet([]);
@@ -167,367 +193,181 @@ export function daycareAppUse(): DaycareModel {
     readStatesByChannelIdSet({});
     composerTextSet("");
     contextRef.current = null;
-    pendingMessagesRef.current.clear();
     syncEngineRef.current?.stop();
     syncEngineRef.current = null;
   }, []);
 
-  const orgCardsLoad = useCallback(
-    async (token: string): Promise<OrganizationCard[]> => {
-      const response: OrganizationAvailableResponse = await server.organizationAvailableList(token);
-      const cards = response.items.map((item) => ({
-        organization: item.organization,
-        membership: item.membership,
-        user: item.user
-      }));
-      organizationsSet(cards);
-      return cards;
-    },
-    [server]
-  );
-
-  const channelReadRefresh = useCallback(
-    async (token: string, orgId: Id, channelId: Id): Promise<void> => {
-      const read = await server.readStateGet(token, orgId, channelId);
-      readStatesByChannelIdSet((previous) => ({
-        ...previous,
-        [channelId]: read.readState
-      }));
-    },
-    [server]
-  );
-
-  const channelRootMessagesLoad = useCallback(
-    async (token: string, orgId: Id, channelId: Id): Promise<MessageView[]> => {
-      const list = await server.messageList(token, orgId, channelId, { limit: 80 });
-      rootMessagesByChannelIdSet((previous) => ({
-        ...previous,
-        [channelId]: list.items
-      }));
-      return list.items;
-    },
-    [server]
-  );
-
-  const threadMessagesLoad = useCallback(
-    async (token: string, orgId: Id, channelId: Id, rootMessageId: Id): Promise<void> => {
-      const list = await server.messageList(token, orgId, channelId, {
-        limit: 80,
-        threadRootMessageId: rootMessageId
-      });
-      threadMessagesByRootIdSet((previous) => ({
-        ...previous,
-        [rootMessageId]: list.items
-      }));
-    },
-    [server]
-  );
-
-  const channelTypingLoad = useCallback(
-    async (token: string, orgId: Id, channelId: Id): Promise<void> => {
-      const typing = await server.typingList(token, orgId, channelId);
-      typingByChannelIdSet((previous) => ({
-        ...previous,
-        [channelId]: typing.items
-      }));
-    },
-    [server]
-  );
-
-  const channelReadMark = useCallback(
-    async (token: string, orgId: Id, userId: Id, channelId: Id): Promise<void> => {
-      const source = rootMessagesByChannelId[channelId] ?? [];
-      const latest = source[source.length - 1];
-      const lastReadAtMs = latest?.message.createdAt ?? Date.now();
-      const lastReadMessageId = latest?.message.id;
-      const read = await server.readStateSet(token, orgId, channelId, {
-        lastReadAtMs,
-        lastReadMessageId
-      });
-      if (read.readState.userId === userId) {
-        readStatesByChannelIdSet((previous) => ({
-          ...previous,
-          [channelId]: read.readState
-        }));
-      }
-    },
-    [rootMessagesByChannelId, server]
-  );
-
   const membersLoad = useCallback(
     async (token: string, orgId: Id): Promise<void> => {
-      const members = await server.organizationMembers(token, orgId);
-      const byId: Record<Id, MessageView["author"]> = {};
-      for (const item of members.items) {
-        byId[item.user.id] = item.user;
+      const response = await api.organizationMembers(token, orgId);
+      const next: Record<Id, Message["sender"]> = {};
+      for (const member of response.members) {
+        next[member.id] = {
+          id: member.id,
+          kind: member.kind,
+          username: member.username,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          avatarUrl: member.avatarUrl
+        };
       }
-      membersByIdSet(byId);
+      membersByIdSet(next);
     },
-    [server]
+    [api]
   );
 
   const channelAndReadBootstrap = useCallback(
     async (token: string, orgId: Id): Promise<Channel[]> => {
-      const channelsResponse = await server.channelList(token, orgId);
-      channelsSet(channelsResponse.items);
+      const channelsResponse = await api.channelList(token, orgId);
+      channelsSet(channelsResponse.channels);
       const reads = await Promise.all(
-        channelsResponse.items.map(async (channel) => {
-          const read = await server.readStateGet(token, orgId, channel.id);
-          return [channel.id, read.readState] as const;
+        channelsResponse.channels.map(async (channel) => {
+          const read = await api.readStateGet(token, orgId, channel.id);
+          return [channel.id, read] as const;
         })
       );
-      const readMap: Record<Id, ChannelReadState> = {};
+      const readMap: Record<Id, ReadState> = {};
       for (const [channelId, read] of reads) {
         readMap[channelId] = read;
       }
       readStatesByChannelIdSet(readMap);
-      return channelsResponse.items;
+      return channelsResponse.channels;
     },
-    [server]
+    [api]
+  );
+
+  const channelRootMessagesLoad = useCallback(
+    async (token: string, orgId: Id, channelId: Id): Promise<void> => {
+      const list = await api.messageList(token, orgId, channelId, { limit: 80 });
+      rootMessagesByChannelIdSet((previous) => ({
+        ...previous,
+        [channelId]: list.messages.map(messageToUi)
+      }));
+    },
+    [api]
+  );
+
+  const threadMessagesLoad = useCallback(
+    async (token: string, orgId: Id, channelId: Id, rootMessageId: Id): Promise<void> => {
+      const list = await api.messageList(token, orgId, channelId, {
+        limit: 80,
+        threadId: rootMessageId
+      });
+      threadMessagesByRootIdSet((previous) => ({
+        ...previous,
+        [rootMessageId]: list.messages.map(messageToUi)
+      }));
+    },
+    [api]
+  );
+
+  const channelTypingLoad = useCallback(
+    async (token: string, orgId: Id, channelId: Id): Promise<void> => {
+      const typing = await api.typingList(token, orgId, channelId);
+      typingByChannelIdSet((previous) => ({
+        ...previous,
+        [channelId]: typing.typing
+      }));
+    },
+    [api]
+  );
+
+  const channelReadMark = useCallback(
+    async (token: string, orgId: Id, channelId: Id): Promise<void> => {
+      const read = await api.readStateSet(token, orgId, channelId);
+      readStatesByChannelIdSet((previous) => ({
+        ...previous,
+        [channelId]: {
+          chatId: read.chatId,
+          lastReadAt: read.lastReadAt,
+          unreadCount: 0
+        }
+      }));
+    },
+    [api]
+  );
+
+  const messageRefresh = useCallback(
+    async (token: string, orgId: Id, channelId: Id): Promise<void> => {
+      const list = await api.messageList(token, orgId, channelId, { limit: 80 });
+      rootMessagesByChannelIdSet((previous) => ({
+        ...previous,
+        [channelId]: list.messages.map(messageToUi)
+      }));
+    },
+    [api]
   );
 
   const updateApply = useCallback(
-    (update: UpdatesDiffItem): void => {
+    (update: UpdateEnvelope): void => {
       const context = contextRef.current;
       if (!context) {
         return;
       }
-      const { userId, orgId, token } = context;
-      switch (update.event) {
-        case "channel.created": {
-          const data = update.data as { channel: Channel };
-          channelsSet((previous) => {
-            if (previous.some((channel) => channel.id === data.channel.id)) {
-              return previous;
-            }
-            return [data.channel, ...previous].sort((a, b) => b.updatedAt - a.updatedAt);
-          });
-          break;
-        }
-        case "channel.updated": {
-          const data = update.data as { channel: Channel };
-          channelsSet((previous) => {
-            const index = previous.findIndex((channel) => channel.id === data.channel.id);
-            if (index < 0) {
-              return previous;
-            }
-            const next = [...previous];
-            next[index] = data.channel;
-            return next.sort((a, b) => b.updatedAt - a.updatedAt);
-          });
-          break;
-        }
-        case "message.created": {
-          const data = update.data as { message: MessageView };
-          const incoming = data.message;
-          const pendingId = incoming.message.clientMessageId;
-          if (pendingId) {
-            const pending = pendingMessagesRef.current.get(pendingId);
-            if (pending) {
-              pendingMessagesRef.current.delete(pendingId);
-              if (pending.threadRootMessageId) {
-                threadMessagesByRootIdSet((previous) => {
-                  const source = previous[pending.threadRootMessageId as Id] ?? [];
-                  const withoutOptimistic = source.filter((item) => item.message.id !== pending.optimisticMessageId);
-                  return {
-                    ...previous,
-                    [pending.threadRootMessageId as Id]: messagesUpsert(withoutOptimistic, incoming)
-                  };
-                });
-              } else {
-                rootMessagesByChannelIdSet((previous) => {
-                  const source = previous[pending.channelId] ?? [];
-                  const withoutOptimistic = source.filter((item) => item.message.id !== pending.optimisticMessageId);
-                  return {
-                    ...previous,
-                    [pending.channelId]: messagesUpsert(withoutOptimistic, incoming)
-                  };
-                });
-              }
-              break;
-            }
-          }
+      const { orgId, token } = context;
 
-          if (incoming.message.threadRootMessageId) {
-            const rootId = incoming.message.threadRootMessageId;
-            if (rootId) {
-              threadMessagesByRootIdSet((previous) => ({
-                ...previous,
-                [rootId]: messagesUpsert(previous[rootId] ?? [], incoming)
-              }));
+      switch (update.eventType) {
+        case "channel.created":
+        case "channel.updated":
+        case "channel.member.joined":
+        case "channel.member.left":
+          void channelAndReadBootstrap(token, orgId);
+          break;
+        case "organization.member.joined":
+        case "user.updated":
+          void membersLoad(token, orgId);
+          break;
+        case "message.created":
+        case "message.updated":
+        case "message.deleted":
+        case "message.reaction": {
+          const payload = update.payload as { channelId?: string };
+          if (payload.channelId) {
+            void messageRefresh(token, orgId, payload.channelId);
+            if (activeThreadRootId) {
+              void threadMessagesLoad(token, orgId, payload.channelId, activeThreadRootId);
             }
-          } else {
-            rootMessagesByChannelIdSet((previous) => ({
-              ...previous,
-              [incoming.message.channelId]: messagesUpsert(previous[incoming.message.channelId] ?? [], incoming)
-            }));
           }
-
-          if (incoming.message.authorId !== userId) {
-            if (incoming.message.channelId === selectedChannelIdRef.current) {
-              void server
-                .readStateSet(token, orgId, incoming.message.channelId, {
-                  lastReadAtMs: incoming.message.createdAt,
-                  lastReadMessageId: incoming.message.id
-                })
-                .then((read) => {
-                  readStatesByChannelIdSet((previous) => ({
-                    ...previous,
-                    [incoming.message.channelId]: read.readState
-                  }));
+          break;
+        }
+        case "user.typing": {
+          const payload = update.payload as {
+            channelId?: string;
+            userId?: string;
+            threadRootMessageId?: string | null;
+            expiresAt?: number;
+          };
+          const channelId = payload.channelId;
+          if (!channelId || payload.threadRootMessageId) {
+            return;
+          }
+          typingByChannelIdSet((previous) => {
+            const current = previous[channelId] ?? [];
+            const updated = current.filter((item) => item.userId !== payload.userId);
+            if (payload.userId && payload.expiresAt) {
+              const member = membersById[payload.userId];
+              if (member) {
+                updated.unshift({
+                  userId: payload.userId,
+                  username: member.username,
+                  firstName: member.firstName,
+                  expiresAt: payload.expiresAt
                 });
-            } else {
-              void channelReadRefresh(token, orgId, incoming.message.channelId);
-            }
-          }
-          break;
-        }
-        case "message.updated": {
-          const data = update.data as { message: MessageView };
-          const target = data.message;
-          if (target.message.threadRootMessageId) {
-            const rootId = target.message.threadRootMessageId;
-            if (rootId) {
-              threadMessagesByRootIdSet((previous) => ({
-                ...previous,
-                [rootId]: messagesUpsert(previous[rootId] ?? [], target)
-              }));
-            }
-          } else {
-            rootMessagesByChannelIdSet((previous) => ({
-              ...previous,
-              [target.message.channelId]: messagesUpsert(previous[target.message.channelId] ?? [], target)
-            }));
-          }
-          break;
-        }
-        case "message.deleted": {
-          const data = update.data as { messageId: Id; channelId: Id; deletedAt: number };
-          rootMessagesByChannelIdSet((previous) => ({
-            ...previous,
-            [data.channelId]: messagePatch(previous[data.channelId] ?? [], data.messageId, (message) => ({
-              ...message,
-              message: {
-                ...message.message,
-                text: "[deleted]",
-                deletedAt: data.deletedAt,
-                updatedAt: data.deletedAt
               }
-            }))
-          }));
-          threadMessagesByRootIdSet((previous) => {
-            const next = { ...previous };
-            for (const [rootId, items] of Object.entries(previous)) {
-              next[rootId] = messagePatch(items, data.messageId, (message) => ({
-                ...message,
-                message: {
-                  ...message.message,
-                  text: "[deleted]",
-                  deletedAt: data.deletedAt,
-                  updatedAt: data.deletedAt
-                }
-              }));
             }
-            return next;
+            return {
+              ...previous,
+              [channelId]: updated
+            };
           });
-          break;
-        }
-        case "thread.updated": {
-          const data = update.data as {
-            channelId: Id;
-            threadRootMessageId: Id;
-            threadReplyCount: number;
-            threadLastReplyAt: number | null;
-          };
-          rootMessagesByChannelIdSet((previous) => ({
-            ...previous,
-            [data.channelId]: messagePatch(previous[data.channelId] ?? [], data.threadRootMessageId, (message) => ({
-              ...message,
-              message: {
-                ...message.message,
-                threadReplyCount: data.threadReplyCount,
-                threadLastReplyAt: data.threadLastReplyAt,
-                updatedAt: Date.now()
-              }
-            }))
-          }));
-          break;
-        }
-        case "reaction.updated": {
-          const data = update.data as {
-            channelId: Id;
-            messageId: Id;
-            reactions: MessageView["message"]["reactions"];
-          };
-          rootMessagesByChannelIdSet((previous) => ({
-            ...previous,
-            [data.channelId]: messagePatch(previous[data.channelId] ?? [], data.messageId, (message) => ({
-              ...message,
-              message: {
-                ...message.message,
-                reactions: data.reactions
-              }
-            }))
-          }));
-          threadMessagesByRootIdSet((previous) => {
-            const next = { ...previous };
-            for (const [rootId, items] of Object.entries(previous)) {
-              next[rootId] = messagePatch(items, data.messageId, (message) => ({
-                ...message,
-                message: {
-                  ...message.message,
-                  reactions: data.reactions
-                }
-              }));
-            }
-            return next;
-          });
-          break;
-        }
-        case "typing.updated": {
-          const data = update.data as { channelId: Id; threadRootMessageId: Id | null; items: TypingIndicator[] };
-          if (data.threadRootMessageId === null) {
-            typingByChannelIdSet((previous) => ({
-              ...previous,
-              [data.channelId]: data.items.filter((item) => item.userId !== userId)
-            }));
-          }
-          break;
-        }
-        case "read.updated": {
-          const data = update.data as { channelId: Id; userId: Id; readState: ChannelReadState };
-          if (data.userId === userId) {
-            readStatesByChannelIdSet((previous) => ({
-              ...previous,
-              [data.channelId]: data.readState
-            }));
-          }
           break;
         }
         default:
           break;
       }
     },
-    [channelReadRefresh, server]
+    [activeThreadRootId, channelAndReadBootstrap, membersLoad, messageRefresh, threadMessagesLoad, membersById]
   );
-
-  const workspaceReload = useCallback(async (): Promise<void> => {
-    const context = contextRef.current;
-    if (!context) {
-      return;
-    }
-    const { token, orgId, userId } = context;
-    const freshChannels = await channelAndReadBootstrap(token, orgId);
-    const selected = selectedChannelId && freshChannels.some((channel) => channel.id === selectedChannelId)
-      ? selectedChannelId
-      : freshChannels[0]?.id ?? null;
-    selectedChannelIdSet(selected);
-    if (selected) {
-      await channelRootMessagesLoad(token, orgId, selected);
-      await channelTypingLoad(token, orgId, selected);
-      await channelReadMark(token, orgId, userId, selected);
-    }
-  }, [channelAndReadBootstrap, channelReadMark, channelRootMessagesLoad, channelTypingLoad, selectedChannelId]);
 
   const workspaceStart = useCallback(
     async (token: string, orgId: Id, user: User): Promise<void> => {
@@ -535,7 +375,7 @@ export function daycareAppUse(): DaycareModel {
       errorSet(null);
       syncStateSet("syncing");
       try {
-        const org = await server.organizationGet(token, orgId);
+        const org = await api.organizationGet(token, orgId);
         activeOrganizationSet(org.organization);
         activeUserSet(user);
 
@@ -554,23 +394,21 @@ export function daycareAppUse(): DaycareModel {
         activeThreadRootIdSet(null);
         typingByChannelIdSet({});
         composerTextSet("");
-        pendingMessagesRef.current.clear();
 
         if (selected) {
           await channelRootMessagesLoad(token, orgId, selected);
           await channelTypingLoad(token, orgId, selected);
-          await channelReadMark(token, orgId, user.id, selected);
+          await channelReadMark(token, orgId, selected);
         }
 
         syncEngineRef.current?.stop();
         const engine = syncEngineCreate({
-          server,
-          token,
-          orgId,
+          updatesDiff: (offset) => api.updatesDiff(token, orgId, { offset }),
+          updatesStreamSubscribe: (onUpdate, onReady) => api.updatesStreamSubscribe(token, orgId, onUpdate, onReady),
           onUpdate: updateApply,
           onOffset: syncOffsetSet,
           onResetRequired: async () => {
-            await workspaceReload();
+            await channelAndReadBootstrap(token, orgId);
           },
           onState: (state) => {
             syncStateSet(state);
@@ -589,45 +427,24 @@ export function daycareAppUse(): DaycareModel {
         busySet(false);
       }
     },
-    [
-      channelAndReadBootstrap,
-      channelReadMark,
-      channelRootMessagesLoad,
-      channelTypingLoad,
-      membersLoad,
-      server,
-      updateApply,
-      workspaceReload
-    ]
+    [api, channelAndReadBootstrap, channelReadMark, channelRootMessagesLoad, channelTypingLoad, membersLoad, updateApply]
   );
 
-  const requestOtp = useCallback(async (): Promise<void> => {
+  const login = useCallback(async (): Promise<void> => {
     busySet(true);
     errorSet(null);
     try {
-      await server.authEmailRequestOtp({ email });
-      otpRequestedSet(true);
-    } catch (requestError) {
-      errorSet(errorToMessage(requestError));
-    } finally {
-      busySet(false);
-    }
-  }, [email, server]);
-
-  const verifyOtp = useCallback(async (): Promise<void> => {
-    busySet(true);
-    errorSet(null);
-    try {
-      const result = await server.authEmailVerifyOtp({ email, otp });
-      sessionTokenSet(result.session.token);
-      await orgCardsLoad(result.session.token);
+      const auth = await api.authLogin(email.trim().toLowerCase());
+      sessionTokenSet(auth.token);
+      const me = await api.meGet(auth.token);
+      orgsSet(me.organizations);
       phaseSet("orgs");
-    } catch (verifyError) {
-      errorSet(errorToMessage(verifyError));
+    } catch (loginError) {
+      errorSet(errorToMessage(loginError));
     } finally {
       busySet(false);
     }
-  }, [email, otp, orgCardsLoad, server]);
+  }, [api, email]);
 
   const organizationOpen = useCallback(
     async (orgId: Id): Promise<void> => {
@@ -638,31 +455,19 @@ export function daycareAppUse(): DaycareModel {
       busySet(true);
       errorSet(null);
       try {
-        const card = organizations.find((item) => item.organization.id === orgId);
-        if (!card) {
-          throw new Error("Organization not found in picker");
-        }
-        let user = card.user;
-        if (!card.membership || !user) {
-          const join = await server.organizationJoin(token, orgId, {
-            firstName: email.split("@")[0] || "member",
-            username: email.split("@")[0] || "member"
-          });
-          user = join.user;
-          await orgCardsLoad(token);
-        }
-        await workspaceStart(token, orgId, user);
+        const profile = await api.profileGet(token, orgId);
+        await workspaceStart(token, orgId, profile.profile);
       } catch (openError) {
         errorSet(errorToMessage(openError));
       } finally {
         busySet(false);
       }
     },
-    [email, orgCardsLoad, organizations, server, sessionToken, workspaceStart]
+    [api, sessionToken, workspaceStart]
   );
 
   const organizationCreate = useCallback(
-    async (name: string): Promise<void> => {
+    async (input: { name: string; slug: string; firstName: string; username: string }): Promise<void> => {
       const token = sessionToken;
       if (!token) {
         return;
@@ -670,16 +475,18 @@ export function daycareAppUse(): DaycareModel {
       busySet(true);
       errorSet(null);
       try {
-        const created = await server.organizationCreate(token, { name });
-        await orgCardsLoad(token);
-        await workspaceStart(token, created.organization.id, created.user);
+        const created = await api.organizationCreate(token, input);
+        const profile = await api.profileGet(token, created.organization.id);
+        const me = await api.meGet(token);
+        orgsSet(me.organizations);
+        await workspaceStart(token, created.organization.id, profile.profile);
       } catch (createError) {
         errorSet(errorToMessage(createError));
       } finally {
         busySet(false);
       }
     },
-    [orgCardsLoad, server, sessionToken, workspaceStart]
+    [api, sessionToken, workspaceStart]
   );
 
   const channelSelect = useCallback(
@@ -688,21 +495,19 @@ export function daycareAppUse(): DaycareModel {
       if (!context) {
         return;
       }
-      const { token, orgId, userId } = context;
+      const { token, orgId } = context;
       selectedChannelIdSet(channelId);
       activeThreadRootIdSet(null);
       composerTextSet("");
-      if (!rootMessagesByChannelId[channelId]) {
-        await channelRootMessagesLoad(token, orgId, channelId);
-      }
+      await channelRootMessagesLoad(token, orgId, channelId);
       await channelTypingLoad(token, orgId, channelId);
-      await channelReadMark(token, orgId, userId, channelId);
+      await channelReadMark(token, orgId, channelId);
     },
-    [channelReadMark, channelRootMessagesLoad, channelTypingLoad, rootMessagesByChannelId]
+    [channelReadMark, channelRootMessagesLoad, channelTypingLoad]
   );
 
   const channelCreate = useCallback(
-    async (name: string): Promise<void> => {
+    async (input: { name: string; topic?: string | null }): Promise<void> => {
       const context = contextRef.current;
       if (!context) {
         return;
@@ -711,10 +516,12 @@ export function daycareAppUse(): DaycareModel {
       busySet(true);
       errorSet(null);
       try {
-        const created = await server.channelCreate(token, orgId, {
-          name
+        const created = await api.channelCreate(token, orgId, {
+          name: input.name,
+          topic: input.topic ?? null,
+          visibility: "public"
         });
-        channelsSet((previous) => [created.channel, ...previous].sort((a, b) => b.updatedAt - a.updatedAt));
+        channelsSet((previous) => [...previous, created.channel]);
         await channelSelect(created.channel.id);
       } catch (createError) {
         errorSet(errorToMessage(createError));
@@ -722,7 +529,7 @@ export function daycareAppUse(): DaycareModel {
         busySet(false);
       }
     },
-    [channelSelect, server]
+    [api, channelSelect]
   );
 
   const typingSignal = useCallback(
@@ -731,19 +538,21 @@ export function daycareAppUse(): DaycareModel {
       if (!context || !selectedChannelId) {
         return;
       }
-      const { token, orgId } = context;
+      if (!isTyping) {
+        return;
+      }
       const now = Date.now();
-      if (isTyping && now - lastTypingSignalAtRef.current < 1500) {
+      if (now - lastTypingSignalAtRef.current < 1500) {
         return;
       }
       lastTypingSignalAtRef.current = now;
       try {
-        await server.typingUpsert(token, orgId, selectedChannelId, { isTyping, ttlMs: 5000 });
+        await api.typingUpsert(context.token, context.orgId, selectedChannelId, { threadRootMessageId: null });
       } catch {
-        // Keep UI resilient if typing ping fails.
+        // Ignore typing failures.
       }
     },
-    [selectedChannelId, server]
+    [api, selectedChannelId]
   );
 
   const messageSend = useCallback(async (): Promise<void> => {
@@ -758,83 +567,85 @@ export function daycareAppUse(): DaycareModel {
       return;
     }
 
-    const clientMessageId = `client_${Math.random().toString(36).slice(2, 10)}`;
-    const optimisticMessageId = `optimistic_${clientMessageId}`;
-    const createdAt = Date.now();
-    const optimistic: MessageView = {
-      author: userPreview(user),
-      message: {
-        id: optimisticMessageId,
-        organizationId: context.orgId,
-        channelId,
-        authorId: user.id,
-        text,
-        mentionUserIds: [],
-        threadRootMessageId: activeThreadRootId,
-        threadReplyCount: 0,
-        threadLastReplyAt: null,
-        attachments: [],
-        reactions: [],
-        createdAt,
-        updatedAt: createdAt,
-        deletedAt: null,
-        clientMessageId
-      }
-    };
-
-    pendingMessagesRef.current.set(clientMessageId, {
+    const optimisticId = `optimistic_${Date.now()}`;
+    const optimisticMessage: UiMessage = {
+      id: optimisticId,
       channelId,
-      optimisticMessageId,
-      threadRootMessageId: activeThreadRootId
-    });
+      authorId: user.id,
+      author: {
+        id: user.id,
+        kind: user.kind,
+        username: user.username,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        avatarUrl: user.avatarUrl
+      },
+      text,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      deletedAt: null,
+      threadRootMessageId: activeThreadRootId,
+      threadReplyCount: 0,
+      threadLastReplyAt: null,
+      reactions: [],
+      attachments: [],
+      pending: true
+    };
 
     if (activeThreadRootId) {
       threadMessagesByRootIdSet((previous) => ({
         ...previous,
-        [activeThreadRootId]: messagesUpsert(previous[activeThreadRootId] ?? [], optimistic)
+        [activeThreadRootId]: messagesUpsert(previous[activeThreadRootId] ?? [], optimisticMessage)
       }));
     } else {
       rootMessagesByChannelIdSet((previous) => ({
         ...previous,
-        [channelId]: messagesUpsert(previous[channelId] ?? [], optimistic)
+        [channelId]: messagesUpsert(previous[channelId] ?? [], optimisticMessage)
       }));
     }
 
     composerTextSet("");
-    await typingSignal(false);
 
     try {
-      const sent = await server.messageSend(context.token, context.orgId, {
+      const sent = await api.messageSend(context.token, context.orgId, {
         channelId,
         text,
-        threadRootMessageId: activeThreadRootId ?? undefined,
-        clientMessageId
+        threadId: activeThreadRootId
       });
-      updateApply({
-        seqno: Number.MAX_SAFE_INTEGER - Math.floor(Math.random() * 1000),
-        event: "message.created",
-        data: { message: sent.message },
-        at: Date.now()
-      });
-      await channelReadMark(context.token, context.orgId, context.userId, channelId);
-    } catch (sendError) {
-      pendingMessagesRef.current.delete(clientMessageId);
+      const resolved = messageToUi(sent.message);
       if (activeThreadRootId) {
         threadMessagesByRootIdSet((previous) => ({
           ...previous,
-          [activeThreadRootId]: (previous[activeThreadRootId] ?? []).filter(
-            (message) => message.message.id !== optimisticMessageId
-          )
+          [activeThreadRootId]: (previous[activeThreadRootId] ?? [])
+            .filter((item) => item.id !== optimisticId)
+            .concat(resolved)
+            .sort(byDateAsc)
         }));
       } else {
         rootMessagesByChannelIdSet((previous) => ({
           ...previous,
-          [channelId]: (previous[channelId] ?? []).filter((message) => message.message.id !== optimisticMessageId)
+          [channelId]: (previous[channelId] ?? [])
+            .filter((item) => item.id !== optimisticId)
+            .concat(resolved)
+            .sort(byDateAsc)
         }));
       }
+      await channelReadMark(context.token, context.orgId, channelId);
+    } catch (sendError) {
       errorSet(errorToMessage(sendError));
+      if (activeThreadRootId) {
+        threadMessagesByRootIdSet((previous) => ({
+          ...previous,
+          [activeThreadRootId]: (previous[activeThreadRootId] ?? []).filter((item) => item.id !== optimisticId)
+        }));
+      } else {
+        rootMessagesByChannelIdSet((previous) => ({
+          ...previous,
+          [channelId]: (previous[channelId] ?? []).filter((item) => item.id !== optimisticId)
+        }));
+      }
     }
-  }, [activeThreadRootId, activeUser, channelReadMark, composerText, selectedChannelId, server, typingSignal, updateApply]);
+  }, [activeThreadRootId, activeUser, api, channelReadMark, composerText, selectedChannelId]);
 
   const threadOpen = useCallback(
     async (rootMessageId: Id): Promise<void> => {
@@ -843,11 +654,9 @@ export function daycareAppUse(): DaycareModel {
         return;
       }
       activeThreadRootIdSet(rootMessageId);
-      if (!threadMessagesByRootId[rootMessageId]) {
-        await threadMessagesLoad(context.token, context.orgId, selectedChannelId, rootMessageId);
-      }
+      await threadMessagesLoad(context.token, context.orgId, selectedChannelId, rootMessageId);
     },
-    [selectedChannelId, threadMessagesByRootId, threadMessagesLoad]
+    [selectedChannelId, threadMessagesLoad]
   );
 
   const threadClose = useCallback((): void => {
@@ -857,54 +666,39 @@ export function daycareAppUse(): DaycareModel {
   const reactionToggle = useCallback(
     async (messageId: Id, shortcode: string): Promise<void> => {
       const context = contextRef.current;
+      if (!context || !selectedChannelId) {
+        return;
+      }
+      const source = rootMessagesByChannelId[selectedChannelId] ?? [];
+      const message = source.find((item) => item.id === messageId);
       const userId = activeUser?.id;
-      if (!context || !selectedChannelId || !userId) {
+      if (!message || !userId) {
         return;
       }
-      const sourceRoot = rootMessagesByChannelId[selectedChannelId] ?? [];
-      const sourceThread = activeThreadRootId ? threadMessagesByRootId[activeThreadRootId] ?? [] : [];
-      const found = [...sourceRoot, ...sourceThread].find((item) => item.message.id === messageId);
-      if (!found) {
-        return;
+      const existing = message.reactions.find((reaction) => reaction.shortcode === shortcode);
+      const already = existing?.userIds.includes(userId) ?? false;
+      if (already) {
+        await api.messageReactionRemove(context.token, context.orgId, messageId, { shortcode });
+      } else {
+        await api.messageReactionAdd(context.token, context.orgId, messageId, { shortcode });
       }
-      const reaction = found.message.reactions.find((item) => item.shortcode === shortcode);
-      const alreadyReacted = reaction?.userIds.includes(userId) ?? false;
-      const response = alreadyReacted
-        ? await server.messageReactionRemove(context.token, context.orgId, messageId, { shortcode })
-        : await server.messageReactionAdd(context.token, context.orgId, messageId, { shortcode });
-
-      updateApply({
-        seqno: Number.MAX_SAFE_INTEGER - Math.floor(Math.random() * 1000),
-        event: "reaction.updated",
-        data: {
-          channelId: selectedChannelId,
-          messageId,
-          reactions: response.reactions
-        },
-        at: Date.now()
-      });
+      if (selectedChannelId) {
+        await messageRefresh(context.token, context.orgId, selectedChannelId);
+      }
     },
-    [activeThreadRootId, activeUser?.id, rootMessagesByChannelId, selectedChannelId, server, threadMessagesByRootId, updateApply]
+    [activeUser?.id, api, messageRefresh, rootMessagesByChannelId, selectedChannelId]
   );
-
-  const holeSimulate = useCallback(async (): Promise<void> => {
-    const context = contextRef.current;
-    if (!context) {
-      return;
-    }
-    await server.updatesHoleSimulate(context.orgId);
-  }, [server]);
 
   const logout = useCallback(async (): Promise<void> => {
     if (sessionToken) {
       try {
-        await server.authLogout(sessionToken);
+        await api.authLogout(sessionToken);
       } catch {
-        // Ignore logout errors in mock mode.
+        // ignore
       }
     }
     stateReset();
-  }, [server, sessionToken, stateReset]);
+  }, [api, sessionToken, stateReset]);
 
   const composerTextSetWrapped = useCallback(
     (value: string): void => {
@@ -935,10 +729,7 @@ export function daycareAppUse(): DaycareModel {
     busy,
     error,
     email,
-    otp,
-    otpRequested,
-    sessionToken,
-    organizations,
+    orgs,
     activeOrganization,
     activeUser,
     channels,
@@ -951,10 +742,8 @@ export function daycareAppUse(): DaycareModel {
     readStatesByChannelId,
     composerText,
     emailSet,
-    otpSet,
     composerTextSet: composerTextSetWrapped,
-    requestOtp,
-    verifyOtp,
+    login,
     organizationOpen,
     organizationCreate,
     channelSelect,
@@ -963,7 +752,6 @@ export function daycareAppUse(): DaycareModel {
     threadOpen,
     threadClose,
     reactionToggle,
-    holeSimulate,
     logout
   };
 }

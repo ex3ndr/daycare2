@@ -381,9 +381,28 @@ body {
 
 .workspace {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr) 320px;
+  grid-template-columns: 70px 240px minmax(0, 1fr) 320px;
   gap: 12px;
   min-height: 74vh;
+}
+
+.workspace-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+}
+
+.rail-dot {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-family: "JetBrains Mono", monospace;
+  border: 1px solid rgba(212, 85, 46, 0.35);
+  background: rgba(212, 85, 46, 0.16);
 }
 
 .sidebar,
@@ -523,13 +542,13 @@ body {
   gap: 8px;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
   .workspace {
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: 60px 220px minmax(0, 1fr);
   }
 
   .thread {
-    grid-column: span 2;
+    grid-column: span 3;
     min-height: 220px;
   }
 }
@@ -542,6 +561,11 @@ body {
   .workspace {
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+
+  .workspace-rail {
+    flex-direction: row;
+    justify-content: space-between;
   }
 
   .thread {

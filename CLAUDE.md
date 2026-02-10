@@ -1,4 +1,4 @@
-# Diker — agent notes
+# Daycare — agent notes
 
 ## Goals
 - AI-focused messenger (Slack-like)
@@ -29,7 +29,7 @@
 - Language: TypeScript (ESM). Prefer strict typing; avoid `any`.
 - Brief comments for tricky or non-obvious logic only.
 - Keep files under ~700 LOC; split when it improves clarity.
-- Naming: use **Diker** for product/UI/docs headings; use `diker` in user-facing strings and config keys.
+- Naming: use **Daycare** for product/UI/docs headings; use `daycare` in user-facing strings and config keys.
 - Use `@/types` for shared types instead of deep module imports.
 
 ## File Organization: One Function, Prefix Naming
@@ -64,6 +64,7 @@
 - Module labels padded/trimmed to 20 chars.
 
 ## Agent-Specific Notes
+- **Always write code, comments, commit messages, and documentation in English.**
 - Never edit `node_modules`.
 - When answering questions, verify in code; do not guess.
 - Patching dependencies requires explicit approval.

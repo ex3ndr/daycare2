@@ -287,6 +287,17 @@ export function daycareAppUse(): DaycareModel {
     [api]
   );
 
+  const channelReadRefresh = useCallback(
+    async (token: string, orgId: Id, channelId: Id): Promise<void> => {
+      const read = await api.readStateGet(token, orgId, channelId);
+      readStatesByChannelIdSet((previous) => ({
+        ...previous,
+        [channelId]: read
+      }));
+    },
+    [api]
+  );
+
   const messageRefresh = useCallback(
     async (token: string, orgId: Id, channelId: Id): Promise<void> => {
       const list = await api.messageList(token, orgId, channelId, { limit: 80 });
@@ -322,10 +333,16 @@ export function daycareAppUse(): DaycareModel {
         case "message.deleted":
         case "message.reaction": {
           const payload = update.payload as { channelId?: string };
-          if (payload.channelId) {
-            void messageRefresh(token, orgId, payload.channelId);
-            if (activeThreadRootId) {
-              void threadMessagesLoad(token, orgId, payload.channelId, activeThreadRootId);
+          const channelId = payload.channelId;
+          if (channelId) {
+            void messageRefresh(token, orgId, channelId);
+            if (activeThreadRootId && selectedChannelIdRef.current === channelId) {
+              void threadMessagesLoad(token, orgId, channelId, activeThreadRootId);
+            }
+            if (selectedChannelIdRef.current === channelId) {
+              void channelReadMark(token, orgId, channelId);
+            } else {
+              void channelReadRefresh(token, orgId, channelId);
             }
           }
           break;
@@ -366,7 +383,16 @@ export function daycareAppUse(): DaycareModel {
           break;
       }
     },
-    [activeThreadRootId, channelAndReadBootstrap, membersLoad, messageRefresh, threadMessagesLoad, membersById]
+    [
+      activeThreadRootId,
+      channelAndReadBootstrap,
+      channelReadMark,
+      channelReadRefresh,
+      membersLoad,
+      messageRefresh,
+      threadMessagesLoad,
+      membersById
+    ]
   );
 
   const workspaceStart = useCallback(

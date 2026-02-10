@@ -4,6 +4,7 @@ import { tokenServiceCreate } from "./modules/auth/tokenServiceCreate.js";
 import { configRead } from "./modules/config/configRead.js";
 import { databaseConnect } from "./modules/database/databaseConnect.js";
 import { databaseCreate } from "./modules/database/databaseCreate.js";
+import { fileCleanupStart } from "./modules/files/fileCleanupStart.js";
 import { redisConnect } from "./modules/redis/redisConnect.js";
 import { redisCreate } from "./modules/redis/redisCreate.js";
 import { updatesServiceCreate } from "./modules/updates/updatesServiceCreate.js";
@@ -29,6 +30,10 @@ async function main(): Promise<void> {
 
   const tokens = await tokenServiceCreate(config.tokenService, config.tokenSeed);
   const updates = updatesServiceCreate(database);
+  const stopFileCleanup = fileCleanupStart(database);
+  onShutdown("files.cleanup", async () => {
+    stopFileCleanup();
+  });
 
   const app = await apiCreate({
     db: database,

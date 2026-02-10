@@ -30,7 +30,7 @@
 - [x] Implement typing persistence + TTL handling (Redis).
 - [x] Implement read-state and computed unread counters.
 - [x] Implement persisted updates (`diff`) + SSE `stream`.
-- [ ] Implement attachment lifecycle (`pending` -> `committed`, cleanup job).
+- [x] Implement attachment lifecycle (`pending` -> `committed`, cleanup job).
 
 ## Phase 4: Hardening
 - [ ] Add integration tests for key API flows.

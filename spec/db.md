@@ -5,7 +5,9 @@ This document defines a Prisma-first schema proposal for Daycare v1.
 ## Scope and assumptions
 
 - IDs are generated in application code as `cuid2` strings.
-- Timestamps are unix milliseconds stored as `BigInt`.
+- Database timestamps use Prisma `DateTime`.
+- Use `createdAt DateTime @default(now())` and `updatedAt DateTime @updatedAt` for standard row lifecycle fields.
+- Convert timestamps to unix milliseconds only at API boundaries if needed.
 - Primary database is PostgreSQL.
 - v1 is text-only messaging (no threads, attachments, or reactions yet).
 - Server is the source of truth; socket events are derived from persisted rows.
@@ -49,24 +51,24 @@ enum NotificationLevel {
 }
 
 model Organization {
-  id          String @id
-  slug        String @unique
-  name        String
-  createdAtMs BigInt
-  updatedAtMs BigInt
+  id        String   @id
+  slug      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   users          User[]
   chats          Chat[]
   activeSessions Session[]
 
-  @@index([createdAtMs])
+  @@index([createdAt])
 }
 
 model Account {
-  id          String @id
-  email       String @unique
-  createdAtMs BigInt
-  updatedAtMs BigInt
+  id        String   @id
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   users    User[]
   sessions Session[]
@@ -84,9 +86,9 @@ model User {
   timezone       String?
   avatarUrl      String?
   systemPrompt   String?
-  createdAtMs    BigInt
-  updatedAtMs    BigInt
-  lastSeenAtMs   BigInt?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  lastSeenAt     DateTime?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   account      Account?     @relation(fields: [accountId], references: [id], onDelete: SetNull)
@@ -103,33 +105,33 @@ model User {
 }
 
 model Session {
-  id                  String @id
-  accountId           String
+  id                   String @id
+  accountId            String
   activeOrganizationId String?
-  tokenHash           String @unique
-  createdAtMs         BigInt
-  expiresAtMs         BigInt
-  revokedAtMs         BigInt?
-  lastSeenAtMs        BigInt?
+  tokenHash            String @unique
+  createdAt            DateTime @default(now())
+  expiresAt            DateTime
+  revokedAt            DateTime?
+  lastSeenAt           DateTime?
 
   account            Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
   activeOrganization Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
 
-  @@index([accountId, expiresAtMs])
+  @@index([accountId, expiresAt])
 }
 
 model Chat {
-  id             String @id
-  organizationId String
+  id              String @id
+  organizationId  String
   createdByUserId String?
-  kind           ChatKind
-  visibility     ChatVisibility?
-  name           String?
-  topic          String?
-  directKey      String? @unique
-  createdAtMs    BigInt
-  updatedAtMs    BigInt
-  archivedAtMs   BigInt?
+  kind            ChatKind
+  visibility      ChatVisibility?
+  name            String?
+  topic           String?
+  directKey       String?   @unique
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  archivedAt      DateTime?
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdByUser User?       @relation("ChatCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
@@ -137,7 +139,7 @@ model Chat {
   members  ChatMember[]
   messages Message[]
 
-  @@index([organizationId, kind, updatedAtMs])
+  @@index([organizationId, kind, updatedAt])
 }
 
 model ChatMember {
@@ -146,16 +148,16 @@ model ChatMember {
   userId            String
   role              ChatMemberRole
   notificationLevel NotificationLevel
-  muteUntilMs       BigInt?
-  lastReadAtMs      BigInt?
-  joinedAtMs        BigInt
-  leftAtMs          BigInt?
+  muteUntil         DateTime?
+  lastReadAt        DateTime?
+  joinedAt          DateTime @default(now())
+  leftAt            DateTime?
 
   chat Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([chatId, userId])
-  @@index([userId, leftAtMs])
+  @@index([userId, leftAt])
 }
 
 model Message {
@@ -163,29 +165,29 @@ model Message {
   chatId       String
   senderUserId String
   text         String
-  createdAtMs  BigInt
-  editedAtMs   BigInt?
-  deletedAtMs  BigInt?
+  createdAt    DateTime @default(now())
+  editedAt     DateTime?
+  deletedAt    DateTime?
 
   chat      Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
   senderUser User   @relation("MessageSender", fields: [senderUserId], references: [id], onDelete: Restrict)
   mentions  MessageMention[]
 
-  @@index([chatId, createdAtMs])
-  @@index([senderUserId, createdAtMs])
+  @@index([chatId, createdAt])
+  @@index([senderUserId, createdAt])
 }
 
 model MessageMention {
   id              String @id
   messageId       String
   mentionedUserId String
-  createdAtMs     BigInt
+  createdAt       DateTime @default(now())
 
   message       Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
   mentionedUser User    @relation("MentionedUser", fields: [mentionedUserId], references: [id], onDelete: Cascade)
 
   @@unique([messageId, mentionedUserId])
-  @@index([mentionedUserId, createdAtMs])
+  @@index([mentionedUserId, createdAt])
 }
 
 model UserUpdate {
@@ -194,12 +196,12 @@ model UserUpdate {
   seqno       Int
   eventType   String
   payloadJson Json
-  createdAtMs BigInt
+  createdAt   DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, seqno])
-  @@index([userId, createdAtMs])
+  @@index([userId, createdAt])
 }
 ```
 
@@ -208,8 +210,8 @@ model UserUpdate {
 A `Session` is one authenticated login context (for example: one browser/device login).
 
 - It binds an auth token (`tokenHash`) to an `Account`.
-- It has lifecycle timestamps (`createdAtMs`, `expiresAtMs`, optional `revokedAtMs`).
-- It stores activity (`lastSeenAtMs`) for idle/online handling.
+- It has lifecycle timestamps (`createdAt`, `expiresAt`, optional `revokedAt`).
+- It stores activity (`lastSeenAt`) for idle/online handling.
 - It stores `activeOrganizationId` to track which organization the user is currently operating in.
 
 ## Service-level invariants

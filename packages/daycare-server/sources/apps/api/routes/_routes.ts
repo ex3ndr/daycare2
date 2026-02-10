@@ -11,7 +11,7 @@ import { updateRoutesRegister } from "./updates/updateRoutesRegister.js";
 import { fileRoutesRegister } from "./files/fileRoutesRegister.js";
 
 export async function routesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
-  await healthRouteRegister(app);
+  await healthRouteRegister(app, context);
   await authRoutesRegister(app, context);
   await orgRoutesRegister(app, context);
   await channelRoutesRegister(app, context);

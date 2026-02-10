@@ -15,15 +15,25 @@ const logger = getLogger("server.main");
 
 async function main(): Promise<void> {
   const config = configRead();
+  logger.info("startup config", {
+    nodeEnv: config.nodeEnv,
+    host: config.host,
+    port: config.port,
+    allowOpenOrgJoin: config.allowOpenOrgJoin
+  });
 
   const database = databaseCreate(config.databaseUrl);
+  const databaseStart = Date.now();
   await databaseConnect(database);
+  logger.info("database connected", { latencyMs: Date.now() - databaseStart });
   onShutdown("database", async () => {
     await database.$disconnect();
   });
 
   const redis = redisCreate(config.redisUrl);
+  const redisStart = Date.now();
   await redisConnect(redis);
+  logger.info("redis connected", { latencyMs: Date.now() - redisStart });
   onShutdown("redis", async () => {
     await redis.quit();
   });

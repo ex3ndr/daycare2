@@ -66,7 +66,7 @@ describe("routesRegister", () => {
 
     await routesRegister(app, context);
 
-    expect(healthRouteRegisterMock).toHaveBeenCalledWith(app);
+    expect(healthRouteRegisterMock).toHaveBeenCalledWith(app, context);
     expect(authRoutesRegisterMock).toHaveBeenCalledWith(app, context);
     expect(orgRoutesRegisterMock).toHaveBeenCalledWith(app, context);
     expect(channelRoutesRegisterMock).toHaveBeenCalledWith(app, context);

@@ -36,5 +36,5 @@
 - [x] Add integration tests for key API flows.
 - [x] Add idempotency guards for write endpoints.
 - [ ] Add idempotency key retention cleanup job.
-- [ ] Add startup and health diagnostics.
+- [x] Add startup and health diagnostics.
 - [ ] Add dev seed script and developer docs.

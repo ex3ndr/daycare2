@@ -6,6 +6,7 @@ This document defines a Prisma-first schema proposal for Daycare v1.
 
 - IDs are generated in application code as `cuid2` strings.
 - Timestamps are unix milliseconds stored as `BigInt`.
+- Primary database is PostgreSQL.
 - v1 is text-only messaging (no threads, attachments, or reactions yet).
 - Server is the source of truth; socket events are derived from persisted rows.
 
@@ -17,7 +18,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -201,6 +202,15 @@ model UserUpdate {
   @@index([userId, createdAtMs])
 }
 ```
+
+## What `Session` is
+
+A `Session` is one authenticated login context (for example: one browser/device login).
+
+- It binds an auth token (`tokenHash`) to an `Account`.
+- It has lifecycle timestamps (`createdAtMs`, `expiresAtMs`, optional `revokedAtMs`).
+- It stores activity (`lastSeenAtMs`) for idle/online handling.
+- It stores `activeOrganizationId` to track which organization the user is currently operating in.
 
 ## Service-level invariants
 

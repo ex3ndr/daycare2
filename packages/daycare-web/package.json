@@ -1,5 +1,6 @@
 {
   "name": "daycare-web",
+  "description": "Daycare web frontend — React SPA with shadcn/ui, TanStack Router, @slopus/sync, and Zustand",
   "private": true,
   "version": "0.0.1",
   "type": "module",

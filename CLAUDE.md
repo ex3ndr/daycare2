@@ -13,6 +13,46 @@
 - Docker Compose for local infrastructure (api, db, redis, s3)
 - REST for CRUD, SSE for real-time events
 
+### Web Frontend (`packages/daycare-web`)
+- **UI components**: shadcn/ui + Tailwind CSS (warm palette: beige background, orange primary, dark sidebar/rail)
+- **Routing**: TanStack Router with file-based route tree, auth guards, deep linking
+- **State**: @slopus/sync engine wrapped in Zustand (StorageStore) for optimistic mutations + server rebase
+- **UI state**: separate Zustand stores for connection, toasts, and UI (modals, drafts, sidebar)
+- **Orchestration**: `AppController` class owns sync engine, StorageStore, API client, SSE stream, and UpdateSequencer
+- **Transport**: SSE for real-time updates, UpdateSequencer for batching + hole detection, REST for mutations
+- **Session**: bearer token persisted in localStorage, restored on load via `GET /api/me`
+
+### Web Route Structure
+```
+/                          -> redirect to /login or /orgs
+/login                     -> auth screen (OTP email + code)
+/orgs                      -> organization picker
+/:orgSlug                  -> workspace (auto-select first channel)
+/:orgSlug/c/:channelId     -> channel view
+/:orgSlug/c/:channelId/t/:threadId -> channel + thread panel
+/:orgSlug/dm/:dmId         -> direct message
+/:orgSlug/dm/:dmId/t/:threadId -> DM + thread panel
+/:orgSlug/search?q=...     -> search results
+```
+
+### Web File Organization
+```
+app/
+  routes/          -> TanStack Router route files (__root, login, orgs, _workspace.*)
+  sync/            -> @slopus/sync schema, AppController, StorageStore, selectors, event mappers, UpdateSequencer
+  stores/          -> Zustand UI stores (uiStore, connectionStore, toastStore)
+  components/
+    ui/            -> shadcn/ui primitives (button, input, dialog, avatar, badge, etc.)
+    messages/      -> MessageRow, Composer, ReactionBar, EmojiPicker, FileUpload, Attachment
+    workspace/     -> Rail, Sidebar, ChannelSettings, KeyboardShortcutsHelp
+    search/        -> SearchCommandPalette
+    skeletons/     -> Loading skeleton components
+  lib/             -> utilities, hooks, session management, route guards
+  daycare/
+    api/           -> typed API client, HTTP request helper, SSE subscriber
+    types.ts       -> shared TypeScript types
+```
+
 ## Conventions
 - typescript only, esm output
 - sources live in `sources/` (server), `app/` (web)

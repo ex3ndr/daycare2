@@ -159,3 +159,11 @@ export type ChannelSearchResult = {
   createdAt: UnixMs;
   updatedAt: UnixMs;
 };
+
+export type PresenceStatus = "online" | "away" | "offline";
+
+export type Presence = {
+  userId: Id;
+  status: PresenceStatus;
+  lastSeenAt: UnixMs;
+};

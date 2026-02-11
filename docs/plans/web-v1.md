@@ -759,10 +759,10 @@ Depends on backend presence system.
 
 #### Task 28: [Final] Update documentation
 
-- [ ] Update CLAUDE.md with new web architecture (shadcn, TanStack Router, @slopus/sync, Zustand)
-- [ ] Update `packages/daycare-web/package.json` description
-- [ ] Document route structure
-- [ ] Update `app/daycare/types.ts` with any new types
+- [x] Update CLAUDE.md with new web architecture (shadcn, TanStack Router, @slopus/sync, Zustand)
+- [x] Update `packages/daycare-web/package.json` description
+- [x] Document route structure
+- [x] Update `app/daycare/types.ts` with any new types
 
 ## Technical Details
 

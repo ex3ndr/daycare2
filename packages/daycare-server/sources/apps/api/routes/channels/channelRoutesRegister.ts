@@ -12,6 +12,7 @@ import { channelNotificationSet } from "@/apps/channels/channelNotificationSet.j
 import { channelArchive } from "@/apps/channels/channelArchive.js";
 import { channelUnarchive } from "@/apps/channels/channelUnarchive.js";
 import { channelUpdate } from "@/apps/channels/channelUpdate.js";
+import { channelInviteAdd } from "@/apps/channels/channelInviteAdd.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
 import { chatMembershipEnsure } from "@/apps/api/lib/chatMembershipEnsure.js";
@@ -39,6 +40,10 @@ const channelMemberRoleSchema = z.object({
 const channelNotificationSchema = z.object({
   level: z.enum(["ALL", "MENTIONS_ONLY", "MUTED"]),
   muteUntil: z.number().int().positive().optional()
+});
+
+const channelMemberAddSchema = z.object({
+  userId: z.string().min(1)
 });
 
 export async function channelRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
@@ -286,6 +291,32 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
           avatarUrl: member.user.avatarUrl
         }
       }))
+    });
+  });
+
+  app.post("/api/org/:orgid/channels/:channelId/members", async (request) => {
+    const params = z.object({ orgid: z.string().min(1), channelId: z.string().min(1) }).parse(request.params);
+    const body = channelMemberAddSchema.parse(request.body);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const membership = await channelInviteAdd(context, {
+        organizationId: params.orgid,
+        channelId: params.channelId,
+        actorUserId: auth.user.id,
+        targetUserId: body.userId
+      });
+
+      return apiResponseOk({
+        added: true,
+        membership: {
+          chatId: membership.chatId,
+          userId: membership.userId,
+          role: membership.role.toLowerCase(),
+          joinedAt: membership.joinedAt.getTime(),
+          leftAt: membership.leftAt?.getTime() ?? null
+        }
+      });
     });
   });
 

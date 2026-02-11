@@ -315,10 +315,10 @@ Actually, the simpler approach: `channelInviteAdd` directly creates the membersh
 - `POST /api/org/:orgid/channels/:channelId/members` — body: `{ userId: string }` (add member to private channel)
 
 **Checklist:**
-- [ ] Create `channelInviteAdd.ts`
-- [ ] Wire route `POST /api/org/:orgid/channels/:channelId/members` in `channelRoutesRegister.ts`
-- [ ] Write tests for channel invite (success, not-owner blocked, public-channel blocked, non-org-member blocked, deactivated-user blocked)
-- [ ] Run `yarn typecheck && yarn test` — must pass
+- [x] Create `channelInviteAdd.ts`
+- [x] Wire route `POST /api/org/:orgid/channels/:channelId/members` in `channelRoutesRegister.ts`
+- [x] Write tests for channel invite (success, not-owner blocked, public-channel blocked, non-org-member blocked, deactivated-user blocked)
+- [x] Run `yarn typecheck && yarn test` — must pass
 
 ### Task 8: Update SSE event types and member serialization
 

@@ -5,6 +5,7 @@ import { guardAuthenticated } from "@/app/lib/routeGuard";
 import { sessionGet, sessionSet } from "@/app/lib/sessionStore";
 import { apiClientCreate, type ApiClient } from "@/app/daycare/api/apiClientCreate";
 import type { Organization } from "@/app/daycare/types";
+import { ApiError } from "@/app/daycare/api/apiRequest";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import {
@@ -22,7 +23,7 @@ import {
   DialogFooter,
 } from "@/app/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
-import { Loader2, Plus, Building2, ChevronRight } from "lucide-react";
+import { Loader2, Plus, Building2, ChevronRight, LogIn } from "lucide-react";
 
 const api = apiClientCreate("");
 
@@ -38,16 +39,21 @@ export const orgsRoute = createRoute({
   component: OrgsPage,
 });
 
+type OrgsData = {
+  myOrgs: Organization[];
+  joinableOrgs: Organization[];
+};
+
 function OrgsPage() {
-  const [orgs, setOrgs] = useState<Organization[]>([]);
+  const [data, setData] = useState<OrgsData>({ myOrgs: [], joinableOrgs: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
-    loadOrgs(api, getToken()).then(
+    loadOrgsData(api, getToken()).then(
       (result) => {
-        setOrgs(result);
+        setData(result);
         setLoading(false);
       },
       (err) => {
@@ -66,6 +72,14 @@ function OrgsPage() {
     selectOrg(org.slug);
   }
 
+  function handleJoinSuccess(org: Organization) {
+    selectOrg(org.slug);
+  }
+
+  const hasMyOrgs = data.myOrgs.length > 0;
+  const hasJoinable = data.joinableOrgs.length > 0;
+  const isEmpty = !hasMyOrgs && !hasJoinable;
+
   return (
     <div className="relative flex min-h-screen items-center justify-center p-4">
       {/* Grain overlay */}
@@ -79,7 +93,7 @@ function OrgsPage() {
 
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
-          <h1 className="font-display text-3xl font-bold">Your Organizations</h1>
+          <h1 className="font-display text-3xl font-bold">Organizations</h1>
           <p className="mt-1 text-muted-foreground">
             Select an organization to continue
           </p>
@@ -101,7 +115,7 @@ function OrgsPage() {
 
         {!loading && !error && (
           <>
-            {orgs.length === 0 ? (
+            {isEmpty && (
               <Card>
                 <CardContent className="py-12 text-center">
                   <Building2 className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
@@ -110,13 +124,34 @@ function OrgsPage() {
                   </p>
                 </CardContent>
               </Card>
-            ) : (
+            )}
+
+            {hasMyOrgs && (
               <div className="space-y-2">
-                {orgs.map((org) => (
+                <h2 className="text-sm font-medium text-muted-foreground px-1">
+                  Your Organizations
+                </h2>
+                {data.myOrgs.map((org) => (
                   <OrgCard
                     key={org.id}
                     org={org}
                     onClick={() => handleOrgClick(org)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {hasJoinable && (
+              <div className="space-y-2">
+                <h2 className="text-sm font-medium text-muted-foreground px-1">
+                  Available to Join
+                </h2>
+                {data.joinableOrgs.map((org) => (
+                  <JoinableOrgCard
+                    key={org.id}
+                    org={org}
+                    api={api}
+                    onJoined={() => handleJoinSuccess(org)}
                   />
                 ))}
               </div>
@@ -164,6 +199,124 @@ function OrgCard({ org, onClick }: { org: Organization; onClick: () => void }) {
           <CardDescription className="text-sm truncate">{org.slug}</CardDescription>
         </div>
         <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function JoinableOrgCard({
+  org,
+  api,
+  onJoined,
+}: {
+  org: Organization;
+  api: ApiClient;
+  onJoined: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [username, setUsername] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const initials = orgInitials(org.name);
+
+  async function handleJoin(e: React.FormEvent) {
+    e.preventDefault();
+    const token = getToken();
+    if (!token) {
+      setError("Session expired. Please log in again.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      await api.organizationJoin(token, org.id, {
+        firstName: firstName.trim(),
+        username: username.trim(),
+      });
+      onJoined();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.code === "FORBIDDEN" && err.message.includes("deactivated")) {
+          setError("Your account has been deactivated in this organization. Contact an admin.");
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to join organization");
+      }
+      setLoading(false);
+    }
+  }
+
+  const canSubmit = firstName.trim().length > 0 && username.trim().length > 0;
+
+  return (
+    <Card className="transition-colors">
+      <CardContent className="p-4">
+        <div
+          className="flex items-center gap-4 cursor-pointer"
+          onClick={() => setExpanded(!expanded)}
+        >
+          <Avatar size="lg">
+            {org.avatarUrl && <AvatarImage src={org.avatarUrl} alt={org.name} />}
+            <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-base truncate">{org.name}</CardTitle>
+            <CardDescription className="text-sm truncate">{org.slug}</CardDescription>
+          </div>
+          <LogIn className="h-5 w-5 text-primary shrink-0" />
+        </div>
+
+        {expanded && (
+          <form onSubmit={handleJoin} className="mt-4 space-y-3 border-t pt-4">
+            <p className="text-sm text-muted-foreground">
+              Enter your details to join this organization
+            </p>
+            <div className="space-y-2">
+              <label htmlFor={`join-fn-${org.id}`} className="text-sm font-medium">
+                First name
+              </label>
+              <Input
+                id={`join-fn-${org.id}`}
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Jane"
+                disabled={loading}
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor={`join-un-${org.id}`} className="text-sm font-medium">
+                Username
+              </label>
+              <Input
+                id={`join-un-${org.id}`}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="jane"
+                disabled={loading}
+              />
+            </div>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+            <Button type="submit" disabled={loading || !canSubmit} className="w-full">
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Joining...
+                </>
+              ) : (
+                "Join Organization"
+              )}
+            </Button>
+          </form>
+        )}
       </CardContent>
     </Card>
   );
@@ -355,10 +508,21 @@ function getToken(): string | null {
   return sessionGet()?.token ?? null;
 }
 
-async function loadOrgs(api: ApiClient, token: string | null): Promise<Organization[]> {
-  if (!token) return [];
-  const { organizations } = await api.meGet(token);
-  return organizations;
+async function loadOrgsData(api: ApiClient, token: string | null): Promise<OrgsData> {
+  if (!token) return { myOrgs: [], joinableOrgs: [] };
+
+  const [meResult, availableResult] = await Promise.all([
+    api.meGet(token),
+    api.organizationAvailableList(token),
+  ]);
+
+  const myOrgIds = new Set(meResult.organizations.map((o) => o.id));
+  const joinableOrgs = availableResult.organizations.filter((o) => !myOrgIds.has(o.id));
+
+  return {
+    myOrgs: meResult.organizations,
+    joinableOrgs,
+  };
 }
 
 function orgInitials(name: string): string {

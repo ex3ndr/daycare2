@@ -126,11 +126,11 @@ Show invited/domain-matched orgs on the orgs page with a join form.
 - On join success → navigate into the org
 
 **Checklist:**
-- [ ] Fetch both available orgs and current memberships
-- [ ] Split org list into two sections with headers
-- [ ] Add inline expandable join form for available orgs
-- [ ] Handle join errors (deactivated, conflict)
-- [ ] Run `yarn typecheck` — must pass
+- [x] Fetch both available orgs and current memberships
+- [x] Split org list into two sections with headers
+- [x] Add inline expandable join form for available orgs
+- [x] Handle join errors (deactivated, conflict)
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 3: Org settings page — route, layout, and general tab
 

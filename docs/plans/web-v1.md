@@ -722,28 +722,28 @@ Depends on backend presence system.
 
 #### Task 27: Verify acceptance criteria
 
-- [ ] Verify `app/compontnes/` directory no longer exists
-- [ ] Verify no references to `daycareAppUse` or old `syncEngineCreate`
-- [ ] Verify TanStack Router handles all routes: login, orgs, channels, threads, DMs, search
-- [ ] Verify browser back/forward works
-- [ ] Verify deep linking (paste channel URL → loads after auth)
-- [ ] Verify @slopus/sync manages all server state with optimistic mutations
-- [ ] Verify Zustand handles UI-only state
-- [ ] Verify session persists across refresh
-- [ ] Verify message send is optimistic
-- [ ] Verify reaction toggle is optimistic
-- [ ] Verify channel create is optimistic
-- [ ] Verify read marking is optimistic
-- [ ] Verify message edit/delete works
-- [ ] Verify file upload works (if backend ready)
-- [ ] Verify infinite scroll loads older messages
-- [ ] Verify search works (if backend ready)
-- [ ] Verify presence indicators (if backend ready)
-- [ ] Verify typing indicators work
-- [ ] Verify thread panel works
-- [ ] Run full test suite — all pass
-- [ ] Run `yarn typecheck` — no errors
-- [ ] **agent-browser full smoke test**: complete end-to-end flow with screenshots at each step:
+- [x] Verify `app/compontnes/` directory no longer exists
+- [x] Verify no references to `daycareAppUse` or old `syncEngineCreate`
+- [x] Verify TanStack Router handles all routes: login, orgs, channels, threads, DMs, search
+- [x] Verify browser back/forward works
+- [x] Verify deep linking (paste channel URL → loads after auth)
+- [x] Verify @slopus/sync manages all server state with optimistic mutations
+- [x] Verify Zustand handles UI-only state
+- [x] Verify session persists across refresh
+- [x] Verify message send is optimistic
+- [x] Verify reaction toggle is optimistic
+- [x] Verify channel create is optimistic
+- [x] Verify read marking is optimistic
+- [x] Verify message edit/delete works
+- [x] Verify file upload works (if backend ready)
+- [x] Verify infinite scroll loads older messages
+- [x] Verify search works (if backend ready)
+- [x] Verify presence indicators (if backend ready)
+- [x] Verify typing indicators work
+- [x] Verify thread panel works
+- [x] Run full test suite — all pass
+- [x] Run `yarn typecheck` — no errors
+- [x] **agent-browser full smoke test**: complete end-to-end flow with screenshots at each step:
   1. Open `/login` → enter integration email → submit
   2. Arrive at `/orgs` → select or create org
   3. Land in workspace → verify layout (rail, sidebar, chat, thread panel)

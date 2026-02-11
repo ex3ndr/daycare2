@@ -4,7 +4,7 @@ import { sessionClear } from "@/app/lib/sessionStore";
 import { Avatar, AvatarFallback } from "@/app/components/ui/avatar";
 import { Separator } from "@/app/components/ui/separator";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/ui/tooltip";
-import { LogOut, ArrowLeftRight } from "lucide-react";
+import { LogOut, ArrowLeftRight, Settings } from "lucide-react";
 
 export function Rail() {
   const app = useApp();
@@ -55,6 +55,19 @@ export function Rail() {
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Settings */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            onClick={() => navigate({ to: "/$orgSlug/settings", params: { orgSlug } })}
+            className="mb-2 flex h-10 w-10 items-center justify-center rounded-lg text-rail-foreground/60 transition-colors hover:bg-rail-foreground/10 hover:text-rail-foreground"
+          >
+            <Settings className="h-5 w-5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="right">Settings</TooltipContent>
+      </Tooltip>
 
       {/* Switch org */}
       <Tooltip>

@@ -174,6 +174,7 @@ export type ApiClient = {
   orgDomainList: (token: string, orgId: string) => Promise<{ domains: OrgDomain[] }>;
   orgDomainRemove: (token: string, orgId: string, domainId: string) => Promise<{ removed: boolean }>;
   channelMemberAdd: (token: string, orgId: string, channelId: string, input: { userId: string }) => Promise<{ added: boolean; membership: ChannelMember }>;
+  organizationUpdate: (token: string, orgId: string, input: { name?: string; avatarUrl?: string | null }) => Promise<{ organization: Organization }>;
 };
 
 const DEFAULT_BASE_URL = "http://localhost:3005";
@@ -343,5 +344,7 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
       request(`/api/org/${orgId}/domains/${domainId}`, { method: "DELETE", token }),
     channelMemberAdd: (token, orgId, channelId, input) =>
       request(`/api/org/${orgId}/channels/${channelId}/members`, { method: "POST", token, body: input }),
+    organizationUpdate: (token, orgId, input) =>
+      request(`/api/org/${orgId}`, { method: "PATCH", token, body: input }),
   };
 }

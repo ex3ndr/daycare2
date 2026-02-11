@@ -11,6 +11,7 @@ import { threadRoute } from "./routes/_workspace.$orgSlug.c.$channelId.t.$thread
 import { dmRoute } from "./routes/_workspace.$orgSlug.dm.$dmId";
 import { dmThreadRoute } from "./routes/_workspace.$orgSlug.dm.$dmId.t.$threadId";
 import { searchRoute } from "./routes/_workspace.$orgSlug.search";
+import { settingsRoute } from "./routes/_workspace.$orgSlug.settings";
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -22,6 +23,7 @@ const routeTree = rootRoute.addChildren([
       channelRoute.addChildren([threadRoute]),
       dmRoute.addChildren([dmThreadRoute]),
       searchRoute,
+      settingsRoute,
     ]),
   ]),
 ]);

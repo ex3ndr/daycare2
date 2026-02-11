@@ -68,6 +68,7 @@ function createMockApi(): ApiClient {
     orgDomainList: vi.fn(),
     orgDomainRemove: vi.fn(),
     channelMemberAdd: vi.fn(),
+    organizationUpdate: vi.fn(),
   };
 }
 

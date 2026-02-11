@@ -153,12 +153,12 @@ Create `/$orgSlug/settings` with tabbed navigation and org info editing.
 - Tabs: General, Members, Invites, Domains (Invites/Domains management gated to OWNER)
 
 **Checklist:**
-- [ ] Create settings route and register in router
-- [ ] Create `SettingsLayout.tsx` with tab navigation
-- [ ] Create `SettingsGeneral.tsx` with org info display + editing (OWNER)
-- [ ] Add gear icon button to Rail.tsx
-- [ ] Gate Invites/Domains management actions to OWNER role
-- [ ] Run `yarn typecheck` — must pass
+- [x] Create settings route and register in router
+- [x] Create `SettingsLayout.tsx` with tab navigation
+- [x] Create `SettingsGeneral.tsx` with org info display + editing (OWNER)
+- [x] Add gear icon button to Rail.tsx
+- [x] Gate Invites/Domains management actions to OWNER role
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 4: Settings — Members tab with search/filter
 

@@ -173,12 +173,12 @@ Implement kick (deactivate) and reactivate at the org level. Deactivated members
 - `POST /api/org/:orgid/members/:userId/reactivate`
 
 **Checklist:**
-- [ ] Create `orgMemberDeactivate.ts` with input types and function
-- [ ] Create `orgMemberReactivate.ts` with input types and function
-- [ ] Wire routes in `orgRoutesRegister.ts`
-- [ ] Write tests for deactivate (success, self-deactivate blocked, non-owner blocked, owner-target blocked)
-- [ ] Write tests for reactivate (success, non-owner blocked, already-active blocked)
-- [ ] Run `yarn typecheck && yarn test` — must pass
+- [x] Create `orgMemberDeactivate.ts` with input types and function
+- [x] Create `orgMemberReactivate.ts` with input types and function
+- [x] Wire routes in `orgRoutesRegister.ts`
+- [x] Write tests for deactivate (success, self-deactivate blocked, non-owner blocked, owner-target blocked)
+- [x] Write tests for reactivate (success, non-owner blocked, already-active blocked)
+- [x] Run `yarn typecheck && yarn test` — must pass
 
 ### Task 4: Org invite system
 

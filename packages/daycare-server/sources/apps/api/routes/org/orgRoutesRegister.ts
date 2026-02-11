@@ -4,6 +4,8 @@ import type { ApiContext } from "@/apps/api/lib/apiContext.js";
 import { organizationAvailableResolve } from "@/apps/organizations/organizationAvailableResolve.js";
 import { organizationCreate } from "@/apps/organizations/organizationCreate.js";
 import { organizationJoin } from "@/apps/organizations/organizationJoin.js";
+import { orgMemberDeactivate } from "@/apps/organizations/orgMemberDeactivate.js";
+import { orgMemberReactivate } from "@/apps/organizations/orgMemberReactivate.js";
 import { userProfileUpdate } from "@/apps/users/userProfileUpdate.js";
 import { accountSessionResolve } from "@/apps/api/lib/accountSessionResolve.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
@@ -250,6 +252,46 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
           systemPrompt: updated.systemPrompt,
           createdAt: updated.createdAt.getTime(),
           updatedAt: updated.updatedAt.getTime()
+        }
+      });
+    });
+  });
+
+  app.post("/api/org/:orgid/members/:userId/deactivate", async (request) => {
+    const params = z.object({ orgid: z.string().min(1), userId: z.string().min(1) }).parse(request.params);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const user = await orgMemberDeactivate(context, {
+        organizationId: params.orgid,
+        actorUserId: auth.user.id,
+        targetUserId: params.userId
+      });
+
+      return apiResponseOk({
+        user: {
+          id: user.id,
+          deactivatedAt: user.deactivatedAt ? user.deactivatedAt.getTime() : null
+        }
+      });
+    });
+  });
+
+  app.post("/api/org/:orgid/members/:userId/reactivate", async (request) => {
+    const params = z.object({ orgid: z.string().min(1), userId: z.string().min(1) }).parse(request.params);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const user = await orgMemberReactivate(context, {
+        organizationId: params.orgid,
+        actorUserId: auth.user.id,
+        targetUserId: params.userId
+      });
+
+      return apiResponseOk({
+        user: {
+          id: user.id,
+          deactivatedAt: user.deactivatedAt ? user.deactivatedAt.getTime() : null
         }
       });
     });

@@ -212,10 +212,10 @@ Remove everything that will be rebuilt. Keep only reusable infra.
 
 #### Task 2: Install dependencies
 
-- [ ] Install runtime deps: `zustand`, `@slopus/sync`, `@tanstack/react-router`, `lucide-react`, `class-variance-authority`, `clsx`, `tailwind-merge`
-- [ ] Install shadcn deps: `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-popover`, `@radix-ui/react-tooltip`, `@radix-ui/react-scroll-area`, `@radix-ui/react-separator`, `@radix-ui/react-avatar`, `@radix-ui/react-slot`
-- [ ] Install test deps: `vitest`, `jsdom`
-- [ ] Verify `yarn typecheck` still passes after install
+- [x] Install runtime deps: `zustand`, `@slopus/sync`, `@tanstack/react-router`, `lucide-react`, `class-variance-authority`, `clsx`, `tailwind-merge`
+- [x] Install shadcn deps: `@radix-ui/react-dialog`, `@radix-ui/react-dropdown-menu`, `@radix-ui/react-popover`, `@radix-ui/react-tooltip`, `@radix-ui/react-scroll-area`, `@radix-ui/react-separator`, `@radix-ui/react-avatar`, `@radix-ui/react-slot`
+- [x] Install test deps: `vitest`, `jsdom`
+- [x] Verify `yarn typecheck` still passes after install
 
 #### Task 3: Configure shadcn + Tailwind + Vitest
 

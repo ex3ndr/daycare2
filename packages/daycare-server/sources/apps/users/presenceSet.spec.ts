@@ -1,60 +1,94 @@
-import { describe, expect, it, vi } from "vitest";
-import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { createId } from "@paralleldrive/cuid2";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { presenceSet } from "./presenceSet.js";
 
-describe("presenceSet", () => {
-  it("sets online presence with ttl and publishes event", async () => {
-    const context = {
-      redis: {
-        set: vi.fn().mockResolvedValue("OK")
-      },
-      db: {
-        user: {
-          findMany: vi.fn().mockResolvedValue([{ id: "user-1" }, { id: "user-2" }])
-        }
-      },
-      updates: {
-        publishToUsers: vi.fn().mockResolvedValue(undefined)
-      }
-    } as unknown as ApiContext;
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
 
-    const status = await presenceSet(context, {
-      organizationId: "org-1",
-      userId: "user-1",
+describe("presenceSet", () => {
+  let live: LiveContext;
+
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
+  });
+
+  beforeEach(async () => {
+    await live.reset();
+  });
+
+  afterAll(async () => {
+    await live.close();
+  });
+
+  async function seedUsers() {
+    const orgId = createId();
+    const user1Id = createId();
+    const user2Id = createId();
+
+    await live.db.organization.create({
+      data: {
+        id: orgId,
+        slug: `org-${createId().slice(0, 8)}`,
+        name: "Acme"
+      }
+    });
+
+    await live.db.user.createMany({
+      data: [
+        {
+          id: user1Id,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Alice",
+          username: `alice-${createId().slice(0, 6)}`
+        },
+        {
+          id: user2Id,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Bob",
+          username: `bob-${createId().slice(0, 6)}`
+        }
+      ]
+    });
+
+    return { orgId, user1Id, user2Id };
+  }
+
+  it("sets online presence with ttl and publishes event", async () => {
+    const { orgId, user1Id, user2Id } = await seedUsers();
+
+    const status = await presenceSet(live.context, {
+      organizationId: orgId,
+      userId: user1Id,
       status: "online"
     });
 
     expect(status).toBe("online");
-    expect(context.redis.set).toHaveBeenCalledWith("presence:org-1:user-1", "online", "EX", 90);
-    expect(context.updates.publishToUsers).toHaveBeenCalledWith(["user-1", "user-2"], "user.presence", {
-      orgId: "org-1",
-      userId: "user-1",
-      status: "online"
-    });
+
+    const key = `presence:${orgId}:${user1Id}`;
+    const redisValue = await live.redis.get(key);
+    expect(redisValue).toBe("online");
+
+    const updates = await live.db.userUpdate.findMany({ orderBy: { userId: "asc" } });
+    expect(updates).toHaveLength(2);
+    expect(new Set(updates.map((update) => update.userId))).toEqual(new Set([user1Id, user2Id]));
+    expect(new Set(updates.map((update) => update.eventType))).toEqual(new Set(["user.presence"]));
   });
 
   it("sets away presence with ttl", async () => {
-    const context = {
-      redis: {
-        set: vi.fn().mockResolvedValue("OK")
-      },
-      db: {
-        user: {
-          findMany: vi.fn().mockResolvedValue([{ id: "user-1" }])
-        }
-      },
-      updates: {
-        publishToUsers: vi.fn().mockResolvedValue(undefined)
-      }
-    } as unknown as ApiContext;
+    const { orgId, user1Id } = await seedUsers();
 
-    const status = await presenceSet(context, {
-      organizationId: "org-1",
-      userId: "user-1",
+    const status = await presenceSet(live.context, {
+      organizationId: orgId,
+      userId: user1Id,
       status: "away"
     });
 
     expect(status).toBe("away");
-    expect(context.redis.set).toHaveBeenCalledWith("presence:org-1:user-1", "away", "EX", 90);
+
+    const key = `presence:${orgId}:${user1Id}`;
+    const redisValue = await live.redis.get(key);
+    expect(redisValue).toBe("away");
   });
 });

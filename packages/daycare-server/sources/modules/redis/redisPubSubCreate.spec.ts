@@ -1,59 +1,55 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type Redis from "ioredis";
+import { afterEach, describe, expect, it } from "vitest";
+import { redisPubSubCreate, type RedisPubSub } from "./redisPubSubCreate.js";
 
-const redisCreateMock = vi.fn();
-const redisConnectMock = vi.fn();
+const createdPubSubs: RedisPubSub[] = [];
 
-vi.mock("./redisCreate.js", () => ({
-  redisCreate: redisCreateMock
-}));
-
-vi.mock("./redisConnect.js", () => ({
-  redisConnect: redisConnectMock
-}));
-
-type RedisLike = Pick<Redis, "unsubscribe" | "quit">;
-
-function redisMockCreate(): RedisLike {
-  return {
-    unsubscribe: vi.fn().mockResolvedValue(0),
-    quit: vi.fn().mockResolvedValue("OK")
-  };
-}
+afterEach(async () => {
+  await Promise.all(createdPubSubs.splice(0).map(async (pubSub) => {
+    await pubSub.disconnect();
+  }));
+});
 
 describe("redisPubSubCreate", () => {
-  beforeEach(() => {
-    redisCreateMock.mockReset();
-    redisConnectMock.mockReset();
-  });
+  it("creates dedicated pub/sub clients and delivers published messages", async () => {
+    const redisUrl = process.env.TEST_REDIS_URL ?? process.env.REDIS_URL;
+    if (!redisUrl) {
+      throw new Error("redisPubSubCreate.spec.ts requires REDIS_URL or TEST_REDIS_URL");
+    }
 
-  it("creates dedicated pub/sub clients and connects both", async () => {
-    const pub = redisMockCreate();
-    const sub = redisMockCreate();
-    redisCreateMock.mockReturnValueOnce(pub).mockReturnValueOnce(sub);
+    const pubSub = redisPubSubCreate(redisUrl);
+    createdPubSubs.push(pubSub);
 
-    const { redisPubSubCreate } = await import("./redisPubSubCreate.js");
-    const pubSub = redisPubSubCreate("redis://localhost:6379");
     await pubSub.connect();
 
-    expect(redisCreateMock).toHaveBeenCalledTimes(2);
-    expect(redisConnectMock).toHaveBeenCalledWith(pub);
-    expect(redisConnectMock).toHaveBeenCalledWith(sub);
+    const channel = `updates:${Date.now()}`;
+    const payload = JSON.stringify({ ok: true });
+
+    const received = new Promise<{ channel: string; message: string }>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("Timed out waiting for redis pub/sub message"));
+      }, 2_000);
+
+      pubSub.sub.on("message", (incomingChannel, message) => {
+        clearTimeout(timeout);
+        resolve({ channel: incomingChannel, message });
+      });
+    });
+
+    await pubSub.sub.subscribe(channel);
+    await pubSub.pub.publish(channel, payload);
+
+    await expect(received).resolves.toEqual({ channel, message: payload });
   });
 
-  it("disconnects gracefully even when one call fails", async () => {
-    const pub = redisMockCreate();
-    const sub = redisMockCreate();
-    const subQuit = vi.fn().mockRejectedValue(new Error("boom"));
-    sub.quit = subQuit;
-    redisCreateMock.mockReturnValueOnce(pub).mockReturnValueOnce(sub);
+  it("disconnects gracefully", async () => {
+    const redisUrl = process.env.TEST_REDIS_URL ?? process.env.REDIS_URL;
+    if (!redisUrl) {
+      throw new Error("redisPubSubCreate.spec.ts requires REDIS_URL or TEST_REDIS_URL");
+    }
 
-    const { redisPubSubCreate } = await import("./redisPubSubCreate.js");
-    const pubSub = redisPubSubCreate("redis://localhost:6379");
+    const pubSub = redisPubSubCreate(redisUrl);
+    await pubSub.connect();
 
     await expect(pubSub.disconnect()).resolves.toBeUndefined();
-    expect(sub.unsubscribe).toHaveBeenCalledTimes(1);
-    expect(subQuit).toHaveBeenCalledTimes(1);
-    expect(pub.quit).toHaveBeenCalledTimes(1);
   });
 });

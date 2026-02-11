@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
-import type { Session } from "@prisma/client";
+import { createId } from "@paralleldrive/cuid2";
 import type { FastifyRequest } from "fastify";
-import type { ApiContext } from "./apiContext.js";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { ApiError } from "./apiError.js";
 import { accountSessionResolve } from "./accountSessionResolve.js";
+
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
 
 function requestCreate(token: string): FastifyRequest {
   return {
@@ -14,84 +16,64 @@ function requestCreate(token: string): FastifyRequest {
   } as FastifyRequest;
 }
 
-function tokenHashCreate(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-function sessionCreate(token: string): Session {
-  const now = new Date();
-
-  return {
-    id: "session-1",
-    accountId: "account-1",
-    tokenHash: tokenHashCreate(token),
-    createdAt: now,
-    expiresAt: new Date(now.getTime() + 30 * 60 * 1000),
-    revokedAt: null,
-    lastSeenAt: null
-  };
-}
-
-function contextCreate(params: {
-  claims: { sessionId: string; extras: Record<string, unknown> } | null;
-  session: Session | null;
-}): { context: ApiContext; verify: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn> } {
-  const verify = vi.fn().mockResolvedValue(params.claims);
-  const findUnique = vi.fn().mockResolvedValue(params.session);
-
-  const context = {
-    db: {
-      session: {
-        findUnique
-      }
-    },
-    tokens: {
-      issue: vi.fn(),
-      verify
-    },
-    redis: {},
-    updates: {},
-    nodeEnv: "test",
-    allowOpenOrgJoin: true
-  } as unknown as ApiContext;
-
-  return {
-    context,
-    verify,
-    findUnique
-  };
-}
-
 describe("accountSessionResolve", () => {
-  it("returns session and ids for valid bearer token", async () => {
-    const token = "token-abc";
-    const session = sessionCreate(token);
-    const { context, verify, findUnique } = contextCreate({
-      claims: { sessionId: "session-1", extras: {} },
-      session
-    });
+  let live: LiveContext;
 
-    await expect(accountSessionResolve(requestCreate(token), context)).resolves.toEqual({
-      session,
-      sessionId: "session-1",
-      accountId: "account-1"
-    });
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
+  });
 
-    expect(verify).toHaveBeenCalledWith(token);
-    expect(findUnique).toHaveBeenCalledWith({
-      where: {
-        id: "session-1"
+  beforeEach(async () => {
+    await live.reset();
+  });
+
+  afterAll(async () => {
+    await live.close();
+  });
+
+  async function seedSession(params?: {
+    revokedAt?: Date | null;
+    expiresAt?: Date;
+    tokenHashOverride?: string;
+  }) {
+    const accountId = createId();
+    await live.db.account.create({
+      data: {
+        id: accountId,
+        email: `${createId().slice(0, 8)}@example.com`
       }
     });
+
+    const sessionId = createId();
+    const token = await live.context.tokens.issue(sessionId);
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+
+    await live.db.session.create({
+      data: {
+        id: sessionId,
+        accountId,
+        tokenHash: params?.tokenHashOverride ?? tokenHash,
+        expiresAt: params?.expiresAt ?? new Date(Date.now() + 60_000),
+        revokedAt: params?.revokedAt ?? null
+      }
+    });
+
+    return { token, sessionId, accountId };
+  }
+
+  it("returns session and ids for valid bearer token", async () => {
+    const { token, sessionId, accountId } = await seedSession();
+
+    const result = await accountSessionResolve(requestCreate(token), live.context);
+
+    expect(result.sessionId).toBe(sessionId);
+    expect(result.accountId).toBe(accountId);
+    expect(result.session.id).toBe(sessionId);
   });
 
   it("rejects invalid token claims", async () => {
-    const { context } = contextCreate({
-      claims: null,
-      session: null
-    });
+    const result = accountSessionResolve(requestCreate("not-a-valid-token"), live.context);
 
-    const result = accountSessionResolve(requestCreate("token-abc"), context);
     await expect(result).rejects.toBeInstanceOf(ApiError);
     await expect(result).rejects.toMatchObject({
       statusCode: 401,
@@ -100,33 +82,22 @@ describe("accountSessionResolve", () => {
   });
 
   it("rejects expired or revoked session", async () => {
-    const token = "token-abc";
-    const base = sessionCreate(token);
-    const { context } = contextCreate({
-      claims: { sessionId: "session-1", extras: {} },
-      session: {
-        ...base,
-        revokedAt: new Date("2026-02-10T00:05:00.000Z")
-      }
+    const { token } = await seedSession({
+      revokedAt: new Date("2026-02-10T00:05:00.000Z")
     });
 
-    await expect(accountSessionResolve(requestCreate(token), context)).rejects.toMatchObject({
+    await expect(accountSessionResolve(requestCreate(token), live.context)).rejects.toMatchObject({
       statusCode: 401,
       code: "UNAUTHORIZED"
     });
   });
 
   it("rejects mismatched token hash", async () => {
-    const token = "token-abc";
-    const { context } = contextCreate({
-      claims: { sessionId: "session-1", extras: {} },
-      session: {
-        ...sessionCreate(token),
-        tokenHash: tokenHashCreate("different-token")
-      }
+    const { token } = await seedSession({
+      tokenHashOverride: createHash("sha256").update("different-token").digest("hex")
     });
 
-    await expect(accountSessionResolve(requestCreate(token), context)).rejects.toMatchObject({
+    await expect(accountSessionResolve(requestCreate(token), live.context)).rejects.toMatchObject({
       statusCode: 401,
       code: "UNAUTHORIZED"
     });

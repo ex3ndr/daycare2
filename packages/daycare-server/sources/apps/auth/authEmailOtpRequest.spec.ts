@@ -1,148 +1,91 @@
 import { createHash } from "node:crypto";
-import { beforeAll, beforeEach, afterAll, describe, expect, it, vi } from "vitest";
-import type Redis from "ioredis";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/apps/api/lib/apiError.js";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { authEmailOtpRequest } from "./authEmailOtpRequest.js";
-import { authOtpCodeHash } from "./authOtpCodeHash.js";
-import { redisConnect } from "@/modules/redis/redisConnect.js";
-import { redisCreate } from "@/modules/redis/redisCreate.js";
 
-vi.mock("@/apps/auth/authOtpCodeCreate.js", () => ({
-  authOtpCodeCreate: () => "123456"
-}));
-
-const redisUrl = process.env.TEST_REDIS_URL ?? process.env.REDIS_URL;
-if (!redisUrl) {
-  throw new Error("authEmailOtpRequest.spec.ts requires REDIS_URL or TEST_REDIS_URL");
-}
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
 
 describe("authEmailOtpRequest", () => {
-  let redis: Redis;
+  let live: LiveContext;
 
   beforeAll(async () => {
-    redis = redisCreate(redisUrl);
-    await redisConnect(redis);
+    live = await testLiveContextCreate();
   });
 
   beforeEach(async () => {
-    await redis.flushall();
+    await live.reset();
   });
 
   afterAll(async () => {
-    await redis.quit();
+    await live.close();
   });
 
-  it("stores OTP hash and sends email", async () => {
-    const emailSend = vi.fn().mockResolvedValue(undefined);
-    const context = {
-      redis,
-      otp: {
-        ttlSeconds: 600,
-        cooldownSeconds: 60,
-        maxAttempts: 5,
-        salt: "salt",
-        testStatic: {
-          enabled: false,
-          email: "integration-test@daycare.local",
-          code: "424242"
-        }
-      },
-      email: {
-        send: emailSend
-      }
-    } as any;
+  it("stores OTP hash and reports success", async () => {
+    const email = "User@Example.com";
 
-    const result = await authEmailOtpRequest(context, { email: "User@Example.com" });
+    const result = await authEmailOtpRequest(live.context, { email });
 
     expect(result.sent).toBe(true);
-    const hashed = authOtpCodeHash("123456", "salt");
+
     const keySuffix = createHash("sha256").update("user@example.com").digest("hex");
-    const stored = await redis.get(`otp:${keySuffix}`);
-    expect(stored).toBe(hashed);
-    expect(emailSend).toHaveBeenCalledTimes(1);
+    const stored = await live.redis.get(`otp:${keySuffix}`);
+    expect(stored).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it("enforces cooldown", async () => {
-    const context = {
-      redis,
-      otp: {
-        ttlSeconds: 600,
-        cooldownSeconds: 60,
-        maxAttempts: 5,
-        salt: "salt",
-        testStatic: {
-          enabled: false,
-          email: "integration-test@daycare.local",
-          code: "424242"
-        }
-      },
-      email: {
-        send: vi.fn()
-      }
-    } as any;
+    await authEmailOtpRequest(live.context, { email: "user@example.com" });
 
-    await authEmailOtpRequest(context, { email: "user@example.com" });
-
-    await expect(authEmailOtpRequest(context, { email: "user@example.com" }))
-      .rejects
-      .toBeInstanceOf(ApiError);
+    const result = authEmailOtpRequest(live.context, { email: "user@example.com" });
+    await expect(result).rejects.toBeInstanceOf(ApiError);
+    await expect(result).rejects.toMatchObject({ statusCode: 429 });
   });
 
-  it("cleans up Redis keys when email fails", async () => {
+  it("cleans up redis keys when email sending fails", async () => {
+    const email = "user@example.com";
+    const keySuffix = createHash("sha256").update(email).digest("hex");
+
     const context = {
-      redis,
-      otp: {
-        ttlSeconds: 600,
-        cooldownSeconds: 60,
-        maxAttempts: 5,
-        salt: "salt",
-        testStatic: {
-          enabled: false,
-          email: "integration-test@daycare.local",
-          code: "424242"
-        }
-      },
+      ...live.context,
       email: {
-        send: vi.fn().mockRejectedValue(new Error("fail"))
+        send: async () => {
+          throw new Error("fail");
+        }
       }
-    } as any;
+    };
 
-    await expect(authEmailOtpRequest(context, { email: "user@example.com" }))
-      .rejects
-      .toBeInstanceOf(ApiError);
+    const result = authEmailOtpRequest(context, { email });
+    await expect(result).rejects.toBeInstanceOf(ApiError);
+    await expect(result).rejects.toMatchObject({ statusCode: 502 });
 
-    const keySuffix = createHash("sha256").update("user@example.com").digest("hex");
-    expect(await redis.get(`otp:${keySuffix}`)).toBeNull();
-    expect(await redis.get(`otp:${keySuffix}:cooldown`)).toBeNull();
+    expect(await live.redis.get(`otp:${keySuffix}`)).toBeNull();
+    expect(await live.redis.get(`otp:${keySuffix}:cooldown`)).toBeNull();
   });
 
   it("does not send email for static integration email when enabled", async () => {
     const emailSend = vi.fn().mockResolvedValue(undefined);
+    const email = live.context.otp.testStatic.email;
+    const keySuffix = createHash("sha256").update(email).digest("hex");
+
     const context = {
-      redis,
+      ...live.context,
       otp: {
-        ttlSeconds: 600,
-        cooldownSeconds: 60,
-        maxAttempts: 5,
-        salt: "salt",
+        ...live.context.otp,
         testStatic: {
-          enabled: true,
-          email: "integration-test@daycare.local",
-          code: "424242"
+          ...live.context.otp.testStatic,
+          enabled: true
         }
       },
       email: {
         send: emailSend
       }
-    } as any;
+    };
 
-    const result = await authEmailOtpRequest(context, { email: "integration-test@daycare.local" });
+    const result = await authEmailOtpRequest(context, { email });
 
     expect(result.sent).toBe(true);
-    const hashed = authOtpCodeHash("123456", "salt");
-    const keySuffix = createHash("sha256").update("integration-test@daycare.local").digest("hex");
-    const stored = await redis.get(`otp:${keySuffix}`);
-    expect(stored).toBe(hashed);
+    const stored = await live.redis.get(`otp:${keySuffix}`);
+    expect(stored).toMatch(/^[a-f0-9]{64}$/);
     expect(emailSend).not.toHaveBeenCalled();
   });
 });

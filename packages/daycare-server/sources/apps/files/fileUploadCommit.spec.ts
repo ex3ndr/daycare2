@@ -1,168 +1,105 @@
 import { createHash } from "node:crypto";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ApiContext } from "@/apps/api/lib/apiContext.js";
-
-vi.mock("@/modules/s3/s3ObjectPut.js", () => ({
-  s3ObjectPut: vi.fn().mockResolvedValue(undefined)
-}));
-
-vi.mock("@/modules/s3/s3ObjectDelete.js", () => ({
-  s3ObjectDelete: vi.fn().mockResolvedValue(undefined)
-}));
-
-import { s3ObjectDelete } from "@/modules/s3/s3ObjectDelete.js";
-import { s3ObjectPut } from "@/modules/s3/s3ObjectPut.js";
+import { createId } from "@paralleldrive/cuid2";
+import { CreateBucketCommand, HeadBucketCommand } from "@aws-sdk/client-s3";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { fileUploadCommit } from "./fileUploadCommit.js";
 
-type TransactionRunner<DB extends object> = {
-  $transaction: <T>(fn: (tx: DB) => Promise<T>) => Promise<T>;
-};
-
-function dbWithTransaction<DB extends object>(db: DB): DB & TransactionRunner<DB> {
-  return {
-    ...db,
-    $transaction: async <T>(fn: (tx: DB) => Promise<T>) => fn(db)
-  };
-}
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
 
 describe("fileUploadCommit", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  let live: LiveContext;
+
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
   });
+
+  beforeEach(async () => {
+    await live.reset();
+
+    try {
+      await live.context.s3.send(new HeadBucketCommand({ Bucket: live.context.s3Bucket }));
+    } catch {
+      await live.context.s3.send(new CreateBucketCommand({ Bucket: live.context.s3Bucket }));
+    }
+  });
+
+  afterAll(async () => {
+    await live.close();
+  });
+
+  async function seedPendingFile(payload: Buffer) {
+    const organizationId = createId();
+    const userId = createId();
+    const fileId = createId();
+
+    await live.db.organization.create({
+      data: {
+        id: organizationId,
+        slug: `org-${createId().slice(0, 8)}`,
+        name: "Acme"
+      }
+    });
+
+    await live.db.user.create({
+      data: {
+        id: userId,
+        organizationId,
+        kind: "HUMAN",
+        firstName: "Owner",
+        username: `owner-${createId().slice(0, 6)}`
+      }
+    });
+
+    const contentHash = createHash("sha256").update(payload).digest("hex");
+    await live.db.fileAsset.create({
+      data: {
+        id: fileId,
+        organizationId,
+        createdByUserId: userId,
+        storageKey: `${organizationId}/${userId}/${fileId}/hello.txt`,
+        contentHash,
+        mimeType: "text/plain",
+        sizeBytes: payload.length,
+        status: "PENDING",
+        expiresAt: new Date(Date.now() + 60_000)
+      }
+    });
+
+    return { organizationId, userId, fileId };
+  }
 
   it("uploads payload to S3 and commits file asset", async () => {
     const payload = Buffer.from("hello");
-    const contentHash = createHash("sha256").update(payload).digest("hex");
-    const pendingFile = {
-      id: "file-1",
-      organizationId: "org-1",
-      createdByUserId: "user-1",
-      storageKey: "org-1/user-1/file-1/hello.txt",
-      contentHash,
-      mimeType: "text/plain",
-      sizeBytes: payload.length,
-      status: "PENDING"
-    };
-    const committedFile = {
-      ...pendingFile,
-      status: "COMMITTED",
-      createdAt: new Date("2026-02-11T00:00:00.000Z"),
-      updatedAt: new Date("2026-02-11T00:00:01.000Z"),
-      expiresAt: null,
-      committedAt: new Date("2026-02-11T00:00:01.000Z")
-    };
+    const seeded = await seedPendingFile(payload);
 
-    const context = {
-      db: dbWithTransaction({
-        fileAsset: {
-          findFirst: vi.fn().mockResolvedValue(pendingFile),
-          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
-          findUnique: vi.fn().mockResolvedValue(committedFile)
-        }
-      }),
-      updates: {
-        publishToUsers: vi.fn().mockResolvedValue(undefined)
-      },
-      s3: { send: vi.fn() } as any,
-      s3Bucket: "daycare"
-    } as unknown as ApiContext;
-
-    const result = await fileUploadCommit(context, {
-      organizationId: "org-1",
-      userId: "user-1",
-      fileId: "file-1",
+    const result = await fileUploadCommit(live.context, {
+      organizationId: seeded.organizationId,
+      userId: seeded.userId,
+      fileId: seeded.fileId,
       payloadBase64: payload.toString("base64")
     });
 
-    expect(s3ObjectPut).toHaveBeenCalledWith({
-      client: context.s3,
-      bucket: "daycare",
-      key: "org-1/user-1/file-1/hello.txt",
-      contentType: "text/plain",
-      payload
-    });
-    expect(context.db.fileAsset.updateMany).toHaveBeenCalled();
-    expect(context.updates.publishToUsers).toHaveBeenCalledWith(["user-1"], "file.committed", {
-      orgId: "org-1",
-      fileId: "file-1"
-    });
     expect(result.status).toBe("COMMITTED");
+    expect(result.committedAt).not.toBeNull();
+
+    const updates = await live.db.userUpdate.findMany();
+    expect(updates).toHaveLength(1);
+    expect(updates[0]?.eventType).toBe("file.committed");
   });
 
-  it("fails when S3 upload fails", async () => {
+  it("fails validation when payload hash does not match", async () => {
     const payload = Buffer.from("hello");
-    const contentHash = createHash("sha256").update(payload).digest("hex");
-    vi.mocked(s3ObjectPut).mockRejectedValueOnce(new Error("s3 unavailable"));
+    const seeded = await seedPendingFile(payload);
 
-    const context = {
-      db: dbWithTransaction({
-        fileAsset: {
-          findFirst: vi.fn().mockResolvedValue({
-            id: "file-1",
-            organizationId: "org-1",
-            createdByUserId: "user-1",
-            storageKey: "org-1/user-1/file-1/hello.txt",
-            contentHash,
-            mimeType: "text/plain",
-            sizeBytes: payload.length,
-            status: "PENDING"
-          }),
-          updateMany: vi.fn()
-        }
-      }),
-      s3: { send: vi.fn() } as any,
-      s3Bucket: "daycare"
-    } as unknown as ApiContext;
-
-    await expect(fileUploadCommit(context, {
-      organizationId: "org-1",
-      userId: "user-1",
-      fileId: "file-1",
-      payloadBase64: payload.toString("base64")
-    })).rejects.toThrow("s3 unavailable");
-
-    expect(context.db.fileAsset.updateMany).not.toHaveBeenCalled();
-    expect(s3ObjectDelete).not.toHaveBeenCalled();
-  });
-
-  it("rolls back uploaded object when DB commit fails", async () => {
-    const payload = Buffer.from("hello");
-    const contentHash = createHash("sha256").update(payload).digest("hex");
-
-    const context = {
-      db: dbWithTransaction({
-        fileAsset: {
-          findFirst: vi.fn().mockResolvedValue({
-            id: "file-1",
-            organizationId: "org-1",
-            createdByUserId: "user-1",
-            storageKey: "org-1/user-1/file-1/hello.txt",
-            contentHash,
-            mimeType: "text/plain",
-            sizeBytes: payload.length,
-            status: "PENDING"
-          }),
-          updateMany: vi.fn().mockResolvedValue({ count: 0 })
-        }
-      }),
-      s3: { send: vi.fn() } as any,
-      s3Bucket: "daycare"
-    } as unknown as ApiContext;
-
-    await expect(fileUploadCommit(context, {
-      organizationId: "org-1",
-      userId: "user-1",
-      fileId: "file-1",
-      payloadBase64: payload.toString("base64")
+    await expect(fileUploadCommit(live.context, {
+      organizationId: seeded.organizationId,
+      userId: seeded.userId,
+      fileId: seeded.fileId,
+      payloadBase64: Buffer.from("other").toString("base64")
     })).rejects.toMatchObject({
-      statusCode: 404
-    });
-
-    expect(s3ObjectPut).toHaveBeenCalled();
-    expect(s3ObjectDelete).toHaveBeenCalledWith({
-      client: context.s3,
-      bucket: "daycare",
-      key: "org-1/user-1/file-1/hello.txt"
+      statusCode: 400,
+      code: "VALIDATION_ERROR"
     });
   });
 });

@@ -1,80 +1,83 @@
-import type { FastifyReply, FastifyRequest } from "fastify";
-import type { ApiContext } from "./apiContext.js";
-import { describe, expect, it, vi } from "vitest";
+import Fastify from "fastify";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
+import { rateLimitMiddleware } from "./rateLimitMiddleware.js";
 
-const rateLimitCheckMock = vi.fn();
-
-vi.mock("@/modules/rateLimit/rateLimitCheck.js", () => ({
-  rateLimitCheck: rateLimitCheckMock
-}));
-
-function replyCreate(): FastifyReply {
-  const reply = {
-    header: vi.fn(),
-    status: vi.fn(),
-    send: vi.fn().mockResolvedValue(undefined)
-  };
-
-  reply.header.mockReturnValue(reply);
-  reply.status.mockReturnValue(reply);
-
-  return reply as unknown as FastifyReply;
-}
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
 
 describe("rateLimitMiddleware", () => {
+  let live: LiveContext;
+
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
+  });
+
+  beforeEach(async () => {
+    await live.reset();
+  });
+
+  afterAll(async () => {
+    await live.close();
+  });
+
   it("passes through when under the limit", async () => {
-    rateLimitCheckMock.mockResolvedValue({
-      allowed: true,
-      remaining: 4,
-      retryAfterSeconds: 0
-    });
-    const { rateLimitMiddleware } = await import("./rateLimitMiddleware.js");
-    const middleware = rateLimitMiddleware({
-      redis: {}
-    } as ApiContext, {
+    const app = Fastify();
+    const middleware = rateLimitMiddleware(live.context, {
       scope: "messages.send",
       keyCreate: () => "user-1",
       limit: 5,
       windowSeconds: 60
     });
 
-    const reply = replyCreate();
-    const allowed = await middleware({} as FastifyRequest, reply);
+    app.get("/limited", async (request, reply) => {
+      const allowed = await middleware(request, reply);
+      if (!allowed) {
+        return;
+      }
+      return { ok: true };
+    });
 
-    expect(allowed).toBe(true);
-    expect(rateLimitCheckMock).toHaveBeenCalledTimes(1);
-    expect(reply.send).not.toHaveBeenCalled();
+    const response = await app.inject({ method: "GET", url: "/limited" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ ok: true });
+
+    await app.close();
   });
 
   it("returns 429 with Retry-After when over limit", async () => {
-    rateLimitCheckMock.mockResolvedValue({
-      allowed: false,
-      remaining: 0,
-      retryAfterSeconds: 12
-    });
-    const { rateLimitMiddleware } = await import("./rateLimitMiddleware.js");
-    const middleware = rateLimitMiddleware({
-      redis: {}
-    } as ApiContext, {
+    const app = Fastify();
+    const middleware = rateLimitMiddleware(live.context, {
       scope: "messages.send",
       keyCreate: () => "user-1",
-      limit: 5,
+      limit: 1,
       windowSeconds: 60
     });
 
-    const reply = replyCreate();
-    const allowed = await middleware({} as FastifyRequest, reply);
-
-    expect(allowed).toBe(false);
-    expect(reply.header).toHaveBeenCalledWith("Retry-After", "12");
-    expect(reply.status).toHaveBeenCalledWith(429);
-    expect(reply.send).toHaveBeenCalledWith({
-      ok: false,
-      error: {
-        code: "RATE_LIMITED",
-        message: "Rate limit exceeded",
-        details: undefined
+    app.get("/limited", async (request, reply) => {
+      const allowed = await middleware(request, reply);
+      if (!allowed) {
+        return;
       }
+      return { ok: true };
     });
+
+    const first = await app.inject({ method: "GET", url: "/limited" });
+    expect(first.statusCode).toBe(200);
+
+    const second = await app.inject({ method: "GET", url: "/limited" });
+    expect(second.statusCode).toBe(429);
+    expect(second.headers["retry-after"]).toBeDefined();
+
+    const payload = second.json() as {
+      ok: boolean;
+      error: {
+        code: string;
+      };
+    };
+    expect(payload.ok).toBe(false);
+    expect(payload.error.code).toBe("RATE_LIMITED");
+
+    await app.close();
   });
 });

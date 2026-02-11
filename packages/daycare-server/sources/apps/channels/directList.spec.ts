@@ -1,142 +1,140 @@
-import { describe, expect, it, vi } from "vitest";
-import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { createId } from "@paralleldrive/cuid2";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { directList } from "./directList.js";
 
-describe("directList", () => {
-  it("returns an empty list when user has no directs", async () => {
-    const context = {
-      db: {
-        chatMember: {
-          findMany: vi.fn().mockResolvedValue([])
-        }
-      }
-    } as unknown as ApiContext;
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
 
-    const directs = await directList(context, {
-      organizationId: "org-1",
-      userId: "user-1"
+describe("directList", () => {
+  let live: LiveContext;
+
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
+  });
+
+  beforeEach(async () => {
+    await live.reset();
+  });
+
+  afterAll(async () => {
+    await live.close();
+  });
+
+  async function seedUsers() {
+    const orgId = createId();
+    const user1Id = createId();
+    const user2Id = createId();
+    const user3Id = createId();
+
+    await live.db.organization.create({
+      data: {
+        id: orgId,
+        slug: `org-${createId().slice(0, 8)}`,
+        name: "Acme"
+      }
+    });
+
+    await live.db.user.createMany({
+      data: [
+        {
+          id: user1Id,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Alice",
+          username: `alice-${createId().slice(0, 6)}`
+        },
+        {
+          id: user2Id,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Bob",
+          username: `bob-${createId().slice(0, 6)}`
+        },
+        {
+          id: user3Id,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Carol",
+          username: `carol-${createId().slice(0, 6)}`
+        }
+      ]
+    });
+
+    return { orgId, user1Id, user2Id, user3Id };
+  }
+
+  async function directCreateWithMembers(orgId: string, userIdA: string, userIdB: string, leftUserId?: string) {
+    const chatId = createId();
+    await live.db.chat.create({
+      data: {
+        id: chatId,
+        organizationId: orgId,
+        createdByUserId: userIdA,
+        kind: "DIRECT",
+        visibility: "PRIVATE",
+        directKey: [userIdA, userIdB].sort().join(":")
+      }
+    });
+
+    await live.db.chatMember.createMany({
+      data: [
+        {
+          id: createId(),
+          chatId,
+          userId: userIdA,
+          role: "MEMBER",
+          notificationLevel: "ALL"
+        },
+        {
+          id: createId(),
+          chatId,
+          userId: userIdB,
+          role: "MEMBER",
+          notificationLevel: "ALL",
+          leftAt: leftUserId === userIdB ? new Date("2026-02-11T00:00:00.000Z") : null
+        }
+      ]
+    });
+
+    return chatId;
+  }
+
+  it("returns an empty list when user has no directs", async () => {
+    const { orgId, user1Id } = await seedUsers();
+
+    const directs = await directList(live.context, {
+      organizationId: orgId,
+      userId: user1Id
     });
 
     expect(directs).toEqual([]);
   });
 
-  it("returns multiple directs with other user details", async () => {
-    const context = {
-      db: {
-        chatMember: {
-          findMany: vi.fn().mockResolvedValue([
-            {
-              chat: {
-                id: "chat-1",
-                organizationId: "org-1",
-                createdByUserId: "user-1",
-                kind: "DIRECT",
-                visibility: "PRIVATE",
-                directKey: "user-1:user-2",
-                name: null,
-                topic: null,
-                createdAt: new Date("2026-02-11T00:00:00.000Z"),
-                updatedAt: new Date("2026-02-11T00:00:00.000Z"),
-                archivedAt: null,
-                members: [{
-                  user: {
-                    id: "user-2",
-                    organizationId: "org-1",
-                    accountId: "account-2",
-                    kind: "HUMAN",
-                    username: "bob",
-                    firstName: "Bob",
-                    lastName: null,
-                    bio: null,
-                    timezone: null,
-                    avatarUrl: null,
-                    systemPrompt: null,
-                    createdAt: new Date("2026-02-11T00:00:00.000Z"),
-                    updatedAt: new Date("2026-02-11T00:00:00.000Z"),
-                    lastSeenAt: null
-                  }
-                }]
-              }
-            },
-            {
-              chat: {
-                id: "chat-2",
-                organizationId: "org-1",
-                createdByUserId: "user-1",
-                kind: "DIRECT",
-                visibility: "PRIVATE",
-                directKey: "user-1:user-3",
-                name: null,
-                topic: null,
-                createdAt: new Date("2026-02-11T00:00:00.000Z"),
-                updatedAt: new Date("2026-02-11T00:00:00.000Z"),
-                archivedAt: null,
-                members: [{
-                  user: {
-                    id: "user-3",
-                    organizationId: "org-1",
-                    accountId: "account-3",
-                    kind: "HUMAN",
-                    username: "carol",
-                    firstName: "Carol",
-                    lastName: "A",
-                    bio: null,
-                    timezone: null,
-                    avatarUrl: "https://example.com/avatar.png",
-                    systemPrompt: null,
-                    createdAt: new Date("2026-02-11T00:00:00.000Z"),
-                    updatedAt: new Date("2026-02-11T00:00:00.000Z"),
-                    lastSeenAt: null
-                  }
-                }]
-              }
-            }
-          ])
-        }
-      }
-    } as unknown as ApiContext;
+  it("returns direct chats with other user details", async () => {
+    const { orgId, user1Id, user2Id, user3Id } = await seedUsers();
 
-    const directs = await directList(context, {
-      organizationId: "org-1",
-      userId: "user-1"
+    await directCreateWithMembers(orgId, user1Id, user2Id);
+    await directCreateWithMembers(orgId, user1Id, user3Id);
+
+    const directs = await directList(live.context, {
+      organizationId: orgId,
+      userId: user1Id
     });
 
     expect(directs).toHaveLength(2);
-    expect(directs[0]?.chat.id).toBe("chat-1");
-    expect(directs[0]?.otherUser.username).toBe("bob");
-    expect(directs[1]?.chat.id).toBe("chat-2");
-    expect(directs[1]?.otherUser.username).toBe("carol");
+
+    const otherUserIds = directs.map((direct) => direct.otherUser.id);
+    expect(new Set(otherUserIds)).toEqual(new Set([user2Id, user3Id]));
   });
 
-  it("excludes direct chats without an active peer member", async () => {
-    const context = {
-      db: {
-        chatMember: {
-          findMany: vi.fn().mockResolvedValue([
-            {
-              chat: {
-                id: "chat-1",
-                organizationId: "org-1",
-                createdByUserId: "user-1",
-                kind: "DIRECT",
-                visibility: "PRIVATE",
-                directKey: "user-1:user-2",
-                name: null,
-                topic: null,
-                createdAt: new Date("2026-02-11T00:00:00.000Z"),
-                updatedAt: new Date("2026-02-11T00:00:00.000Z"),
-                archivedAt: null,
-                members: []
-              }
-            }
-          ])
-        }
-      }
-    } as unknown as ApiContext;
+  it("excludes directs without an active peer member", async () => {
+    const { orgId, user1Id, user2Id } = await seedUsers();
 
-    const directs = await directList(context, {
-      organizationId: "org-1",
-      userId: "user-1"
+    await directCreateWithMembers(orgId, user1Id, user2Id, user2Id);
+
+    const directs = await directList(live.context, {
+      organizationId: orgId,
+      userId: user1Id
     });
 
     expect(directs).toEqual([]);

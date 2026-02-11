@@ -1,27 +1,20 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const redisMock = vi.fn();
-
-vi.mock("ioredis", () => ({
-  default: redisMock
-}));
+import { describe, expect, it } from "vitest";
+import { redisConnect } from "./redisConnect.js";
+import { redisCreate } from "./redisCreate.js";
 
 describe("redisCreate", () => {
-  beforeEach(() => {
-    redisMock.mockReset();
-  });
+  it("creates redis client with expected defaults and can connect", async () => {
+    const redisUrl = process.env.TEST_REDIS_URL ?? process.env.REDIS_URL;
+    if (!redisUrl) {
+      throw new Error("redisCreate.spec.ts requires REDIS_URL or TEST_REDIS_URL");
+    }
 
-  it("creates redis client with default connection options", async () => {
-    const client = { id: "redis-client" };
-    redisMock.mockImplementation(() => client);
+    const client = redisCreate(redisUrl);
+    await redisConnect(client);
 
-    const { redisCreate } = await import("./redisCreate.js");
-    const result = redisCreate("redis://localhost:6379");
+    const pong = await client.ping();
+    expect(pong).toBe("PONG");
 
-    expect(redisMock).toHaveBeenCalledWith("redis://localhost:6379", {
-      lazyConnect: true,
-      maxRetriesPerRequest: 2
-    });
-    expect(result).toBe(client);
+    await client.quit();
   });
 });

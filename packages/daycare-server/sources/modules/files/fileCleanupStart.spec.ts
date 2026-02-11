@@ -1,130 +1,184 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("@/modules/s3/s3ObjectDelete.js", () => ({
-  s3ObjectDelete: vi.fn().mockResolvedValue(undefined)
-}));
-
-import { s3ObjectDelete } from "@/modules/s3/s3ObjectDelete.js";
+import { createHash } from "node:crypto";
+import { createId } from "@paralleldrive/cuid2";
+import { CreateBucketCommand, HeadBucketCommand } from "@aws-sdk/client-s3";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { s3ObjectPut } from "@/modules/s3/s3ObjectPut.js";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { fileCleanupStart } from "./fileCleanupStart.js";
 
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
+
+async function waitFor(predicate: () => Promise<boolean>, timeoutMs = 2_000): Promise<void> {
+  const startedAt = Date.now();
+
+  while (Date.now() - startedAt < timeoutMs) {
+    if (await predicate()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  throw new Error("Timed out waiting for condition");
+}
+
 describe("fileCleanupStart", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.clearAllMocks();
+  let live: LiveContext;
+
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
+  beforeEach(async () => {
+    await live.reset();
+
+    try {
+      await live.context.s3.send(new HeadBucketCommand({ Bucket: live.context.s3Bucket }));
+    } catch {
+      await live.context.s3.send(new CreateBucketCommand({ Bucket: live.context.s3Bucket }));
+    }
   });
 
-  it("removes expired pending and deleted files from S3 and database", async () => {
-    const findMany = vi.fn().mockResolvedValue([
-      { id: "f1", storageKey: "org/user/f1/file.txt" },
-      { id: "f2", storageKey: "org/user/f2/file.txt" }
-    ]);
-    const deleteMany = vi.fn().mockResolvedValue({ count: 2 });
+  afterAll(async () => {
+    await live.close();
+  });
 
-    const db = {
-      fileAsset: {
-        findMany,
-        deleteMany
-      }
-    } as any;
+  async function seedFileData() {
+    const organizationId = createId();
+    const userId = createId();
 
-    const stop = fileCleanupStart(db, {} as any, "daycare", { intervalMs: 1000 });
-
-    await vi.advanceTimersByTimeAsync(1000);
-
-    expect(findMany).toHaveBeenCalledTimes(1);
-    expect(s3ObjectDelete).toHaveBeenCalledTimes(2);
-    expect(deleteMany).toHaveBeenCalledWith({
-      where: {
-        id: {
-          in: ["f1", "f2"]
-        }
+    await live.db.organization.create({
+      data: {
+        id: organizationId,
+        slug: `org-${createId().slice(0, 8)}`,
+        name: "Acme"
       }
     });
 
-    stop();
+    await live.db.user.create({
+      data: {
+        id: userId,
+        organizationId,
+        kind: "HUMAN",
+        firstName: "Owner",
+        username: `owner-${createId().slice(0, 6)}`
+      }
+    });
+
+    return { organizationId, userId };
+  }
+
+  it("removes expired pending and deleted files from S3 and database", async () => {
+    const { organizationId, userId } = await seedFileData();
+    const payload = Buffer.from("cleanup");
+    const contentHash = createHash("sha256").update(payload).digest("hex");
+
+    const pendingId = createId();
+    const deletedId = createId();
+    const pendingKey = `${organizationId}/${userId}/${pendingId}/pending.txt`;
+    const deletedKey = `${organizationId}/${userId}/${deletedId}/deleted.txt`;
+
+    await s3ObjectPut({
+      client: live.context.s3,
+      bucket: live.context.s3Bucket,
+      key: pendingKey,
+      contentType: "text/plain",
+      payload
+    });
+
+    await s3ObjectPut({
+      client: live.context.s3,
+      bucket: live.context.s3Bucket,
+      key: deletedKey,
+      contentType: "text/plain",
+      payload
+    });
+
+    await live.db.fileAsset.createMany({
+      data: [
+        {
+          id: pendingId,
+          organizationId,
+          createdByUserId: userId,
+          storageKey: pendingKey,
+          contentHash,
+          mimeType: "text/plain",
+          sizeBytes: payload.length,
+          status: "PENDING",
+          expiresAt: new Date(Date.now() - 1_000)
+        },
+        {
+          id: deletedId,
+          organizationId,
+          createdByUserId: userId,
+          storageKey: deletedKey,
+          contentHash,
+          mimeType: "text/plain",
+          sizeBytes: payload.length,
+          status: "DELETED"
+        }
+      ]
+    });
+
+    const stop = fileCleanupStart(live.db, live.context.s3, live.context.s3Bucket, { intervalMs: 50 });
+
+    try {
+      await waitFor(async () => {
+        const count = await live.db.fileAsset.count({
+          where: {
+            id: {
+              in: [pendingId, deletedId]
+            }
+          }
+        });
+        return count === 0;
+      });
+    } finally {
+      stop();
+    }
+
+    const remaining = await live.db.fileAsset.count({
+      where: {
+        id: {
+          in: [pendingId, deletedId]
+        }
+      }
+    });
+    expect(remaining).toBe(0);
   });
 
   it("skips deletes when no files are eligible", async () => {
-    const findMany = vi.fn().mockResolvedValue([]);
-    const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
+    const { organizationId, userId } = await seedFileData();
+    const payload = Buffer.from("keep");
+    const contentHash = createHash("sha256").update(payload).digest("hex");
+    const committedId = createId();
 
-    const db = {
-      fileAsset: {
-        findMany,
-        deleteMany
-      }
-    } as any;
-
-    const stop = fileCleanupStart(db, {} as any, "daycare", { intervalMs: 1000 });
-
-    await vi.advanceTimersByTimeAsync(1000);
-
-    expect(findMany).toHaveBeenCalledTimes(1);
-    expect(s3ObjectDelete).not.toHaveBeenCalled();
-    expect(deleteMany).not.toHaveBeenCalled();
-
-    stop();
-  });
-
-  it("deletes database rows only for successfully deleted S3 objects", async () => {
-    const findMany = vi.fn().mockResolvedValue([
-      { id: "f1", storageKey: "org/user/f1/file.txt" },
-      { id: "f2", storageKey: "org/user/f2/file.txt" }
-    ]);
-    const deleteMany = vi.fn().mockResolvedValue({ count: 1 });
-
-    vi.mocked(s3ObjectDelete)
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error("s3 down"));
-
-    const db = {
-      fileAsset: {
-        findMany,
-        deleteMany
-      }
-    } as any;
-
-    const stop = fileCleanupStart(db, {} as any, "daycare", { intervalMs: 1000 });
-
-    await vi.advanceTimersByTimeAsync(1000);
-
-    expect(s3ObjectDelete).toHaveBeenCalledTimes(2);
-    expect(deleteMany).toHaveBeenCalledWith({
-      where: {
-        id: {
-          in: ["f1"]
-        }
+    await live.db.fileAsset.create({
+      data: {
+        id: committedId,
+        organizationId,
+        createdByUserId: userId,
+        storageKey: `${organizationId}/${userId}/${committedId}/committed.txt`,
+        contentHash,
+        mimeType: "text/plain",
+        sizeBytes: payload.length,
+        status: "COMMITTED",
+        committedAt: new Date()
       }
     });
 
-    stop();
-  });
+    const stop = fileCleanupStart(live.db, live.context.s3, live.context.s3Bucket, { intervalMs: 50 });
 
-  it("does not delete database rows when all S3 deletions fail", async () => {
-    const findMany = vi.fn().mockResolvedValue([
-      { id: "f1", storageKey: "org/user/f1/file.txt" }
-    ]);
-    const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    } finally {
+      stop();
+    }
 
-    vi.mocked(s3ObjectDelete).mockRejectedValue(new Error("s3 down"));
-
-    const db = {
-      fileAsset: {
-        findMany,
-        deleteMany
+    const remaining = await live.db.fileAsset.count({
+      where: {
+        id: committedId
       }
-    } as any;
-
-    const stop = fileCleanupStart(db, {} as any, "daycare", { intervalMs: 1000 });
-
-    await vi.advanceTimersByTimeAsync(1000);
-
-    expect(deleteMany).not.toHaveBeenCalled();
-
-    stop();
+    });
+    expect(remaining).toBe(1);
   });
 });

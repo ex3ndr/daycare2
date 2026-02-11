@@ -1,11 +1,29 @@
-import type { FastifyInstance } from "fastify";
 import { z } from "zod";
-import type { ApiContext } from "./lib/apiContext.js";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ApiError } from "./lib/apiError.js";
-import { describe, expect, it, vi } from "vitest";
+import { apiCreate } from "./apiCreate.js";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 
-vi.mock("./routes/_routes.js", () => ({
-  routesRegister: vi.fn(async (app: FastifyInstance) => {
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
+
+describe("apiCreate", () => {
+  let live: LiveContext;
+
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
+  });
+
+  beforeEach(async () => {
+    await live.reset();
+  });
+
+  afterAll(async () => {
+    await live.close();
+  });
+
+  it("maps ApiError, ZodError and internal errors to api envelopes", async () => {
+    const app = await apiCreate(live.context);
+
     app.get("/throw/api-error", async () => {
       throw new ApiError(418, "TEAPOT", "short and stout", { kettle: true });
     });
@@ -20,21 +38,8 @@ vi.mock("./routes/_routes.js", () => ({
     app.get("/throw/internal-error", async () => {
       throw new Error("boom");
     });
-  })
-}));
-
-import { routesRegister } from "./routes/_routes.js";
-import { apiCreate } from "./apiCreate.js";
-
-describe("apiCreate", () => {
-  it("registers routes and maps errors to api envelopes", async () => {
-    const routesRegisterMock = vi.mocked(routesRegister);
-    const context = {} as ApiContext;
-    const app = await apiCreate(context);
 
     try {
-      expect(routesRegisterMock).toHaveBeenCalledWith(expect.anything(), context);
-
       const apiErrorResponse = await app.inject({
         method: "GET",
         url: "/throw/api-error"

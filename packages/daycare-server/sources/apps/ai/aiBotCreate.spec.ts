@@ -1,56 +1,74 @@
-import { Prisma } from "@prisma/client";
-import { describe, expect, it, vi } from "vitest";
-import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { createId } from "@paralleldrive/cuid2";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { aiBotCreate } from "./aiBotCreate.js";
 
-describe("aiBotCreate", () => {
-  it("creates an AI bot user", async () => {
-    const context = {
-      db: {
-        user: {
-          create: vi.fn().mockResolvedValue({
-            id: "bot-1",
-            organizationId: "org-1",
-            kind: "AI",
-            username: "helper",
-            firstName: "Helper",
-            systemPrompt: "You are helpful",
-            webhookUrl: "https://example.com/webhook"
-          })
-        }
-      }
-    } as unknown as ApiContext;
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
 
-    const bot = await aiBotCreate(context, {
-      organizationId: "org-1",
-      username: "helper",
+describe("aiBotCreate", () => {
+  let live: LiveContext;
+
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
+  });
+
+  beforeEach(async () => {
+    await live.reset();
+  });
+
+  afterAll(async () => {
+    await live.close();
+  });
+
+  async function seedOrganization() {
+    const orgId = createId();
+
+    await live.db.organization.create({
+      data: {
+        id: orgId,
+        slug: `org-${createId().slice(0, 8)}`,
+        name: "Acme"
+      }
+    });
+
+    return { orgId };
+  }
+
+  it("creates an AI bot user", async () => {
+    const { orgId } = await seedOrganization();
+
+    const username = `helper-${createId().slice(0, 6)}`;
+    const bot = await aiBotCreate(live.context, {
+      organizationId: orgId,
+      username,
       firstName: "Helper",
       systemPrompt: "You are helpful",
       webhookUrl: "https://example.com/webhook"
     });
 
     expect(bot.kind).toBe("AI");
-    expect(bot.username).toBe("helper");
+    expect(bot.username).toBe(username);
   });
 
   it("rejects duplicate usernames", async () => {
-    const context = {
-      db: {
-        user: {
-          create: vi.fn().mockRejectedValue(new Prisma.PrismaClientKnownRequestError(
-            "duplicate",
-            {
-              code: "P2002",
-              clientVersion: "6.19.2"
-            }
-          ))
-        }
-      }
-    } as unknown as ApiContext;
+    const { orgId } = await seedOrganization();
+    const username = `helper-${createId().slice(0, 6)}`;
 
-    await expect(aiBotCreate(context, {
-      organizationId: "org-1",
-      username: "helper",
+    await live.db.user.create({
+      data: {
+        id: createId(),
+        organizationId: orgId,
+        kind: "AI",
+        firstName: "Existing",
+        username,
+        systemPrompt: "existing prompt",
+        webhookUrl: "https://example.com/existing"
+      }
+    });
+
+    await expect(aiBotCreate(live.context, {
+      organizationId: orgId,
+      username,
       firstName: "Helper",
       systemPrompt: "You are helpful",
       webhookUrl: "https://example.com/webhook"

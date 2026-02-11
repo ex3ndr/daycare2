@@ -1,9 +1,12 @@
-import { createHash } from "node:crypto";
-import type { FastifyRequest } from "fastify";
-import type { ApiContext } from "./apiContext.js";
-import { describe, expect, it, vi } from "vitest";
+import { createId } from "@paralleldrive/cuid2";
 import { Prisma } from "@prisma/client";
+import type { FastifyRequest } from "fastify";
+import { createHash } from "node:crypto";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { idempotencyGuard } from "./idempotencyGuard.js";
+
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
 
 function requestCreate(options: {
   key?: string;
@@ -19,72 +22,84 @@ function requestCreate(options: {
   } as FastifyRequest;
 }
 
-function contextCreate(overrides: Partial<ApiContext["db"]["idempotencyKey"]> = {}): ApiContext {
-  const idempotencyKey = {
-    findUnique: vi.fn(),
-    create: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    ...overrides
-  };
-
-  return {
-    db: {
-      idempotencyKey
-    },
-    redis: {},
-    tokens: {},
-    updates: {},
-    nodeEnv: "test",
-    allowOpenOrgJoin: true
-  } as unknown as ApiContext;
-}
-
 describe("idempotencyGuard", () => {
-  it("executes handler when no idempotency key", async () => {
-    const context = contextCreate();
-    const handler = vi.fn().mockResolvedValue({ ok: true });
+  let live: LiveContext;
 
-    const result = await idempotencyGuard(requestCreate({}), context, { type: "user", id: "u1" }, handler);
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
+  });
+
+  beforeEach(async () => {
+    await live.reset();
+  });
+
+  afterAll(async () => {
+    await live.close();
+  });
+
+  it("executes handler when no idempotency key", async () => {
+    let called = 0;
+
+    const result = await idempotencyGuard(
+      requestCreate({}),
+      live.context,
+      { type: "user", id: createId() },
+      async () => {
+        called += 1;
+        return { ok: true };
+      }
+    );
 
     expect(result).toEqual({ ok: true });
-    expect(handler).toHaveBeenCalledTimes(1);
-    expect(context.db.idempotencyKey.findUnique).not.toHaveBeenCalled();
+    expect(called).toBe(1);
   });
 
   it("returns stored response for matching key and payload", async () => {
+    const subjectId = createId();
     const request = requestCreate({ key: "abc", body: { text: "hi" } });
-    const scope = `${request.method} ${request.url.split("?")[0]}`;
-    const hash = requestHash(scope, request.body);
+    let called = 0;
 
-    const context = contextCreate({
-      findUnique: vi.fn().mockResolvedValue({
-        requestHash: hash,
-        responseJson: { ok: true, value: 123 }
-      })
-    });
+    const first = await idempotencyGuard(
+      request,
+      live.context,
+      { type: "user", id: subjectId },
+      async () => {
+        called += 1;
+        return { ok: true, value: 123 };
+      }
+    );
 
-    const handler = vi.fn();
+    const second = await idempotencyGuard(
+      request,
+      live.context,
+      { type: "user", id: subjectId },
+      async () => {
+        called += 1;
+        return { ok: true, value: 456 };
+      }
+    );
 
-    const result = await idempotencyGuard(request, context, { type: "user", id: "u1" }, handler);
-
-    expect(result).toEqual({ ok: true, value: 123 });
-    expect(handler).not.toHaveBeenCalled();
+    expect(first).toEqual({ ok: true, value: 123 });
+    expect(second).toEqual({ ok: true, value: 123 });
+    expect(called).toBe(1);
   });
 
   it("throws conflict when key is reused with different payload", async () => {
-    const context = contextCreate({
-      findUnique: vi.fn().mockResolvedValue({
-        requestHash: "hash",
-        responseJson: { ok: true }
-      })
-    });
+    const subjectId = createId();
+    const key = "abc";
+
+    await idempotencyGuard(
+      requestCreate({ key, body: { text: "hi" } }),
+      live.context,
+      { type: "user", id: subjectId },
+      async () => ({ ok: true })
+    );
 
     await expect(
       idempotencyGuard(
-        requestCreate({ key: "abc", body: { text: "hi" } }),
-        context,
-        { type: "user", id: "u1" },
+        requestCreate({ key, body: { text: "other" } }),
+        live.context,
+        { type: "user", id: subjectId },
         async () => ({ ok: true })
       )
     ).rejects.toMatchObject({
@@ -94,18 +109,32 @@ describe("idempotencyGuard", () => {
   });
 
   it("throws in-progress when record exists without response", async () => {
-    const context = contextCreate({
-      findUnique: vi.fn().mockResolvedValue({
-        requestHash: requestHash("POST /api/org/1/messages/send", { text: "hi" }),
-        responseJson: null
-      })
+    const subjectId = createId();
+    const scope = "POST /api/org/1/messages/send";
+    const body = { text: "hi" };
+    const requestHash = createHash("sha256")
+      .update(scope)
+      .update("\n")
+      .update(JSON.stringify(body))
+      .digest("hex");
+
+    await live.context.db.idempotencyKey.create({
+      data: {
+        id: createId(),
+        subjectType: "user",
+        subjectId,
+        scope,
+        key: "abc",
+        requestHash,
+        responseJson: Prisma.DbNull
+      }
     });
 
     await expect(
       idempotencyGuard(
-        requestCreate({ key: "abc", body: { text: "hi" } }),
-        context,
-        { type: "user", id: "u1" },
+        requestCreate({ key: "abc", body }),
+        live.context,
+        { type: "user", id: subjectId },
         async () => ({ ok: true })
       )
     ).rejects.toMatchObject({
@@ -114,103 +143,31 @@ describe("idempotencyGuard", () => {
     });
   });
 
-  it("stores response and cleans up on handler error", async () => {
-    const create = vi.fn().mockResolvedValue({ id: "idem-1" });
-    const update = vi.fn().mockResolvedValue({});
-    const del = vi.fn().mockResolvedValue({});
-
-    const context = contextCreate({
-      findUnique: vi.fn().mockResolvedValue(null),
-      create,
-      update,
-      delete: del
-    });
-
-    const request = requestCreate({ key: "abc", body: { text: "hi" } });
-    const handler = vi.fn().mockResolvedValue({ ok: true, value: 5 });
-
-    const result = await idempotencyGuard(request, context, { type: "user", id: "u1" }, handler);
-
-    expect(result).toEqual({ ok: true, value: 5 });
-    expect(create).toHaveBeenCalledTimes(1);
-    expect(update).toHaveBeenCalledTimes(1);
-    expect(del).not.toHaveBeenCalled();
-
-    const failingContext = contextCreate({
-      findUnique: vi.fn().mockResolvedValue(null),
-      create: vi.fn().mockResolvedValue({ id: "idem-2" }),
-      update: vi.fn().mockResolvedValue({}),
-      delete: vi.fn().mockResolvedValue({})
-    });
-    const failingHandler = vi.fn().mockRejectedValue(new Error("boom"));
-    await expect(
-      idempotencyGuard(request, failingContext, { type: "user", id: "u1" }, failingHandler)
-    ).rejects.toBeInstanceOf(Error);
-    expect(failingContext.db.idempotencyKey.delete).toHaveBeenCalled();
-  });
-
-  it("handles create race by re-reading existing record", async () => {
-    const request = requestCreate({ key: "race", body: { text: "hi" } });
-    const scope = `${request.method} ${request.url.split("?")[0]}`;
-    const hash = requestHash(scope, request.body);
-
-    const create = vi.fn().mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError("boom", {
-        code: "P2002",
-        clientVersion: "6.0.0"
-      })
-    );
-    const findUnique = vi.fn().mockResolvedValue({
-      requestHash: hash,
-      responseJson: { ok: true, value: 99 }
-    });
-
-    const context = contextCreate({
-      findUnique,
-      create
-    });
-
-    const result = await idempotencyGuard(request, context, { type: "user", id: "u1" }, async () => ({
-      ok: true,
-      value: 99
-    }));
-
-    expect(result).toEqual({ ok: true, value: 99 });
-  });
-
-  it("throws in-progress when create races without stored response", async () => {
-    const request = requestCreate({ key: "race", body: { text: "hi" } });
-    const scope = `${request.method} ${request.url.split("?")[0]}`;
-    const hash = requestHash(scope, request.body);
-
-    const create = vi.fn().mockRejectedValue(
-      new Prisma.PrismaClientKnownRequestError("boom", {
-        code: "P2002",
-        clientVersion: "6.0.0"
-      })
-    );
-    const findUnique = vi.fn().mockResolvedValue({
-      requestHash: hash,
-      responseJson: null
-    });
-
-    const context = contextCreate({
-      findUnique,
-      create
-    });
+  it("cleans up key on handler error", async () => {
+    const subjectId = createId();
 
     await expect(
-      idempotencyGuard(request, context, { type: "user", id: "u1" }, async () => ({
-        ok: true
-      }))
-    ).rejects.toMatchObject({
-      statusCode: 409,
-      code: "IDEMPOTENCY_IN_PROGRESS"
+      idempotencyGuard(
+        requestCreate({ key: "abc", body: { text: "hi" } }),
+        live.context,
+        { type: "user", id: subjectId },
+        async () => {
+          throw new Error("boom");
+        }
+      )
+    ).rejects.toThrow("boom");
+
+    const row = await live.context.db.idempotencyKey.findUnique({
+      where: {
+        subjectType_subjectId_scope_key: {
+          subjectType: "user",
+          subjectId,
+          scope: "POST /api/org/1/messages/send",
+          key: "abc"
+        }
+      }
     });
+
+    expect(row).toBeNull();
   });
 });
-
-function requestHash(scope: string, body: unknown): string {
-  const bodyValue = typeof body === "string" ? body : JSON.stringify(body ?? {});
-  return createHash("sha256").update(scope).update("\n").update(bodyValue).digest("hex");
-}

@@ -1,34 +1,29 @@
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("@aws-sdk/s3-request-presigner", () => ({
-  getSignedUrl: vi.fn().mockResolvedValue("https://example.com/signed")
-}));
-
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { describe, expect, it } from "vitest";
+import { s3ClientCreate } from "./s3ClientCreate.js";
 import { s3ObjectGet } from "./s3ObjectGet.js";
 
 describe("s3ObjectGet", () => {
   it("generates a presigned URL", async () => {
-    const client = {} as any;
+    const endpoint = process.env.S3_ENDPOINT ?? "http://s3:9000";
+    const accessKey = process.env.S3_ACCESS_KEY ?? "minioadmin";
+    const secretKey = process.env.S3_SECRET_KEY ?? "minioadmin";
+    const bucket = process.env.S3_BUCKET ?? "daycare";
+
+    const client = s3ClientCreate({
+      endpoint,
+      accessKey,
+      secretKey,
+      forcePathStyle: true
+    });
 
     const url = await s3ObjectGet({
       client,
-      bucket: "daycare",
+      bucket,
       key: "org-1/file-1.txt",
       expiresInSeconds: 123
     });
 
-    expect(url).toBe("https://example.com/signed");
-    expect(getSignedUrl).toHaveBeenCalledTimes(1);
-    const [calledClient, command, options] = vi.mocked(getSignedUrl).mock.calls[0] ?? [];
-    if (!command) {
-      throw new Error("Expected command argument");
-    }
-    expect(calledClient).toBe(client);
-    expect(command.input).toMatchObject({
-      Bucket: "daycare",
-      Key: "org-1/file-1.txt"
-    });
-    expect(options).toEqual({ expiresIn: 123 });
+    expect(url).toContain("X-Amz-Signature");
+    expect(url).toContain("org-1/file-1.txt");
   });
 });

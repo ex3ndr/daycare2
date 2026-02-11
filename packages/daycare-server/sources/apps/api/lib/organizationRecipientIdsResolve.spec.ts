@@ -1,31 +1,74 @@
-import type { ApiContext } from "./apiContext.js";
-import { describe, expect, it, vi } from "vitest";
+import { createId } from "@paralleldrive/cuid2";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { organizationRecipientIdsResolve } from "./organizationRecipientIdsResolve.js";
 
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
+
 describe("organizationRecipientIdsResolve", () => {
+  let live: LiveContext;
+
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
+  });
+
+  beforeEach(async () => {
+    await live.reset();
+  });
+
+  afterAll(async () => {
+    await live.close();
+  });
+
   it("returns all user ids in the organization", async () => {
-    const findMany = vi.fn().mockResolvedValue([
-      { id: "u1" },
-      { id: "u3" }
-    ]);
-    const context = {
-      db: {
-        user: {
-          findMany
+    const orgId = createId();
+    const userAId = createId();
+    const userBId = createId();
+    const otherOrgId = createId();
+
+    await live.db.organization.createMany({
+      data: [
+        {
+          id: orgId,
+          slug: `org-${createId().slice(0, 8)}`,
+          name: "Acme"
+        },
+        {
+          id: otherOrgId,
+          slug: `org-${createId().slice(0, 8)}`,
+          name: "Other"
         }
-      }
-    } as unknown as ApiContext;
-
-    const result = await organizationRecipientIdsResolve(context, "org-1");
-
-    expect(result).toEqual(["u1", "u3"]);
-    expect(findMany).toHaveBeenCalledWith({
-      where: {
-        organizationId: "org-1"
-      },
-      select: {
-        id: true
-      }
+      ]
     });
+
+    await live.db.user.createMany({
+      data: [
+        {
+          id: userAId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "A",
+          username: `a-${createId().slice(0, 6)}`
+        },
+        {
+          id: userBId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "B",
+          username: `b-${createId().slice(0, 6)}`
+        },
+        {
+          id: createId(),
+          organizationId: otherOrgId,
+          kind: "HUMAN",
+          firstName: "C",
+          username: `c-${createId().slice(0, 6)}`
+        }
+      ]
+    });
+
+    const result = await organizationRecipientIdsResolve(live.context, orgId);
+
+    expect(new Set(result)).toEqual(new Set([userAId, userBId]));
   });
 });

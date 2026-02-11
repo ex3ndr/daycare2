@@ -1,123 +1,151 @@
-import { describe, expect, it, vi } from "vitest";
-import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { createId } from "@paralleldrive/cuid2";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { channelArchive } from "./channelArchive.js";
 
-type TransactionRunner<DB extends object> = {
-  $transaction: <T>(fn: (tx: DB) => Promise<T>) => Promise<T>;
-};
-
-function dbWithTransaction<DB extends object>(db: DB): DB & TransactionRunner<DB> {
-  return {
-    ...db,
-    $transaction: async <T>(fn: (tx: DB) => Promise<T>) => fn(db)
-  };
-}
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
 
 describe("channelArchive", () => {
-  it("archives a channel when actor is owner", async () => {
-    const context = {
-      db: dbWithTransaction({
-        chat: {
-          findFirst: vi.fn().mockResolvedValue({
-            id: "chat-1",
-            organizationId: "org-1",
-            kind: "CHANNEL",
-            archivedAt: null
-          }),
-          update: vi.fn().mockResolvedValue({
-            id: "chat-1",
-            organizationId: "org-1",
-            kind: "CHANNEL",
-            archivedAt: new Date("2026-02-11T00:00:00.000Z")
-          })
-        },
-        chatMember: {
-          findFirst: vi.fn().mockResolvedValue({ id: "owner-member", role: "OWNER" }),
-          findMany: vi.fn().mockResolvedValue([{ userId: "user-1" }])
-        }
-      }),
-      updates: {
-        publishToUsers: vi.fn().mockResolvedValue(undefined)
-      }
-    } as unknown as ApiContext;
+  let live: LiveContext;
 
-    const channel = await channelArchive(context, {
-      organizationId: "org-1",
-      channelId: "chat-1",
-      actorUserId: "user-1"
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
+  });
+
+  beforeEach(async () => {
+    await live.reset();
+  });
+
+  afterAll(async () => {
+    await live.close();
+  });
+
+  async function seedChannel() {
+    const orgId = createId();
+    const ownerId = createId();
+    const memberId = createId();
+    const channelId = createId();
+
+    await live.db.organization.create({
+      data: {
+        id: orgId,
+        slug: `org-${createId().slice(0, 8)}`,
+        name: "Acme"
+      }
+    });
+
+    await live.db.user.createMany({
+      data: [
+        {
+          id: ownerId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Owner",
+          username: `owner-${createId().slice(0, 6)}`
+        },
+        {
+          id: memberId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Member",
+          username: `member-${createId().slice(0, 6)}`
+        }
+      ]
+    });
+
+    await live.db.chat.create({
+      data: {
+        id: channelId,
+        organizationId: orgId,
+        createdByUserId: ownerId,
+        kind: "CHANNEL",
+        visibility: "PUBLIC",
+        name: "general"
+      }
+    });
+
+    await live.db.chatMember.createMany({
+      data: [
+        {
+          id: createId(),
+          chatId: channelId,
+          userId: ownerId,
+          role: "OWNER",
+          notificationLevel: "ALL"
+        },
+        {
+          id: createId(),
+          chatId: channelId,
+          userId: memberId,
+          role: "MEMBER",
+          notificationLevel: "ALL"
+        }
+      ]
+    });
+
+    return { orgId, ownerId, memberId, channelId };
+  }
+
+  it("archives a channel when actor is owner", async () => {
+    const { orgId, ownerId, memberId, channelId } = await seedChannel();
+
+    const channel = await channelArchive(live.context, {
+      organizationId: orgId,
+      channelId,
+      actorUserId: ownerId
     });
 
     expect(channel.archivedAt).not.toBeNull();
-    expect(context.updates.publishToUsers).toHaveBeenCalledWith(["user-1"], "channel.updated", {
-      orgId: "org-1",
-      channelId: "chat-1"
-    });
+
+    const updates = await live.db.userUpdate.findMany({ orderBy: { userId: "asc" } });
+    expect(updates).toHaveLength(2);
+    expect(new Set(updates.map((update) => update.userId))).toEqual(new Set([ownerId, memberId]));
+    expect(new Set(updates.map((update) => update.eventType))).toEqual(new Set(["channel.updated"]));
   });
 
   it("rejects archive when actor is not owner", async () => {
-    const context = {
-      db: dbWithTransaction({
-        chat: {
-          findFirst: vi.fn().mockResolvedValue({
-            id: "chat-1",
-            organizationId: "org-1",
-            kind: "CHANNEL",
-            archivedAt: null
-          })
-        },
-        chatMember: {
-          findFirst: vi.fn().mockResolvedValue({ id: "member-1", role: "MEMBER" })
-        }
-      })
-    } as unknown as ApiContext;
+    const { orgId, memberId, channelId } = await seedChannel();
 
-    await expect(channelArchive(context, {
-      organizationId: "org-1",
-      channelId: "chat-1",
-      actorUserId: "user-1"
+    await expect(channelArchive(live.context, {
+      organizationId: orgId,
+      channelId,
+      actorUserId: memberId
     })).rejects.toMatchObject({ statusCode: 403 });
   });
 
   it("rejects archive when channel is already archived", async () => {
-    const context = {
-      db: dbWithTransaction({
-        chat: {
-          findFirst: vi.fn().mockResolvedValue({
-            id: "chat-1",
-            organizationId: "org-1",
-            kind: "CHANNEL",
-            archivedAt: new Date("2026-02-11T00:00:00.000Z")
-          })
-        },
-        chatMember: {
-          findFirst: vi.fn()
-        }
-      })
-    } as unknown as ApiContext;
+    const { orgId, ownerId, channelId } = await seedChannel();
+    await live.db.chat.update({
+      where: { id: channelId },
+      data: { archivedAt: new Date("2026-02-11T00:00:00.000Z") }
+    });
 
-    await expect(channelArchive(context, {
-      organizationId: "org-1",
-      channelId: "chat-1",
-      actorUserId: "user-1"
+    await expect(channelArchive(live.context, {
+      organizationId: orgId,
+      channelId,
+      actorUserId: ownerId
     })).rejects.toMatchObject({ statusCode: 400 });
   });
 
   it("rejects archive for direct chats", async () => {
-    const context = {
-      db: dbWithTransaction({
-        chat: {
-          findFirst: vi.fn().mockResolvedValue(null)
-        },
-        chatMember: {
-          findFirst: vi.fn()
-        }
-      })
-    } as unknown as ApiContext;
+    const { orgId, ownerId } = await seedChannel();
+    const directId = createId();
 
-    await expect(channelArchive(context, {
-      organizationId: "org-1",
-      channelId: "dm-1",
-      actorUserId: "user-1"
+    await live.db.chat.create({
+      data: {
+        id: directId,
+        organizationId: orgId,
+        createdByUserId: ownerId,
+        kind: "DIRECT",
+        visibility: "PRIVATE",
+        directKey: [ownerId, createId()].sort().join(":")
+      }
+    });
+
+    await expect(channelArchive(live.context, {
+      organizationId: orgId,
+      channelId: directId,
+      actorUserId: ownerId
     })).rejects.toMatchObject({ statusCode: 404 });
   });
 });

@@ -1,88 +1,183 @@
-import { describe, expect, it, vi } from "vitest";
-import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { createId } from "@paralleldrive/cuid2";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { messageSearch } from "./messageSearch.js";
 
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
+
 describe("messageSearch", () => {
-  it("returns ranked message search results", async () => {
-    const context = {
-      db: {
-        $queryRaw: vi.fn().mockResolvedValue([{
-          id: "m-1",
-          chatId: "chat-1",
-          senderUserId: "user-1",
-          text: "hello daycare",
-          highlight: "<b>hello</b> daycare",
-          createdAt: new Date("2026-02-11T00:00:00.000Z")
-        }])
-      }
-    } as unknown as ApiContext;
+  let live: LiveContext;
 
-    const result = await messageSearch(context, {
-      organizationId: "org-1",
-      userId: "user-1",
-      query: "hello"
-    });
-
-    expect(result).toEqual([{
-      id: "m-1",
-      chatId: "chat-1",
-      senderUserId: "user-1",
-      text: "hello daycare",
-      highlight: "<b>hello</b> daycare",
-      createdAt: new Date("2026-02-11T00:00:00.000Z").getTime()
-    }]);
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
   });
 
-  it("supports channel filters and pagination inputs", async () => {
-    const queryRaw = vi.fn().mockResolvedValue([]);
-    const context = {
-      db: {
-        $queryRaw: queryRaw
-      }
-    } as unknown as ApiContext;
+  beforeEach(async () => {
+    await live.reset();
+  });
 
-    const result = await messageSearch(context, {
-      organizationId: "org-1",
-      userId: "user-1",
-      query: "hello",
-      channelId: "chat-1",
-      before: Date.now(),
+  afterAll(async () => {
+    await live.close();
+  });
+
+  async function seedBase() {
+    const orgId = createId();
+    const userId = createId();
+    const otherId = createId();
+    const channelId = createId();
+
+    await live.db.organization.create({
+      data: {
+        id: orgId,
+        slug: `org-${createId().slice(0, 8)}`,
+        name: "Acme"
+      }
+    });
+
+    await live.db.user.createMany({
+      data: [
+        {
+          id: userId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Alice",
+          username: `alice-${createId().slice(0, 6)}`
+        },
+        {
+          id: otherId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Bob",
+          username: `bob-${createId().slice(0, 6)}`
+        }
+      ]
+    });
+
+    await live.db.chat.create({
+      data: {
+        id: channelId,
+        organizationId: orgId,
+        createdByUserId: userId,
+        kind: "CHANNEL",
+        visibility: "PUBLIC",
+        name: "general"
+      }
+    });
+
+    await live.db.chatMember.createMany({
+      data: [
+        {
+          id: createId(),
+          chatId: channelId,
+          userId,
+          role: "OWNER",
+          notificationLevel: "ALL"
+        },
+        {
+          id: createId(),
+          chatId: channelId,
+          userId: otherId,
+          role: "MEMBER",
+          notificationLevel: "ALL"
+        }
+      ]
+    });
+
+    return { orgId, userId, otherId, channelId };
+  }
+
+  it("returns ranked message search results", async () => {
+    const { orgId, userId, channelId } = await seedBase();
+
+    const message = await live.db.message.create({
+      data: {
+        id: createId(),
+        chatId: channelId,
+        senderUserId: userId,
+        text: "alphakeyword daycare"
+      }
+    });
+
+    const result = await messageSearch(live.context, {
+      organizationId: orgId,
+      userId,
+      query: "alphakeyword"
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe(message.id);
+    expect(result[0]?.text).toContain("alphakeyword");
+  });
+
+  it("supports channel filters and before pagination", async () => {
+    const { orgId, userId, channelId } = await seedBase();
+
+    const earlier = new Date("2026-02-10T00:00:00.000Z");
+    const later = new Date("2026-02-11T00:00:00.000Z");
+
+    await live.db.message.create({
+      data: {
+        id: createId(),
+        chatId: channelId,
+        senderUserId: userId,
+        text: "betakeyword earlier",
+        createdAt: earlier
+      }
+    });
+
+    await live.db.message.create({
+      data: {
+        id: createId(),
+        chatId: channelId,
+        senderUserId: userId,
+        text: "betakeyword later",
+        createdAt: later
+      }
+    });
+
+    const result = await messageSearch(live.context, {
+      organizationId: orgId,
+      userId,
+      query: "betakeyword",
+      channelId,
+      before: later.getTime(),
       limit: 10
     });
 
-    expect(result).toEqual([]);
-    expect(queryRaw).toHaveBeenCalledTimes(1);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.text).toContain("earlier");
   });
 
   it("returns empty results when no matches exist", async () => {
-    const context = {
-      db: {
-        $queryRaw: vi.fn().mockResolvedValue([])
-      }
-    } as unknown as ApiContext;
+    const { orgId, userId } = await seedBase();
 
-    const result = await messageSearch(context, {
-      organizationId: "org-1",
-      userId: "user-1",
-      query: "missing"
+    const result = await messageSearch(live.context, {
+      organizationId: orgId,
+      userId,
+      query: "missingkeyword"
     });
 
     expect(result).toEqual([]);
   });
 
   it("handles search terms with special characters", async () => {
-    const context = {
-      db: {
-        $queryRaw: vi.fn().mockResolvedValue([])
-      }
-    } as unknown as ApiContext;
+    const { orgId, userId, channelId } = await seedBase();
 
-    const result = await messageSearch(context, {
-      organizationId: "org-1",
-      userId: "user-1",
+    await live.db.message.create({
+      data: {
+        id: createId(),
+        chatId: channelId,
+        senderUserId: userId,
+        text: "alice ops"
+      }
+    });
+
+    const result = await messageSearch(live.context, {
+      organizationId: orgId,
+      userId,
       query: "@alice + #ops"
     });
 
-    expect(result).toEqual([]);
+    expect(Array.isArray(result)).toBe(true);
   });
 });

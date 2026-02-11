@@ -1,101 +1,104 @@
-import type { Session, User } from "@prisma/client";
+import { createHash } from "node:crypto";
+import { createId } from "@paralleldrive/cuid2";
 import type { FastifyRequest } from "fastify";
-import type { ApiContext } from "./apiContext.js";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { ApiError } from "./apiError.js";
-
-vi.mock("./accountSessionResolve.js", () => ({
-  accountSessionResolve: vi.fn()
-}));
-
-import { accountSessionResolve } from "./accountSessionResolve.js";
 import { authContextResolve } from "./authContextResolve.js";
 
-function sessionCreate(): Session {
-  return {
-    id: "session-1",
-    accountId: "account-1",
-    tokenHash: "hash-1",
-    createdAt: new Date("2026-02-10T00:00:00.000Z"),
-    expiresAt: new Date("2026-02-10T01:00:00.000Z"),
-    revokedAt: null,
-    lastSeenAt: null
-  };
-}
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
 
-function userCreate(): User {
+function requestCreate(token: string): FastifyRequest {
   return {
-    id: "user-1",
-    organizationId: "org-1",
-    accountId: "account-1",
-    kind: "HUMAN",
-    firstName: "Jane",
-    lastName: null,
-    username: "jane",
-    bio: null,
-    timezone: null,
-    avatarUrl: null,
-    systemPrompt: null,
-    webhookUrl: null,
-    createdAt: new Date("2026-02-10T00:00:00.000Z"),
-    updatedAt: new Date("2026-02-10T00:00:00.000Z"),
-    lastSeenAt: null
-  };
+    headers: {
+      authorization: `Bearer ${token}`
+    }
+  } as FastifyRequest;
 }
 
 describe("authContextResolve", () => {
-  it("returns auth context when account belongs to org", async () => {
-    const accountSessionResolveMock = vi.mocked(accountSessionResolve);
-    const session = sessionCreate();
-    const user = userCreate();
-    accountSessionResolveMock.mockResolvedValue({
-      session,
-      sessionId: session.id,
-      accountId: session.accountId
+  let live: LiveContext;
+
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
+  });
+
+  beforeEach(async () => {
+    await live.reset();
+  });
+
+  afterAll(async () => {
+    await live.close();
+  });
+
+  async function seedAuth(organizationId: string, includeUserInOrg = true) {
+    const accountId = createId();
+    const sessionId = createId();
+    const token = await live.context.tokens.issue(sessionId);
+
+    await live.db.account.create({
+      data: {
+        id: accountId,
+        email: `${createId().slice(0, 8)}@example.com`
+      }
     });
 
-    const findFirst = vi.fn().mockResolvedValue(user);
-    const context = {
-      db: {
-        user: {
-          findFirst
+    await live.db.session.create({
+      data: {
+        id: sessionId,
+        accountId,
+        tokenHash: createHash("sha256").update(token).digest("hex"),
+        expiresAt: new Date(Date.now() + 60_000)
+      }
+    });
+
+    if (includeUserInOrg) {
+      await live.db.user.create({
+        data: {
+          id: createId(),
+          organizationId,
+          accountId,
+          kind: "HUMAN",
+          firstName: "Jane",
+          username: `jane-${createId().slice(0, 6)}`
         }
-      }
-    } as unknown as ApiContext;
+      });
+    }
 
-    const request = { headers: {} } as FastifyRequest;
-    await expect(authContextResolve(request, context, "org-1")).resolves.toEqual({
-      session,
-      user
+    return { token, accountId };
+  }
+
+  it("returns auth context when account belongs to org", async () => {
+    const organizationId = createId();
+    await live.db.organization.create({
+      data: {
+        id: organizationId,
+        slug: `org-${createId().slice(0, 8)}`,
+        name: "Acme"
+      }
     });
 
-    expect(findFirst).toHaveBeenCalledWith({
-      where: {
-        accountId: "account-1",
-        organizationId: "org-1"
-      }
-    });
+    const { token, accountId } = await seedAuth(organizationId, true);
+
+    const result = await authContextResolve(requestCreate(token), live.context, organizationId);
+
+    expect(result.session.accountId).toBe(accountId);
+    expect(result.user.organizationId).toBe(organizationId);
   });
 
   it("throws forbidden when account is not in org", async () => {
-    const accountSessionResolveMock = vi.mocked(accountSessionResolve);
-    const session = sessionCreate();
-    accountSessionResolveMock.mockResolvedValue({
-      session,
-      sessionId: session.id,
-      accountId: session.accountId
+    const organizationId = createId();
+    await live.db.organization.create({
+      data: {
+        id: organizationId,
+        slug: `org-${createId().slice(0, 8)}`,
+        name: "Acme"
+      }
     });
 
-    const context = {
-      db: {
-        user: {
-          findFirst: vi.fn().mockResolvedValue(null)
-        }
-      }
-    } as unknown as ApiContext;
+    const { token } = await seedAuth(organizationId, false);
 
-    const request = { headers: {} } as FastifyRequest;
-    const result = authContextResolve(request, context, "org-1");
+    const result = authContextResolve(requestCreate(token), live.context, organizationId);
     await expect(result).rejects.toBeInstanceOf(ApiError);
     await expect(result).rejects.toMatchObject({
       statusCode: 403,

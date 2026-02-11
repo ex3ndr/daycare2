@@ -1,155 +1,136 @@
-import { describe, expect, it, vi } from "vitest";
-import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { createId } from "@paralleldrive/cuid2";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ApiError } from "@/apps/api/lib/apiError.js";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { directCreate } from "./directCreate.js";
 
-type TransactionRunner<DB extends object> = {
-  $transaction: <T>(fn: (tx: DB) => Promise<T>) => Promise<T>;
-};
-
-function dbWithTransaction<DB extends object>(db: DB): DB & TransactionRunner<DB> {
-  return {
-    ...db,
-    $transaction: async <T>(fn: (tx: DB) => Promise<T>) => fn(db)
-  };
-}
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
 
 describe("directCreate", () => {
-  it("creates a direct chat and adds both members", async () => {
-    const chatMemberFindUnique = vi.fn()
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(null);
-    const chatMemberCreate = vi.fn().mockResolvedValue({ id: "member-1" });
-    const chatMemberUpdate = vi.fn().mockResolvedValue({ id: "member-1" });
-    const chatFindUnique = vi.fn().mockResolvedValue(null);
-    const chatCreate = vi.fn().mockResolvedValue({
-      id: "chat-1",
-      organizationId: "org-1",
-      createdByUserId: "user-1",
-      kind: "DIRECT",
-      visibility: "PRIVATE",
-      directKey: "user-1:user-2",
-      name: null,
-      topic: null,
-      createdAt: new Date("2026-02-11T00:00:00.000Z"),
-      updatedAt: new Date("2026-02-11T00:00:00.000Z"),
-      archivedAt: null
-    });
+  let live: LiveContext;
 
-    const context = {
-      db: dbWithTransaction({
-        user: {
-          findFirst: vi.fn().mockResolvedValue({ id: "user-2" })
-        },
-        chat: {
-          findUnique: chatFindUnique,
-          create: chatCreate
-        },
-        chatMember: {
-          findUnique: chatMemberFindUnique,
-          create: chatMemberCreate,
-          update: chatMemberUpdate
-        }
-      }),
-      updates: {
-        publishToUsers: vi.fn().mockResolvedValue(undefined)
-      }
-    } as unknown as ApiContext;
-
-    const direct = await directCreate(context, {
-      organizationId: "org-1",
-      userId: "user-2",
-      peerUserId: "user-1"
-    });
-
-    expect(direct.id).toBe("chat-1");
-    expect(chatFindUnique).toHaveBeenCalledWith({
-      where: {
-        directKey: "user-1:user-2"
-      }
-    });
-    expect(chatCreate).toHaveBeenCalledTimes(1);
-    expect(chatMemberCreate).toHaveBeenCalledTimes(2);
-    expect(chatMemberUpdate).not.toHaveBeenCalled();
-    expect(context.updates.publishToUsers).toHaveBeenCalledWith(
-      ["user-2", "user-1"],
-      "channel.created",
-      { orgId: "org-1", channelId: "chat-1" }
-    );
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
   });
 
-  it("returns the existing direct chat and reactivates left members", async () => {
-    const chatMemberFindUnique = vi.fn()
-      .mockResolvedValueOnce({
-        id: "member-1",
-        leftAt: null
-      })
-      .mockResolvedValueOnce({
-        id: "member-2",
-        leftAt: new Date("2026-02-10T00:00:00.000Z")
-      });
-    const chatMemberCreate = vi.fn().mockResolvedValue({ id: "member-3" });
-    const chatMemberUpdate = vi.fn().mockResolvedValue({ id: "member-2" });
+  beforeEach(async () => {
+    await live.reset();
+  });
 
-    const context = {
-      db: dbWithTransaction({
-        user: {
-          findFirst: vi.fn().mockResolvedValue({ id: "user-2" })
-        },
-        chat: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: "chat-1",
-            organizationId: "org-1",
-            createdByUserId: "user-1",
-            kind: "DIRECT",
-            visibility: "PRIVATE",
-            directKey: "user-1:user-2",
-            name: null,
-            topic: null,
-            createdAt: new Date("2026-02-11T00:00:00.000Z"),
-            updatedAt: new Date("2026-02-11T00:00:00.000Z"),
-            archivedAt: null
-          }),
-          create: vi.fn().mockResolvedValue(null)
-        },
-        chatMember: {
-          findUnique: chatMemberFindUnique,
-          create: chatMemberCreate,
-          update: chatMemberUpdate
-        }
-      }),
-      updates: {
-        publishToUsers: vi.fn().mockResolvedValue(undefined)
+  afterAll(async () => {
+    await live.close();
+  });
+
+  async function seedUsers() {
+    const orgId = createId();
+    const userAId = createId();
+    const userBId = createId();
+
+    await live.db.organization.create({
+      data: {
+        id: orgId,
+        slug: `org-${createId().slice(0, 8)}`,
+        name: "Acme"
       }
-    } as unknown as ApiContext;
-
-    const direct = await directCreate(context, {
-      organizationId: "org-1",
-      userId: "user-1",
-      peerUserId: "user-2"
     });
 
-    expect(direct.id).toBe("chat-1");
-    expect(chatMemberCreate).not.toHaveBeenCalled();
-    expect(chatMemberUpdate).toHaveBeenCalledTimes(1);
+    await live.db.user.createMany({
+      data: [
+        {
+          id: userAId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Alice",
+          username: `alice-${createId().slice(0, 6)}`
+        },
+        {
+          id: userBId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Bob",
+          username: `bob-${createId().slice(0, 6)}`
+        }
+      ]
+    });
+
+    return { orgId, userAId, userBId };
+  }
+
+  it("creates a direct chat and adds both members", async () => {
+    const { orgId, userAId, userBId } = await seedUsers();
+
+    const chat = await directCreate(live.context, {
+      organizationId: orgId,
+      userId: userAId,
+      peerUserId: userBId
+    });
+
+    expect(chat.kind).toBe("DIRECT");
+    expect(chat.directKey).toBe([userAId, userBId].sort().join(":"));
+
+    const memberships = await live.db.chatMember.findMany({
+      where: {
+        chatId: chat.id,
+        leftAt: null
+      }
+    });
+    expect(memberships).toHaveLength(2);
+
+    const updates = await live.db.userUpdate.findMany({
+      orderBy: { seqno: "asc" }
+    });
+    expect(updates).toHaveLength(2);
+    expect(new Set(updates.map((update) => update.userId))).toEqual(new Set([userAId, userBId]));
+    expect(new Set(updates.map((update) => update.eventType))).toEqual(new Set(["channel.created"]));
+  });
+
+  it("returns existing direct and reactivates left member", async () => {
+    const { orgId, userAId, userBId } = await seedUsers();
+
+    const initial = await directCreate(live.context, {
+      organizationId: orgId,
+      userId: userAId,
+      peerUserId: userBId
+    });
+
+    await live.db.chatMember.update({
+      where: {
+        chatId_userId: {
+          chatId: initial.id,
+          userId: userBId
+        }
+      },
+      data: {
+        leftAt: new Date("2026-02-10T00:00:00.000Z")
+      }
+    });
+
+    const reopened = await directCreate(live.context, {
+      organizationId: orgId,
+      userId: userBId,
+      peerUserId: userAId
+    });
+
+    expect(reopened.id).toBe(initial.id);
+
+    const member = await live.db.chatMember.findUnique({
+      where: {
+        chatId_userId: {
+          chatId: initial.id,
+          userId: userBId
+        }
+      }
+    });
+    expect(member?.leftAt).toBeNull();
   });
 
   it("rejects self direct chats", async () => {
-    const context = {
-      db: dbWithTransaction({
-        user: { findFirst: vi.fn() },
-        chat: { findUnique: vi.fn(), create: vi.fn() },
-        chatMember: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() }
-      }),
-      updates: {
-        publishToUsers: vi.fn()
-      }
-    } as unknown as ApiContext;
+    const { orgId, userAId } = await seedUsers();
 
-    await expect(directCreate(context, {
-      organizationId: "org-1",
-      userId: "user-1",
-      peerUserId: "user-1"
+    await expect(directCreate(live.context, {
+      organizationId: orgId,
+      userId: userAId,
+      peerUserId: userAId
     })).rejects.toMatchObject({
       statusCode: 400,
       code: "VALIDATION_ERROR"

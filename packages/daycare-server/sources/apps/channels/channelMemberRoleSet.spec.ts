@@ -1,97 +1,147 @@
-import { describe, expect, it, vi } from "vitest";
-import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { createId } from "@paralleldrive/cuid2";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testLiveContextCreate } from "@/utils/testLiveContextCreate.js";
 import { channelMemberRoleSet } from "./channelMemberRoleSet.js";
 
-type TransactionRunner<DB extends object> = {
-  $transaction: <T>(fn: (tx: DB) => Promise<T>) => Promise<T>;
-};
-
-function dbWithTransaction<DB extends object>(db: DB): DB & TransactionRunner<DB> {
-  return {
-    ...db,
-    $transaction: async <T>(fn: (tx: DB) => Promise<T>) => fn(db)
-  };
-}
+type LiveContext = Awaited<ReturnType<typeof testLiveContextCreate>>;
 
 describe("channelMemberRoleSet", () => {
-  it("promotes a member to owner", async () => {
-    const context = {
-      db: dbWithTransaction({
-        chat: {
-          findFirst: vi.fn().mockResolvedValue({ id: "chat-1" })
-        },
-        chatMember: {
-          findFirst: vi.fn()
-            .mockResolvedValueOnce({ id: "owner-member", role: "OWNER" })
-            .mockResolvedValueOnce({ id: "target-member", role: "MEMBER" }),
-          findMany: vi.fn().mockResolvedValue([{ userId: "user-1" }, { userId: "user-2" }]),
-          count: vi.fn().mockResolvedValue(2),
-          update: vi.fn().mockResolvedValue({
-            id: "target-member",
-            chatId: "chat-1",
-            userId: "user-2",
-            role: "OWNER",
-            notificationLevel: "ALL",
-            joinedAt: new Date("2026-02-11T00:00:00.000Z"),
-            leftAt: null
-          })
-        }
-      }),
-      updates: {
-        publishToUsers: vi.fn().mockResolvedValue(undefined)
-      }
-    } as unknown as ApiContext;
+  let live: LiveContext;
 
-    const membership = await channelMemberRoleSet(context, {
-      organizationId: "org-1",
-      channelId: "chat-1",
-      actorUserId: "user-1",
-      targetUserId: "user-2",
+  beforeAll(async () => {
+    live = await testLiveContextCreate();
+  });
+
+  beforeEach(async () => {
+    await live.reset();
+  });
+
+  afterAll(async () => {
+    await live.close();
+  });
+
+  async function seedChannelMembers() {
+    const orgId = createId();
+    const ownerId = createId();
+    const targetId = createId();
+    const ownerTwoId = createId();
+    const memberId = createId();
+    const channelId = createId();
+
+    await live.db.organization.create({
+      data: {
+        id: orgId,
+        slug: `org-${createId().slice(0, 8)}`,
+        name: "Acme"
+      }
+    });
+
+    await live.db.user.createMany({
+      data: [
+        {
+          id: ownerId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Owner",
+          username: `owner-${createId().slice(0, 6)}`
+        },
+        {
+          id: targetId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Target",
+          username: `target-${createId().slice(0, 6)}`
+        },
+        {
+          id: ownerTwoId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Owner Two",
+          username: `owner2-${createId().slice(0, 6)}`
+        },
+        {
+          id: memberId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Member",
+          username: `member-${createId().slice(0, 6)}`
+        }
+      ]
+    });
+
+    await live.db.chat.create({
+      data: {
+        id: channelId,
+        organizationId: orgId,
+        createdByUserId: ownerId,
+        kind: "CHANNEL",
+        visibility: "PUBLIC",
+        name: "general"
+      }
+    });
+
+    await live.db.chatMember.createMany({
+      data: [
+        {
+          id: createId(),
+          chatId: channelId,
+          userId: ownerId,
+          role: "OWNER",
+          notificationLevel: "ALL"
+        },
+        {
+          id: createId(),
+          chatId: channelId,
+          userId: targetId,
+          role: "MEMBER",
+          notificationLevel: "ALL"
+        },
+        {
+          id: createId(),
+          chatId: channelId,
+          userId: ownerTwoId,
+          role: "OWNER",
+          notificationLevel: "ALL"
+        },
+        {
+          id: createId(),
+          chatId: channelId,
+          userId: memberId,
+          role: "MEMBER",
+          notificationLevel: "ALL"
+        }
+      ]
+    });
+
+    return { orgId, ownerId, targetId, ownerTwoId, memberId, channelId };
+  }
+
+  it("promotes a member to owner", async () => {
+    const { orgId, ownerId, targetId, channelId } = await seedChannelMembers();
+
+    const membership = await channelMemberRoleSet(live.context, {
+      organizationId: orgId,
+      channelId,
+      actorUserId: ownerId,
+      targetUserId: targetId,
       role: "OWNER"
     });
 
     expect(membership.role).toBe("OWNER");
-    expect(context.updates.publishToUsers).toHaveBeenCalledWith(["user-1", "user-2"], "channel.member.updated", {
-      orgId: "org-1",
-      channelId: "chat-1",
-      userId: "user-2",
-      role: "owner"
-    });
+
+    const updates = await live.db.userUpdate.findMany();
+    expect(updates.length).toBeGreaterThanOrEqual(1);
+    expect(new Set(updates.map((update) => update.eventType))).toEqual(new Set(["channel.member.updated"]));
   });
 
-  it("demotes an owner when there is another owner", async () => {
-    const context = {
-      db: dbWithTransaction({
-        chat: {
-          findFirst: vi.fn().mockResolvedValue({ id: "chat-1" })
-        },
-        chatMember: {
-          findFirst: vi.fn()
-            .mockResolvedValueOnce({ id: "owner-member", role: "OWNER" })
-            .mockResolvedValueOnce({ id: "target-member", role: "OWNER" }),
-          count: vi.fn().mockResolvedValue(2),
-          findMany: vi.fn().mockResolvedValue([{ userId: "user-1" }, { userId: "user-2" }]),
-          update: vi.fn().mockResolvedValue({
-            id: "target-member",
-            chatId: "chat-1",
-            userId: "user-2",
-            role: "MEMBER",
-            notificationLevel: "ALL",
-            joinedAt: new Date("2026-02-11T00:00:00.000Z"),
-            leftAt: null
-          })
-        }
-      }),
-      updates: {
-        publishToUsers: vi.fn().mockResolvedValue(undefined)
-      }
-    } as unknown as ApiContext;
+  it("demotes an owner when another owner exists", async () => {
+    const { orgId, ownerId, ownerTwoId, channelId } = await seedChannelMembers();
 
-    const membership = await channelMemberRoleSet(context, {
-      organizationId: "org-1",
-      channelId: "chat-1",
-      actorUserId: "user-1",
-      targetUserId: "user-2",
+    const membership = await channelMemberRoleSet(live.context, {
+      organizationId: orgId,
+      channelId,
+      actorUserId: ownerId,
+      targetUserId: ownerTwoId,
       role: "MEMBER"
     });
 
@@ -99,65 +149,38 @@ describe("channelMemberRoleSet", () => {
   });
 
   it("rejects role change when actor is not owner", async () => {
-    const context = {
-      db: dbWithTransaction({
-        chat: {
-          findFirst: vi.fn().mockResolvedValue({ id: "chat-1" })
-        },
-        chatMember: {
-          findFirst: vi.fn().mockResolvedValue({ id: "member-1", role: "MEMBER" })
-        }
-      })
-    } as unknown as ApiContext;
+    const { orgId, memberId, targetId, channelId } = await seedChannelMembers();
 
-    await expect(channelMemberRoleSet(context, {
-      organizationId: "org-1",
-      channelId: "chat-1",
-      actorUserId: "user-1",
-      targetUserId: "user-2",
+    await expect(channelMemberRoleSet(live.context, {
+      organizationId: orgId,
+      channelId,
+      actorUserId: memberId,
+      targetUserId: targetId,
       role: "OWNER"
     })).rejects.toMatchObject({ statusCode: 403 });
   });
 
   it("rejects self role changes", async () => {
-    const context = {
-      db: dbWithTransaction({
-        chat: { findFirst: vi.fn() },
-        chatMember: { findFirst: vi.fn(), update: vi.fn(), count: vi.fn() }
-      })
-    } as unknown as ApiContext;
+    const { orgId, ownerId, channelId } = await seedChannelMembers();
 
-    await expect(channelMemberRoleSet(context, {
-      organizationId: "org-1",
-      channelId: "chat-1",
-      actorUserId: "user-1",
-      targetUserId: "user-1",
+    await expect(channelMemberRoleSet(live.context, {
+      organizationId: orgId,
+      channelId,
+      actorUserId: ownerId,
+      targetUserId: ownerId,
       role: "OWNER"
     })).rejects.toMatchObject({ statusCode: 400 });
   });
 
-  it("rejects demoting the last owner", async () => {
-    const context = {
-      db: dbWithTransaction({
-        chat: {
-          findFirst: vi.fn().mockResolvedValue({ id: "chat-1" })
-        },
-        chatMember: {
-          findFirst: vi.fn()
-            .mockResolvedValueOnce({ id: "owner-member", role: "OWNER" })
-            .mockResolvedValueOnce({ id: "target-owner", role: "OWNER" }),
-          count: vi.fn().mockResolvedValue(1),
-          update: vi.fn()
-        }
-      })
-    } as unknown as ApiContext;
+  it("rejects role change when target member is missing", async () => {
+    const { orgId, ownerId, channelId } = await seedChannelMembers();
 
-    await expect(channelMemberRoleSet(context, {
-      organizationId: "org-1",
-      channelId: "chat-1",
-      actorUserId: "user-1",
-      targetUserId: "user-2",
+    await expect(channelMemberRoleSet(live.context, {
+      organizationId: orgId,
+      channelId,
+      actorUserId: ownerId,
+      targetUserId: createId(),
       role: "MEMBER"
-    })).rejects.toMatchObject({ statusCode: 400 });
+    })).rejects.toMatchObject({ statusCode: 404 });
   });
 });

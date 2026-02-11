@@ -70,9 +70,12 @@ export async function messageSearch(
       )
       ${channelFilter}
       ${beforeFilter}
-      AND m."search_vector" @@ plainto_tsquery('english', ${input.query})
+      AND to_tsvector('english', coalesce(m."text", '')) @@ plainto_tsquery('english', ${input.query})
     ORDER BY
-      ts_rank_cd(m."search_vector", plainto_tsquery('english', ${input.query})) DESC,
+      ts_rank_cd(
+        to_tsvector('english', coalesce(m."text", '')),
+        plainto_tsquery('english', ${input.query})
+      ) DESC,
       m."createdAt" DESC
     LIMIT ${limit}
   `);

@@ -1,30 +1,18 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const prismaClientMock = vi.fn();
-
-vi.mock("@prisma/client", () => ({
-  PrismaClient: prismaClientMock
-}));
+import { describe, expect, it } from "vitest";
+import { databaseCreate } from "./databaseCreate.js";
 
 describe("databaseCreate", () => {
-  beforeEach(() => {
-    prismaClientMock.mockReset();
-  });
+  it("creates a prisma client configured with the provided datasource url", async () => {
+    const databaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      throw new Error("databaseCreate.spec.ts requires DATABASE_URL or TEST_DATABASE_URL");
+    }
 
-  it("creates prisma client with explicit datasource url", async () => {
-    const client = { id: "db-client" };
-    prismaClientMock.mockImplementation(() => client);
+    const client = databaseCreate(databaseUrl);
 
-    const { databaseCreate } = await import("./databaseCreate.js");
-    const result = databaseCreate("postgresql://localhost:5432/daycare");
+    expect(typeof client.$connect).toBe("function");
+    expect(typeof client.$disconnect).toBe("function");
 
-    expect(prismaClientMock).toHaveBeenCalledWith({
-      datasources: {
-        db: {
-          url: "postgresql://localhost:5432/daycare"
-        }
-      }
-    });
-    expect(result).toBe(client);
+    await client.$disconnect();
   });
 });

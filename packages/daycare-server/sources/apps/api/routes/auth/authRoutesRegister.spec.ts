@@ -13,6 +13,7 @@ import { redisCreate } from "@/modules/redis/redisCreate.js";
 import { tokenServiceCreate } from "@/modules/auth/tokenServiceCreate.js";
 import { updatesServiceCreate } from "@/modules/updates/updatesServiceCreate.js";
 import { emailServiceCreate } from "@/modules/email/emailServiceCreate.js";
+import { s3ClientCreate } from "@/modules/s3/s3ClientCreate.js";
 import { testDatabaseReset } from "@/utils/testDatabaseReset.js";
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
@@ -54,12 +55,20 @@ describe("authRoutesRegister", () => {
       from: nodeEnv === "production" ? "Daycare <no-reply@daycare.local>" : undefined
     });
     const updates = updatesServiceCreate(db);
+    const s3 = s3ClientCreate({
+      endpoint: "http://localhost:9000",
+      accessKey: "minioadmin",
+      secretKey: "minioadmin",
+      forcePathStyle: true
+    });
     const app = await apiCreate({
       db,
       redis,
       tokens,
       email,
       updates,
+      s3,
+      s3Bucket: "daycare",
       nodeEnv,
       allowOpenOrgJoin: true,
       otp: {

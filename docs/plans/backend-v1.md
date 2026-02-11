@@ -83,17 +83,17 @@ DM support already has schema backing (`Chat` with `kind: DIRECT`, `directKey` f
 
 MinIO is running in Docker Compose but file uploads currently store base64 in the response. Wire actual S3 storage.
 
-- [ ] Create `sources/modules/s3/s3ClientCreate.ts` — initialize S3 client using `@aws-sdk/client-s3` (or `minio` package if already available), configured via environment variables (`S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`)
-- [ ] Create `sources/modules/s3/s3ObjectPut.ts` — upload a Buffer to S3 with key and content type
-- [ ] Create `sources/modules/s3/s3ObjectGet.ts` — generate a presigned URL or stream object from S3
-- [ ] Update `sources/apps/files/fileUploadCommit.ts` — decode base64, upload to S3 using `storageKey`, update `FileAsset` status to COMMITTED
-- [ ] Add file download route: `GET /api/org/:orgid/files/:fileId` — look up FileAsset, stream from S3 or redirect to presigned URL
-- [ ] Add S3 config to `sources/modules/config/configRead.ts`
-- [ ] Update `docker-compose.yml` environment section if needed for S3 credentials
-- [ ] Write tests for `s3ObjectPut` and `s3ObjectGet` (mock S3 client)
-- [ ] Write tests for updated `fileUploadCommit` (verify S3 upload called)
-- [ ] Write tests for file download route (success, not found, unauthorized)
-- [ ] Run tests — must pass before next task
+- [x] Create `sources/modules/s3/s3ClientCreate.ts` — initialize S3 client using `@aws-sdk/client-s3` (or `minio` package if already available), configured via environment variables (`S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`)
+- [x] Create `sources/modules/s3/s3ObjectPut.ts` — upload a Buffer to S3 with key and content type
+- [x] Create `sources/modules/s3/s3ObjectGet.ts` — generate a presigned URL or stream object from S3
+- [x] Update `sources/apps/files/fileUploadCommit.ts` — decode base64, upload to S3 using `storageKey`, update `FileAsset` status to COMMITTED
+- [x] Add file download route: `GET /api/org/:orgid/files/:fileId` — look up FileAsset, stream from S3 or redirect to presigned URL
+- [x] Add S3 config to `sources/modules/config/configRead.ts`
+- [x] Update `docker-compose.yml` environment section if needed for S3 credentials
+- [x] Write tests for `s3ObjectPut` and `s3ObjectGet` (mock S3 client)
+- [x] Write tests for updated `fileUploadCommit` (verify S3 upload called)
+- [x] Write tests for file download route (success, not found, unauthorized)
+- [x] Run tests — must pass before next task
 
 ### Task 3: File cleanup service for S3
 

@@ -1,11 +1,13 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { ApiError } from "@/apps/api/lib/apiError.js";
 import { fileUploadCommit } from "@/apps/files/fileUploadCommit.js";
 import { fileUploadInit } from "@/apps/files/fileUploadInit.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
 import { idempotencyGuard } from "@/apps/api/lib/idempotencyGuard.js";
+import { s3ObjectGet } from "@/modules/s3/s3ObjectGet.js";
 
 const orgIdSchema = z.string().min(1);
 const uploadInitBodySchema = z.object({
@@ -82,5 +84,34 @@ export async function fileRoutesRegister(app: FastifyInstance, context: ApiConte
         }
       });
     });
+  });
+
+  app.get("/api/org/:orgid/files/:fileId", async (request, reply) => {
+    const params = z.object({ orgid: orgIdSchema, fileId: z.string().min(1) }).parse(request.params);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    if (auth.user.organizationId !== params.orgid) {
+      throw new ApiError(403, "FORBIDDEN", "You are not allowed to access this file");
+    }
+
+    const file = await context.db.fileAsset.findFirst({
+      where: {
+        id: params.fileId,
+        organizationId: params.orgid,
+        status: "COMMITTED"
+      }
+    });
+
+    if (!file) {
+      throw new ApiError(404, "NOT_FOUND", "File not found");
+    }
+
+    const signedUrl = await s3ObjectGet({
+      client: context.s3,
+      bucket: context.s3Bucket,
+      key: file.storageKey
+    });
+
+    return reply.redirect(signedUrl);
   });
 }

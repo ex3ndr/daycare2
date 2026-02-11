@@ -9,6 +9,7 @@ import { redisConnect } from "@/modules/redis/redisConnect.js";
 import { redisCreate } from "@/modules/redis/redisCreate.js";
 import { tokenServiceCreate } from "@/modules/auth/tokenServiceCreate.js";
 import { emailServiceCreate } from "@/modules/email/emailServiceCreate.js";
+import { s3ClientCreate } from "@/modules/s3/s3ClientCreate.js";
 import { updatesServiceCreate } from "@/modules/updates/updatesServiceCreate.js";
 import { testDatabaseReset } from "@/utils/testDatabaseReset.js";
 
@@ -53,6 +54,12 @@ describeIntegration("api integration", () => {
     const tokenService = process.env.TOKEN_SERVICE ?? "daycare-test";
     const tokens = await tokenServiceCreate(tokenService, tokenSeed);
     const email = emailServiceCreate({ nodeEnv: "test" });
+    const s3 = s3ClientCreate({
+      endpoint: "http://localhost:9000",
+      accessKey: "minioadmin",
+      secretKey: "minioadmin",
+      forcePathStyle: true
+    });
 
     const updates = updatesServiceCreate(db);
     app = await apiCreate({
@@ -61,6 +68,8 @@ describeIntegration("api integration", () => {
       tokens,
       email,
       updates,
+      s3,
+      s3Bucket: "daycare",
       nodeEnv: "test",
       allowOpenOrgJoin: true,
       otp: {

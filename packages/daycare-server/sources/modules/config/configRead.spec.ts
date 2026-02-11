@@ -9,7 +9,9 @@ describe("configRead", () => {
       PORT: "4001",
       DATABASE_URL: "postgresql://daycare:daycare@localhost:5432/daycare?schema=public",
       REDIS_URL: "redis://localhost:6379",
-      TOKEN_SEED: "daycare-local-token-seed-0001"
+      TOKEN_SEED: "daycare-local-token-seed-0001",
+      S3_ACCESS_KEY: "minioadmin",
+      S3_SECRET_KEY: "minioadmin"
     });
 
     expect(config).toEqual({
@@ -26,7 +28,12 @@ describe("configRead", () => {
       otpTtlSeconds: 600,
       otpCooldownSeconds: 60,
       otpMaxAttempts: 5,
-      otpSalt: "daycare-local-token-seed-0001"
+      otpSalt: "daycare-local-token-seed-0001",
+      s3Endpoint: "http://localhost:9000",
+      s3AccessKey: "minioadmin",
+      s3SecretKey: "minioadmin",
+      s3Bucket: "daycare",
+      s3ForcePathStyle: true
     });
   });
 
@@ -38,6 +45,8 @@ describe("configRead", () => {
       DATABASE_URL: "postgresql://daycare:daycare@localhost:5432/daycare?schema=public",
       REDIS_URL: "redis://localhost:6379",
       TOKEN_SEED: "daycare-local-token-seed-0001",
+      S3_ACCESS_KEY: "minioadmin",
+      S3_SECRET_KEY: "minioadmin",
       ALLOW_OPEN_ORG_JOIN: "false"
     });
 

@@ -14,7 +14,12 @@ const configSchema = z.object({
   OTP_TTL_SECONDS: z.coerce.number().int().positive().default(600),
   OTP_COOLDOWN_SECONDS: z.coerce.number().int().positive().default(60),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
-  OTP_SALT: z.string().optional()
+  OTP_SALT: z.string().optional(),
+  S3_ENDPOINT: z.string().url().default("http://localhost:9000"),
+  S3_ACCESS_KEY: z.string().min(1),
+  S3_SECRET_KEY: z.string().min(1),
+  S3_BUCKET: z.string().min(1).default("daycare"),
+  S3_FORCE_PATH_STYLE: z.enum(["true", "false"]).default("true")
 });
 
 export type DaycareConfig = {
@@ -32,6 +37,11 @@ export type DaycareConfig = {
   otpCooldownSeconds: number;
   otpMaxAttempts: number;
   otpSalt: string;
+  s3Endpoint: string;
+  s3AccessKey: string;
+  s3SecretKey: string;
+  s3Bucket: string;
+  s3ForcePathStyle: boolean;
 };
 
 export function configRead(env: NodeJS.ProcessEnv = process.env): DaycareConfig {
@@ -54,6 +64,11 @@ export function configRead(env: NodeJS.ProcessEnv = process.env): DaycareConfig 
     otpTtlSeconds: parsed.OTP_TTL_SECONDS,
     otpCooldownSeconds: parsed.OTP_COOLDOWN_SECONDS,
     otpMaxAttempts: parsed.OTP_MAX_ATTEMPTS,
-    otpSalt: parsed.OTP_SALT ?? parsed.TOKEN_SEED
+    otpSalt: parsed.OTP_SALT ?? parsed.TOKEN_SEED,
+    s3Endpoint: parsed.S3_ENDPOINT,
+    s3AccessKey: parsed.S3_ACCESS_KEY,
+    s3SecretKey: parsed.S3_SECRET_KEY,
+    s3Bucket: parsed.S3_BUCKET,
+    s3ForcePathStyle: parsed.S3_FORCE_PATH_STYLE === "true"
   };
 }

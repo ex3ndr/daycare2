@@ -1,10 +1,10 @@
 import type { FileAsset } from "@prisma/client";
-import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
-import path from "node:path";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
 import { ApiError } from "@/apps/api/lib/apiError.js";
 import { databaseTransactionRun } from "@/modules/database/databaseTransactionRun.js";
+import { s3ObjectDelete } from "@/modules/s3/s3ObjectDelete.js";
+import { s3ObjectPut } from "@/modules/s3/s3ObjectPut.js";
 
 type FileUploadCommitInput = {
   organizationId: string;
@@ -42,25 +42,22 @@ export async function fileUploadCommit(
     throw new ApiError(400, "VALIDATION_ERROR", "Uploaded payload size does not match initialized size");
   }
 
-  const uploadsRoot = path.resolve(process.cwd(), ".daycare", "uploads");
-  const uploadPath = path.resolve(uploadsRoot, file.storageKey);
-  if (!uploadPath.startsWith(uploadsRoot + path.sep)) {
-    throw new ApiError(400, "VALIDATION_ERROR", "Resolved upload path escapes uploads root");
-  }
-
   const contentHash = createHash("sha256").update(payload).digest("hex");
   if (contentHash !== file.contentHash.toLowerCase()) {
     throw new ApiError(400, "VALIDATION_ERROR", "Uploaded payload hash does not match initialized hash");
   }
 
-  await mkdir(path.dirname(uploadPath), { recursive: true });
+  await s3ObjectPut({
+    client: context.s3,
+    bucket: context.s3Bucket,
+    key: file.storageKey,
+    contentType: file.mimeType,
+    payload
+  });
 
-  let wroteFile = false;
+  let committed: FileAsset;
   try {
-    await writeFile(uploadPath, payload);
-    wroteFile = true;
-
-    const committed = await databaseTransactionRun(context.db, async (tx) => {
+    committed = await databaseTransactionRun(context.db, async (tx) => {
       // Optimistic transaction: TOCTU is acceptable; updateMany prevents multi-instance double-commit.
       const updateResult = await tx.fileAsset.updateMany({
         where: {
@@ -91,21 +88,23 @@ export async function fileUploadCommit(
 
       return fresh;
     });
-
-    await context.updates.publishToUsers([input.userId], "file.committed", {
-      orgId: input.organizationId,
-      fileId: file.id
-    });
-
-    return committed;
   } catch (error) {
-    if (wroteFile) {
-      try {
-        await unlink(uploadPath);
-      } catch {
-        // Ignore cleanup errors to preserve the original failure.
-      }
+    try {
+      await s3ObjectDelete({
+        client: context.s3,
+        bucket: context.s3Bucket,
+        key: file.storageKey
+      });
+    } catch {
+      // Preserve original failure when rollback also fails.
     }
     throw error;
   }
+
+  await context.updates.publishToUsers([input.userId], "file.committed", {
+    orgId: input.organizationId,
+    fileId: file.id
+  });
+
+  return committed;
 }

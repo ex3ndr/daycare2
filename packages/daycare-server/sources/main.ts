@@ -9,6 +9,7 @@ import { fileCleanupStart } from "./modules/files/fileCleanupStart.js";
 import { idempotencyCleanupStart } from "./modules/idempotency/idempotencyCleanupStart.js";
 import { redisConnect } from "./modules/redis/redisConnect.js";
 import { redisCreate } from "./modules/redis/redisCreate.js";
+import { s3ClientCreate } from "./modules/s3/s3ClientCreate.js";
 import { updatesServiceCreate } from "./modules/updates/updatesServiceCreate.js";
 import { getLogger } from "./utils/getLogger.js";
 import { awaitShutdown, onShutdown } from "./utils/shutdown.js";
@@ -46,6 +47,15 @@ async function main(): Promise<void> {
     from: config.resendFrom,
     nodeEnv: config.nodeEnv
   });
+  const s3 = s3ClientCreate({
+    endpoint: config.s3Endpoint,
+    accessKey: config.s3AccessKey,
+    secretKey: config.s3SecretKey,
+    forcePathStyle: config.s3ForcePathStyle
+  });
+  onShutdown("s3", async () => {
+    s3.destroy();
+  });
   const updates = updatesServiceCreate(database);
   const stopFileCleanup = fileCleanupStart(database);
   onShutdown("files.cleanup", async () => {
@@ -62,6 +72,8 @@ async function main(): Promise<void> {
     tokens,
     email,
     updates,
+    s3,
+    s3Bucket: config.s3Bucket,
     nodeEnv: config.nodeEnv,
     allowOpenOrgJoin: config.allowOpenOrgJoin,
     otp: {

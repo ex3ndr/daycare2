@@ -109,19 +109,19 @@ The existing cleanup service needs to actually delete from S3.
 
 Track online/away/offline status using Redis with TTL-based expiration.
 
-- [ ] Create `sources/apps/users/presenceSet.ts` — set user's presence in Redis (`presence:{orgId}:{userId}` → `online|away`, TTL 90 seconds), publish presence change event
-- [ ] Create `sources/apps/users/presenceGet.ts` — get presence for a list of user IDs from Redis, return `online|away|offline` (missing key = offline)
-- [ ] Create `sources/apps/users/presenceHeartbeat.ts` — refresh TTL on existing presence key (called periodically by client)
-- [ ] Add routes:
+- [x] Create `sources/apps/users/presenceSet.ts` — set user's presence in Redis (`presence:{orgId}:{userId}` → `online|away`, TTL 90 seconds), publish presence change event
+- [x] Create `sources/apps/users/presenceGet.ts` — get presence for a list of user IDs from Redis, return `online|away|offline` (missing key = offline)
+- [x] Create `sources/apps/users/presenceHeartbeat.ts` — refresh TTL on existing presence key (called periodically by client)
+- [x] Add routes:
   - `POST /api/org/:orgid/presence` — set presence status (body: `{ status: "online" | "away" }`)
   - `POST /api/org/:orgid/presence/heartbeat` — refresh presence TTL
   - `GET /api/org/:orgid/presence` — get presence for multiple users (query: `userIds=id1,id2,...`)
-- [ ] Add SSE event type `user.presence` — broadcast to org members when presence changes
-- [ ] Update `User` lastSeenAt — set on presence heartbeat
-- [ ] Write tests for `presenceSet` (set online, set away, TTL verification)
-- [ ] Write tests for `presenceGet` (online user, offline user, mixed list)
-- [ ] Write route-level tests for presence endpoints
-- [ ] Run tests — must pass before next task
+- [x] Add SSE event type `user.presence` — broadcast to org members when presence changes
+- [x] Update `User` lastSeenAt — set on presence heartbeat
+- [x] Write tests for `presenceSet` (set online, set away, TTL verification)
+- [x] Write tests for `presenceGet` (online user, offline user, mixed list)
+- [x] Write route-level tests for presence endpoints
+- [x] Run tests — must pass before next task
 
 ### Task 5: Channel member management
 

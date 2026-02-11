@@ -236,8 +236,8 @@ Build all UI primitives before any views. Components are testable in isolation.
 
 #### Task 4: Add shadcn base components
 
-- [ ] Create `app/components/ui/` directory
-- [ ] Add components:
+- [x] Create `app/components/ui/` directory
+- [x] Add components:
   - `button.tsx` — variants: primary (warm orange gradient), secondary, ghost, destructive; sizes: sm, md, lg, icon
   - `input.tsx` — with focus ring in accent color
   - `textarea.tsx` — auto-resize option, focus ring
@@ -251,9 +251,9 @@ Build all UI primitives before any views. Components are testable in isolation.
   - `dropdown-menu.tsx` — for message context menus
   - `popover.tsx` — for emoji picker, popovers
   - `command.tsx` — for search/command palette (Cmd+K)
-- [ ] Create temporary test page in `app/main.tsx` that renders all components with variant/size combinations
-- [ ] **agent-browser**: open test page, screenshot each component group, verify warm palette applied (orange primary, beige background, dark sidebar tones)
-- [ ] Verify `yarn typecheck` passes
+- [x] Create temporary test page in `app/main.tsx` that renders all components with variant/size combinations
+- [x] **agent-browser**: open test page, screenshot each component group, verify warm palette applied (orange primary, beige background, dark sidebar tones)
+- [x] Verify `yarn typecheck` passes
 
 ---
 

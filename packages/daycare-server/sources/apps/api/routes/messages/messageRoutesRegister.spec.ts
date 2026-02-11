@@ -20,7 +20,12 @@ vi.mock("@/apps/api/lib/idempotencyGuard.js", () => ({
   idempotencyGuard: vi.fn((request: unknown, context: unknown, subject: unknown, handler: () => Promise<unknown>) => handler())
 }));
 
+vi.mock("@/apps/ai/aiBotWebhookDeliver.js", () => ({
+  aiBotWebhookDeliver: vi.fn().mockResolvedValue(true)
+}));
+
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
+import { aiBotWebhookDeliver } from "@/apps/ai/aiBotWebhookDeliver.js";
 import { chatMembershipEnsure } from "@/apps/api/lib/chatMembershipEnsure.js";
 import { chatRecipientIdsResolve } from "@/apps/api/lib/chatRecipientIdsResolve.js";
 import { messageRoutesRegister } from "./messageRoutesRegister.js";
@@ -319,12 +324,15 @@ describe("messageRoutesRegister", () => {
       createdAt: new Date("2026-02-10T00:00:40.000Z")
     });
 
-    const userFindMany = vi.fn().mockResolvedValue([{ id: "user-2" }, { id: "user-3" }]);
+    const userFindMany = vi.fn().mockResolvedValue([
+      { id: "user-2", kind: "HUMAN", webhookUrl: null },
+      { id: "user-3", kind: "AI", webhookUrl: "https://example.com/bot-webhook" }
+    ]);
 
     const context = {
       db: {
         chat: {
-          findFirst: vi.fn().mockResolvedValue({ archivedAt: null })
+          findFirst: vi.fn().mockResolvedValue({ archivedAt: null, kind: "CHANNEL" })
         },
         message: {
           findFirst: vi.fn().mockResolvedValue({ id: "thread-1", chatId: "chat-1" }),
@@ -373,7 +381,67 @@ describe("messageRoutesRegister", () => {
       })
     }));
     expect(context.updates.publishToUsers).toHaveBeenCalled();
+    expect(aiBotWebhookDeliver).toHaveBeenCalledWith(expect.objectContaining({
+      webhookUrl: "https://example.com/bot-webhook"
+    }));
 
+    await app.close();
+  });
+
+  it("does not deliver bot webhooks for AI-authored messages", async () => {
+    vi.mocked(aiBotWebhookDeliver).mockClear();
+    vi.mocked(authContextResolve).mockResolvedValue({
+      session: {} as any,
+      user: { id: "bot-1", organizationId: "org-1" } as any
+    });
+    vi.mocked(chatMembershipEnsure).mockResolvedValue({ id: "membership-1" } as any);
+    vi.mocked(chatRecipientIdsResolve).mockResolvedValue(["bot-1", "user-2"]);
+
+    const created = messageMake({
+      id: "message-ai",
+      senderUserId: "bot-1",
+      senderUser: {
+        ...baseSender,
+        id: "bot-1",
+        kind: "AI",
+        username: "helper"
+      }
+    });
+
+    const context = {
+      db: {
+        chat: {
+          findFirst: vi.fn().mockResolvedValue({ archivedAt: null, kind: "CHANNEL" })
+        },
+        message: {
+          create: vi.fn().mockResolvedValue(created)
+        },
+        user: {
+          findMany: vi.fn().mockResolvedValue([
+            { id: "bot-2", kind: "AI", webhookUrl: "https://example.com/bot-webhook" }
+          ])
+        }
+      },
+      updates: {
+        publishToUsers: vi.fn().mockResolvedValue(undefined)
+      }
+    } as unknown as ApiContext;
+
+    const app = appCreate(context);
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/org/org-1/messages/send",
+      headers: {
+        authorization: "Bearer token"
+      },
+      payload: {
+        channelId: "chat-1",
+        text: "hello @helper"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(aiBotWebhookDeliver).not.toHaveBeenCalled();
     await app.close();
   });
 
@@ -387,7 +455,7 @@ describe("messageRoutesRegister", () => {
     const context = {
       db: {
         chat: {
-          findFirst: vi.fn().mockResolvedValue({ archivedAt: null })
+          findFirst: vi.fn().mockResolvedValue({ archivedAt: null, kind: "CHANNEL" })
         },
         message: {
           findFirst: vi.fn().mockResolvedValue(null)

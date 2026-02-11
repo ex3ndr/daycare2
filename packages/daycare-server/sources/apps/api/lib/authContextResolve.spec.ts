@@ -36,6 +36,7 @@ function userCreate(): User {
     timezone: null,
     avatarUrl: null,
     systemPrompt: null,
+    webhookUrl: null,
     createdAt: new Date("2026-02-10T00:00:00.000Z"),
     updatedAt: new Date("2026-02-10T00:00:00.000Z"),
     lastSeenAt: null

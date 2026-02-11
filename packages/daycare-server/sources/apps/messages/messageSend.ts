@@ -2,10 +2,12 @@ import { createId } from "@paralleldrive/cuid2";
 import type { Prisma } from "@prisma/client";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
 import { ApiError } from "@/apps/api/lib/apiError.js";
+import { aiBotWebhookDeliver } from "@/apps/ai/aiBotWebhookDeliver.js";
 import { chatMembershipEnsure } from "@/apps/api/lib/chatMembershipEnsure.js";
 import { chatRecipientIdsResolve } from "@/apps/api/lib/chatRecipientIdsResolve.js";
 import { mentionUsernamesExtract } from "@/apps/messages/mentionUsernamesExtract.js";
 import { databaseTransactionRun } from "@/modules/database/databaseTransactionRun.js";
+import { getLogger } from "@/utils/getLogger.js";
 
 type MessageWithRelations = Prisma.MessageGetPayload<{
   include: {
@@ -30,6 +32,8 @@ type MessageSendInput = {
   }>;
 };
 
+const logger = getLogger("messages.send");
+
 export async function messageSend(
   context: ApiContext,
   input: MessageSendInput
@@ -42,7 +46,8 @@ export async function messageSend(
       organizationId: input.organizationId
     },
     select: {
-      archivedAt: true
+      archivedAt: true,
+      kind: true
     }
   });
 
@@ -56,6 +61,7 @@ export async function messageSend(
 
   const threadId = input.threadId ?? null;
   const usernames = mentionUsernamesExtract(input.text);
+  let mentionedBots: Array<{ id: string; webhookUrl: string }> = [];
   const message = await databaseTransactionRun(context.db, async (tx) => {
     // Optimistic transaction: TOCTU between thread checks and writes is acceptable.
     if (threadId) {
@@ -93,10 +99,19 @@ export async function messageSend(
             }
           },
           select: {
-            id: true
+            id: true,
+            kind: true,
+            webhookUrl: true
           }
         })
       : [];
+
+    mentionedBots = mentionedUsers
+      .filter((user) => user.kind === "AI" && user.webhookUrl)
+      .map((user) => ({
+        id: user.id,
+        webhookUrl: user.webhookUrl as string
+      }));
 
     const message = await tx.message.create({
       data: {
@@ -153,6 +168,90 @@ export async function messageSend(
     channelId: message.chatId,
     messageId: message.id
   });
+
+  if (message.senderUser.kind === "AI") {
+    return message;
+  }
+
+  const botTargetsById = new Map<string, string>();
+  for (const bot of mentionedBots) {
+    botTargetsById.set(bot.id, bot.webhookUrl);
+  }
+
+  if (chat.kind === "DIRECT") {
+    const dmBots = await context.db.chatMember.findMany({
+      where: {
+        chatId: input.channelId,
+        leftAt: null,
+        userId: {
+          not: input.userId
+        },
+        user: {
+          kind: "AI",
+          webhookUrl: {
+            not: null
+          }
+        }
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            webhookUrl: true
+          }
+        }
+      }
+    });
+
+    for (const member of dmBots) {
+      if (member.user.webhookUrl) {
+        botTargetsById.set(member.user.id, member.user.webhookUrl);
+      }
+    }
+  }
+
+  for (const [botId, webhookUrl] of botTargetsById) {
+    if (botId === input.userId) {
+      continue;
+    }
+
+    void aiBotWebhookDeliver({
+      webhookUrl,
+      payload: {
+        event: "message.created",
+        message: {
+          id: message.id,
+          chatId: message.chatId,
+          senderUserId: message.senderUserId,
+          threadId: message.threadId,
+          text: message.text,
+          createdAt: message.createdAt.getTime()
+        },
+        channel: {
+          id: input.channelId,
+          kind: chat.kind.toLowerCase()
+        },
+        mentionedBot: {
+          id: botId
+        }
+      }
+    }).then((delivered) => {
+      if (!delivered) {
+        logger.warn("ai webhook delivery failed", {
+          botId,
+          channelId: input.channelId,
+          messageId: message.id
+        });
+      }
+    }).catch((error: unknown) => {
+      logger.warn("ai webhook delivery failed", {
+        botId,
+        channelId: input.channelId,
+        messageId: message.id,
+        error
+      });
+    });
+  }
 
   return message;
 }

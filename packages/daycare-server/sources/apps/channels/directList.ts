@@ -1,9 +1,25 @@
-import type { Chat, User } from "@prisma/client";
+import type { Chat, UserKind } from "@prisma/client";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+
+export type DirectListOtherUser = {
+  id: string;
+  organizationId: string;
+  accountId: string | null;
+  kind: UserKind;
+  firstName: string;
+  lastName: string | null;
+  username: string;
+  bio: string | null;
+  timezone: string | null;
+  avatarUrl: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  lastSeenAt: Date | null;
+};
 
 export type DirectListItem = {
   chat: Chat;
-  otherUser: User;
+  otherUser: DirectListOtherUser;
 };
 
 type DirectListInput = {
@@ -47,7 +63,6 @@ export async function directList(
                   bio: true,
                   timezone: true,
                   avatarUrl: true,
-                  systemPrompt: true,
                   createdAt: true,
                   updatedAt: true,
                   lastSeenAt: true

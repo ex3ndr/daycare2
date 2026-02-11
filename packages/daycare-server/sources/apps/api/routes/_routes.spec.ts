@@ -46,7 +46,12 @@ vi.mock("./search/searchRoutesRegister.js", () => ({
   searchRoutesRegister: vi.fn().mockResolvedValue(undefined)
 }));
 
+vi.mock("./ai/aiRoutesRegister.js", () => ({
+  aiRoutesRegister: vi.fn().mockResolvedValue(undefined)
+}));
+
 import { authRoutesRegister } from "./auth/authRoutesRegister.js";
+import { aiRoutesRegister } from "./ai/aiRoutesRegister.js";
 import { channelRoutesRegister } from "./channels/channelRoutesRegister.js";
 import { fileRoutesRegister } from "./files/fileRoutesRegister.js";
 import { healthRouteRegister } from "./healthRouteRegister.js";
@@ -72,6 +77,7 @@ describe("routesRegister", () => {
     const fileRoutesRegisterMock = vi.mocked(fileRoutesRegister);
     const presenceRoutesRegisterMock = vi.mocked(presenceRoutesRegister);
     const searchRoutesRegisterMock = vi.mocked(searchRoutesRegister);
+    const aiRoutesRegisterMock = vi.mocked(aiRoutesRegister);
 
     const app = {} as FastifyInstance;
     const context = {} as ApiContext;
@@ -89,5 +95,6 @@ describe("routesRegister", () => {
     expect(fileRoutesRegisterMock).toHaveBeenCalledWith(app, context);
     expect(presenceRoutesRegisterMock).toHaveBeenCalledWith(app, context);
     expect(searchRoutesRegisterMock).toHaveBeenCalledWith(app, context);
+    expect(aiRoutesRegisterMock).toHaveBeenCalledWith(app, context);
   });
 });

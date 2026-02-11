@@ -11,6 +11,7 @@ import { updateRoutesRegister } from "./updates/updateRoutesRegister.js";
 import { fileRoutesRegister } from "./files/fileRoutesRegister.js";
 import { presenceRoutesRegister } from "./presence/presenceRoutesRegister.js";
 import { searchRoutesRegister } from "./search/searchRoutesRegister.js";
+import { aiRoutesRegister } from "./ai/aiRoutesRegister.js";
 
 export async function routesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
   await healthRouteRegister(app, context);
@@ -24,4 +25,5 @@ export async function routesRegister(app: FastifyInstance, context: ApiContext):
   await fileRoutesRegister(app, context);
   await presenceRoutesRegister(app, context);
   await searchRoutesRegister(app, context);
+  await aiRoutesRegister(app, context);
 }

@@ -193,20 +193,20 @@ Add search for messages and channels using Postgres tsvector.
 
 AI users already exist in the schema (`User.kind = AI`). Add API support for creating and managing them, plus webhook delivery.
 
-- [ ] Create `sources/apps/ai/aiBotCreate.ts` — create an AI user in an org with `kind: AI`, `systemPrompt`, and a `webhookUrl` (store in user metadata or new field)
-- [ ] Create Prisma migration to add `webhookUrl` field to User model (nullable, only used for AI users)
-- [ ] Create `sources/apps/ai/aiBotWebhookDeliver.ts` — when an AI user is mentioned in a message or receives a DM, POST the message payload to the bot's `webhookUrl` (fire-and-forget with retry)
-- [ ] Create `sources/apps/ai/aiBotList.ts` — list AI users in an org
-- [ ] Add routes:
+- [x] Create `sources/apps/ai/aiBotCreate.ts` — create an AI user in an org with `kind: AI`, `systemPrompt`, and a `webhookUrl` (store in user metadata or new field)
+- [x] Create Prisma migration to add `webhookUrl` field to User model (nullable, only used for AI users)
+- [x] Create `sources/apps/ai/aiBotWebhookDeliver.ts` — when an AI user is mentioned in a message or receives a DM, POST the message payload to the bot's `webhookUrl` (fire-and-forget with retry)
+- [x] Create `sources/apps/ai/aiBotList.ts` — list AI users in an org
+- [x] Add routes:
   - `POST /api/org/:orgid/bots` — create AI bot (body: `{ username, firstName, systemPrompt, webhookUrl, avatarUrl? }`)
   - `GET /api/org/:orgid/bots` — list AI bots in org
   - `PATCH /api/org/:orgid/bots/:userId` — update bot config
-- [ ] Hook webhook delivery into `messageSend.ts` — after saving message, if any mentioned user or DM recipient is an AI bot with a webhookUrl, call `aiBotWebhookDeliver`
-- [ ] Write tests for `aiBotCreate` (success, duplicate username, missing fields)
-- [ ] Write tests for `aiBotWebhookDeliver` (successful delivery, webhook failure handling, retry logic)
-- [ ] Write tests for bot list endpoint
-- [ ] Write integration test: send message mentioning bot → webhook called
-- [ ] Run tests — must pass before next task
+- [x] Hook webhook delivery into `messageSend.ts` — after saving message, if any mentioned user or DM recipient is an AI bot with a webhookUrl, call `aiBotWebhookDeliver`
+- [x] Write tests for `aiBotCreate` (success, duplicate username, missing fields)
+- [x] Write tests for `aiBotWebhookDeliver` (successful delivery, webhook failure handling, retry logic)
+- [x] Write tests for bot list endpoint
+- [x] Write integration test: send message mentioning bot → webhook called
+- [x] Run tests — must pass before next task
 
 ### Task 10: Redis pub/sub for SSE scaling
 

@@ -1,5 +1,6 @@
 import { createRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { orgSlugRoute } from "./_workspace.$orgSlug";
 import { useApp, useStorage } from "@/app/sync/AppContext";
 import { messagesForChannel, typingUsersForChannel } from "@/app/sync/selectors";
@@ -23,11 +24,13 @@ function ChannelPage() {
   const app = useApp();
 
   const channel = useStorage((s) => s.objects.channel[channelId]);
-  const messages = useStorage((s) => messagesForChannel(s.objects, channelId));
+  const messages = useStorage(
+    useShallow((s) => messagesForChannel(s.objects, channelId)),
+  );
   const mutate = useStorage((s) => s.mutate);
   const userId = useStorage((s) => s.objects.context.userId);
-  const typingUsers = useStorage((s) =>
-    typingUsersForChannel(s.objects, channelId, userId),
+  const typingUsers = useStorage(
+    useShallow((s) => typingUsersForChannel(s.objects, channelId, userId)),
   );
 
   const draft = useUiStore((s) => s.composerDrafts[channelId] ?? "");

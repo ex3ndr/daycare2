@@ -630,13 +630,13 @@ The main messaging view.
 
 Depends on backend DM API routes.
 
-- [ ] DM section in Sidebar: list DMs showing other user's avatar + name
-- [ ] "New Message" button → Dialog with member list
-- [ ] Build `app/routes/_workspace.$orgSlug.dm.$dmId.tsx` — same message view but DM header (user avatar + name)
-- [ ] DM creation → `POST /api/org/:orgid/directs` → navigate to DM route
-- [ ] Same message list and composer components
-- [ ] **agent-browser**: click "New Message" in sidebar → select a member → verify DM opens with user's name as header → send a message → verify it appears → check sidebar shows DM in list → screenshot
-- [ ] Run tests — must pass before next task
+- [x] DM section in Sidebar: list DMs showing other user's avatar + name
+- [x] "New Message" button → Dialog with member list
+- [x] Build `app/routes/_workspace.$orgSlug.dm.$dmId.tsx` — same message view but DM header (user avatar + name)
+- [x] DM creation → `POST /api/org/:orgid/directs` → navigate to DM route
+- [x] Same message list and composer components
+- [x] **agent-browser**: click "New Message" in sidebar → select a member → verify DM opens with user's name as header → send a message → verify it appears → check sidebar shows DM in list → screenshot
+- [x] Run tests — must pass before next task
 
 #### Task 20: File upload UI
 

@@ -74,6 +74,22 @@ export const schema = defineSchema({
     },
   }),
 
+  direct: type({
+    fields: {
+      organizationId: field<string>(),
+      createdAt: field<number>(),
+      updatedAt: field<number>(),
+      otherUser: field<{
+        id: string;
+        kind: "human" | "ai";
+        username: string;
+        firstName: string;
+        lastName: string | null;
+        avatarUrl: string | null;
+      }>(),
+    },
+  }),
+
   typing: type({
     fields: {
       userId: field<string>(),

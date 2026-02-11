@@ -40,6 +40,8 @@ function createMockApi(): ApiClient {
     typingList: vi.fn(),
     readStateSet: vi.fn(),
     readStateGet: vi.fn(),
+    directList: vi.fn(),
+    directCreate: vi.fn(),
     updatesDiff: vi.fn(),
     updatesStreamSubscribe: vi.fn(),
   };

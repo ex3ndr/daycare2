@@ -42,6 +42,7 @@ function WorkspaceLayout() {
         setController(c);
         c.startSSE();
         c.syncChannels();
+        c.syncDirects();
       })
       .catch((err) => {
         if (!destroyed) {

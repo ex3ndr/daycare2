@@ -2,6 +2,7 @@ import type {
   Account,
   Channel,
   ChannelMember,
+  Direct,
   Message,
   MessageListResponse,
   Organization,
@@ -70,6 +71,8 @@ export type ApiClient = {
   typingList: (token: string, orgId: string, channelId: string) => Promise<{ typing: TypingState[] }>;
   readStateSet: (token: string, orgId: string, channelId: string) => Promise<{ chatId: string; lastReadAt: number }>;
   readStateGet: (token: string, orgId: string, channelId: string) => Promise<ReadState>;
+  directList: (token: string, orgId: string) => Promise<{ directs: Direct[] }>;
+  directCreate: (token: string, orgId: string, input: { userId: string }) => Promise<{ channel: Channel }>;
   updatesDiff: (token: string, orgId: string, input: { offset: number; limit?: number }) => Promise<UpdatesDiffResult>;
   updatesStreamSubscribe: (
     token: string,
@@ -143,6 +146,8 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
     typingList: (token, orgId, channelId) => request(`/api/org/${orgId}/channels/${channelId}/typing`, { token }),
     readStateSet: (token, orgId, channelId) => request(`/api/org/${orgId}/channels/${channelId}/read`, { method: "POST", token }),
     readStateGet: (token, orgId, channelId) => request(`/api/org/${orgId}/channels/${channelId}/read-state`, { token }),
+    directList: (token, orgId) => request(`/api/org/${orgId}/directs`, { token }),
+    directCreate: (token, orgId, input) => request(`/api/org/${orgId}/directs`, { method: "POST", token, body: input }),
     updatesDiff: (token, orgId, input) => request(`/api/org/${orgId}/updates/diff`, { method: "POST", token, body: input }),
     updatesStreamSubscribe: (token, orgId, onUpdate, onReady) => {
       const subscription = sseSubscribe({

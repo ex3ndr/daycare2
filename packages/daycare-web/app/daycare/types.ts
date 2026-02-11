@@ -130,6 +130,11 @@ export type UpdateEnvelope = {
   createdAt: UnixMs;
 };
 
+export type Direct = {
+  channel: Channel & { kind: "direct" };
+  otherUser: Pick<User, "id" | "kind" | "username" | "firstName" | "lastName" | "avatarUrl">;
+};
+
 export type UpdatesDiffResult = {
   updates: UpdateEnvelope[];
   headOffset: number;

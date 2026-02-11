@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useApp, useStorage } from "@/app/sync/AppContext";
 import { unreadCountForChannel } from "@/app/sync/selectors";
@@ -8,6 +8,7 @@ import { Badge } from "@/app/components/ui/badge";
 import { Button } from "@/app/components/ui/button";
 import { Separator } from "@/app/components/ui/separator";
 import { Input } from "@/app/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,7 @@ import {
   DialogFooter,
 } from "@/app/components/ui/dialog";
 import { Hash, Lock, Plus, MessageSquare, ChevronDown, ChevronRight } from "lucide-react";
+import type { ApiClient } from "@/app/daycare/api/apiClientCreate";
 
 export function Sidebar() {
   const navigate = useNavigate();
@@ -24,8 +26,9 @@ export function Sidebar() {
   const orgName = useStorage((s) => s.objects.context.orgName);
   const orgSlug = useStorage((s) => s.objects.context.orgSlug);
   const orgId = useStorage((s) => s.objects.context.orgId);
-  const channelMap = useStorage((s) => s.objects.channel);
-  const readStates = useStorage((s) => s.objects.readState);
+  const channelMap = useStorage((s) => s.objects.channel ?? {});
+  const directMap = useStorage((s) => s.objects.direct ?? {});
+  const readStates = useStorage((s) => s.objects.readState ?? {});
   const mutate = useStorage((s) => s.mutate);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
 
@@ -34,8 +37,18 @@ export function Sidebar() {
     [channelMap, orgId],
   );
 
+  const directs = useMemo(
+    () =>
+      Object.values(directMap)
+        .filter((d) => d.organizationId === orgId)
+        .sort((a, b) => b.updatedAt - a.updatedAt),
+    [directMap, orgId],
+  );
+
   const [channelsOpen, setChannelsOpen] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dmsOpen, setDmsOpen] = useState(true);
+  const [channelDialogOpen, setChannelDialogOpen] = useState(false);
+  const [dmDialogOpen, setDmDialogOpen] = useState(false);
 
   const sortedChannels = [...channels].sort((a, b) => a.name.localeCompare(b.name));
 
@@ -90,7 +103,7 @@ export function Sidebar() {
               })}
 
               <button
-                onClick={() => setDialogOpen(true)}
+                onClick={() => setChannelDialogOpen(true)}
                 className="flex w-full items-center gap-2 px-4 py-1.5 text-sm text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
               >
                 <Plus className="h-4 w-4" />
@@ -101,28 +114,101 @@ export function Sidebar() {
 
           <Separator className="my-2 bg-sidebar-border" />
 
-          {/* DMs section placeholder */}
-          <div className="flex items-center gap-1 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-sidebar-muted-foreground">
+          {/* DMs section */}
+          <button
+            onClick={() => setDmsOpen(!dmsOpen)}
+            className="flex w-full items-center gap-1 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-sidebar-muted-foreground hover:text-sidebar-foreground transition-colors"
+          >
+            {dmsOpen ? (
+              <ChevronDown className="h-3 w-3" />
+            ) : (
+              <ChevronRight className="h-3 w-3" />
+            )}
             <MessageSquare className="h-3 w-3" />
             Direct Messages
-          </div>
-          <p className="px-4 py-2 text-xs text-sidebar-muted-foreground">
-            No direct messages yet
-          </p>
+          </button>
+
+          {dmsOpen && (
+            <div className="mt-0.5">
+              {directs.map((dm) => {
+                const unread = unreadCountForChannel(
+                  { readState: readStates } as Parameters<typeof unreadCountForChannel>[0],
+                  dm.id,
+                );
+                const user = dm.otherUser;
+                const displayName = user.lastName
+                  ? `${user.firstName} ${user.lastName}`
+                  : user.firstName;
+                const initials = (user.firstName[0] ?? "") + (user.lastName?.[0] ?? "");
+
+                return (
+                  <button
+                    key={dm.id}
+                    onClick={() =>
+                      navigate({
+                        to: "/$orgSlug/dm/$dmId",
+                        params: { orgSlug, dmId: dm.id },
+                      })
+                    }
+                    className="group flex w-full items-center gap-2 px-4 py-1.5 text-sm hover:bg-sidebar-accent transition-colors"
+                  >
+                    <Avatar size="xs">
+                      {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={displayName} />}
+                      <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
+                    </Avatar>
+                    <span
+                      className={`truncate ${unread > 0 ? "font-semibold text-sidebar-foreground" : "text-sidebar-muted-foreground group-hover:text-sidebar-foreground"}`}
+                    >
+                      {displayName}
+                    </span>
+                    {unread > 0 && (
+                      <Badge variant="accent" size="sm" className="ml-auto shrink-0">
+                        {unread}
+                      </Badge>
+                    )}
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => setDmDialogOpen(true)}
+                className="flex w-full items-center gap-2 px-4 py-1.5 text-sm text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+              >
+                <Plus className="h-4 w-4" />
+                New Message
+              </button>
+            </div>
+          )}
         </div>
       </ScrollArea>
 
       <CreateChannelDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        open={channelDialogOpen}
+        onOpenChange={setChannelDialogOpen}
         onCreated={(channelId) => {
-          setDialogOpen(false);
+          setChannelDialogOpen(false);
           navigate({
             to: "/$orgSlug/c/$channelId",
             params: { orgSlug, channelId },
           });
         }}
         mutate={mutate}
+        api={app.api}
+        token={app.token}
+        orgId={app.orgId}
+      />
+
+      <NewMessageDialog
+        open={dmDialogOpen}
+        onOpenChange={setDmDialogOpen}
+        onCreated={(dmId) => {
+          setDmDialogOpen(false);
+          app.syncDirects();
+          navigate({
+            to: "/$orgSlug/dm/$dmId",
+            params: { orgSlug, dmId },
+          });
+        }}
         api={app.api}
         token={app.token}
         orgId={app.orgId}
@@ -270,6 +356,153 @@ function CreateChannelDialog({
             </Button>
           </DialogFooter>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+type MemberItem = {
+  id: string;
+  kind: "human" | "ai";
+  username: string;
+  firstName: string;
+  lastName: string | null;
+  avatarUrl: string | null;
+};
+
+function NewMessageDialog({
+  open,
+  onOpenChange,
+  onCreated,
+  api,
+  token,
+  orgId,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreated: (dmId: string) => void;
+  api: ApiClient;
+  token: string;
+  orgId: string;
+}) {
+  const [members, setMembers] = useState<MemberItem[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    setError(null);
+    api
+      .organizationMembers(token, orgId)
+      .then((result) => {
+        setMembers(
+          result.members.map((m) => ({
+            id: m.id,
+            kind: m.kind,
+            username: m.username,
+            firstName: m.firstName,
+            lastName: m.lastName,
+            avatarUrl: m.avatarUrl,
+          })),
+        );
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load members");
+      })
+      .finally(() => setLoading(false));
+  }, [open, api, token, orgId]);
+
+  const filtered = useMemo(() => {
+    if (!search.trim()) return members;
+    const q = search.toLowerCase();
+    return members.filter(
+      (m) =>
+        m.firstName.toLowerCase().includes(q) ||
+        (m.lastName?.toLowerCase().includes(q) ?? false) ||
+        m.username.toLowerCase().includes(q),
+    );
+  }, [members, search]);
+
+  async function handleSelect(userId: string) {
+    setCreating(true);
+    setError(null);
+    try {
+      const result = await api.directCreate(token, orgId, { userId });
+      onCreated(result.channel.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create conversation");
+      setCreating(false);
+    }
+  }
+
+  function handleOpenChange(nextOpen: boolean) {
+    if (!nextOpen) {
+      setSearch("");
+      setError(null);
+      setCreating(false);
+    }
+    onOpenChange(nextOpen);
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="font-display">New Message</DialogTitle>
+          <DialogDescription>
+            Select a member to start a conversation
+          </DialogDescription>
+        </DialogHeader>
+
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search members..."
+          disabled={creating}
+        />
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <div className="max-h-64 overflow-y-auto">
+          {loading ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">Loading members...</p>
+          ) : filtered.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">No members found</p>
+          ) : (
+            filtered.map((member) => {
+              const displayName = member.lastName
+                ? `${member.firstName} ${member.lastName}`
+                : member.firstName;
+              const initials = (member.firstName[0] ?? "") + (member.lastName?.[0] ?? "");
+
+              return (
+                <button
+                  key={member.id}
+                  onClick={() => handleSelect(member.id)}
+                  disabled={creating}
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-accent transition-colors disabled:opacity-50"
+                >
+                  <Avatar size="sm">
+                    {member.avatarUrl && <AvatarImage src={member.avatarUrl} alt={displayName} />}
+                    <AvatarFallback>{initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="text-left">
+                    <p className="font-medium">{displayName}</p>
+                    <p className="text-xs text-muted-foreground">@{member.username}</p>
+                  </div>
+                  {member.kind === "ai" && (
+                    <Badge variant="neutral" size="sm" className="ml-auto">
+                      Bot
+                    </Badge>
+                  )}
+                </button>
+              );
+            })
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -73,9 +73,25 @@ type ReadStateRebaseItem = {
   unreadCount: number;
 };
 
+type DirectRebaseItem = {
+  id: string;
+  organizationId: string;
+  createdAt: number;
+  updatedAt: number;
+  otherUser: {
+    id: string;
+    kind: "human" | "ai";
+    username: string;
+    firstName: string;
+    lastName: string | null;
+    avatarUrl: string | null;
+  };
+};
+
 export type RebaseShape = {
   message?: MessageRebaseItem[];
   channel?: ChannelRebaseItem[];
+  direct?: DirectRebaseItem[];
   member?: MemberRebaseItem[];
   typing?: TypingRebaseItem[];
   readState?: ReadStateRebaseItem[];

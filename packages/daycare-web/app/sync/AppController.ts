@@ -219,6 +219,7 @@ export class AppController {
     if (currentSeqno === 0) {
       // Fresh session — do a full sync instead of diff
       await this.syncChannels();
+      await this.syncDirects();
       return;
     }
 
@@ -260,6 +261,7 @@ export class AppController {
     if (this.destroyed) return;
     this.sequencer.reset(0);
     await this.syncChannels();
+    await this.syncDirects();
   }
 
   async syncChannels(): Promise<void> {
@@ -279,6 +281,34 @@ export class AppController {
     this.engine.rebase({ channel: channels });
     this.storage.getState().updateObjects();
     this.persist();
+  }
+
+  async syncDirects(): Promise<void> {
+    if (this.destroyed) return;
+
+    try {
+      const result = await this.api.directList(this.token, this.orgId);
+      const directs = result.directs.map((d) => ({
+        id: d.channel.id,
+        organizationId: d.channel.organizationId,
+        createdAt: d.channel.createdAt,
+        updatedAt: d.channel.updatedAt,
+        otherUser: {
+          id: d.otherUser.id,
+          kind: d.otherUser.kind,
+          username: d.otherUser.username,
+          firstName: d.otherUser.firstName,
+          lastName: d.otherUser.lastName,
+          avatarUrl: d.otherUser.avatarUrl,
+        },
+      }));
+
+      this.engine.rebase({ direct: directs });
+      this.storage.getState().updateObjects();
+      this.persist();
+    } catch {
+      // DM sync failure is non-critical
+    }
   }
 
   async syncMessages(channelId: string): Promise<void> {

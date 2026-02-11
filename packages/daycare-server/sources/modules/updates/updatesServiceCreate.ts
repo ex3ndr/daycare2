@@ -1,6 +1,8 @@
 import type { Prisma, PrismaClient, UserUpdate } from "@prisma/client";
 import type { FastifyReply } from "fastify";
 import { createId } from "@paralleldrive/cuid2";
+import { updatesBroadcast } from "./updatesBroadcast.js";
+import { updatesChannelCreate } from "./updatesChannelCreate.js";
 
 type UpdatePayload = Record<string, unknown>;
 
@@ -30,6 +32,19 @@ export type UpdatesService = {
   subscribe: (userId: string, orgId: string, reply: FastifyReply) => () => void;
   publishToUsers: (userIds: string[], eventType: string, payload: UpdatePayload) => Promise<void>;
   diffGet: (userId: string, offset: number, limit?: number) => Promise<UpdatesDiffResult>;
+  stop: () => Promise<void>;
+};
+
+export type UpdatesRedisPubSub = {
+  pub: {
+    publish: (channel: string, message: string) => Promise<number>;
+  };
+  sub: {
+    subscribe: (...channels: string[]) => Promise<unknown>;
+    unsubscribe: (...channels: string[]) => Promise<unknown>;
+    on: (event: "message", listener: (channel: string, message: string) => void) => unknown;
+    off: (event: "message", listener: (channel: string, message: string) => void) => unknown;
+  };
 };
 
 const MAX_RETAINED_UPDATES = 5000;
@@ -45,8 +60,71 @@ function updateToEnvelope(update: UserUpdate): UpdateEnvelope {
   };
 }
 
-export function updatesServiceCreate(db: PrismaClient): UpdatesService {
+export function updatesServiceCreate(
+  db: PrismaClient,
+  redisPubSub?: UpdatesRedisPubSub
+): UpdatesService {
   const clientsByUser = new Map<string, Map<string, UpdateClient>>();
+  const subscribedUsers = new Set<string>();
+
+  const localDeliver = (userId: string, envelope: UpdateEnvelope): void => {
+    const clients = clientsByUser.get(userId);
+    if (!clients) {
+      return;
+    }
+
+    for (const client of clients.values()) {
+      client.reply.raw.write(`event: update\ndata: ${JSON.stringify(envelope)}\n\n`);
+    }
+  };
+
+  const redisMessageHandle = (channel: string, message: string): void => {
+    const prefix = "updates:";
+    if (!channel.startsWith(prefix)) {
+      return;
+    }
+
+    const userId = channel.slice(prefix.length);
+    if (!userId) {
+      return;
+    }
+
+    try {
+      const envelope = JSON.parse(message) as UpdateEnvelope;
+      if (envelope && envelope.userId === userId) {
+        localDeliver(userId, envelope);
+      }
+    } catch {
+      // Ignore malformed pub/sub payloads.
+    }
+  };
+
+  if (redisPubSub) {
+    redisPubSub.sub.on("message", redisMessageHandle);
+  }
+
+  const subscriptionEnsure = async (userId: string): Promise<void> => {
+    if (!redisPubSub || subscribedUsers.has(userId)) {
+      return;
+    }
+
+    await redisPubSub.sub.subscribe(updatesChannelCreate(userId));
+    subscribedUsers.add(userId);
+  };
+
+  const subscriptionRelease = async (userId: string): Promise<void> => {
+    if (!redisPubSub || !subscribedUsers.has(userId)) {
+      return;
+    }
+
+    const userClients = clientsByUser.get(userId);
+    if (userClients && userClients.size > 0) {
+      return;
+    }
+
+    await redisPubSub.sub.unsubscribe(updatesChannelCreate(userId));
+    subscribedUsers.delete(userId);
+  };
 
   const subscribe = (userId: string, orgId: string, reply: FastifyReply): (() => void) => {
     reply.raw.writeHead(200, {
@@ -66,6 +144,7 @@ export function updatesServiceCreate(db: PrismaClient): UpdatesService {
     const userClients = clientsByUser.get(userId) ?? new Map<string, UpdateClient>();
     userClients.set(client.id, client);
     clientsByUser.set(userId, userClients);
+    void subscriptionEnsure(userId);
 
     return () => {
       const existing = clientsByUser.get(userId);
@@ -77,6 +156,8 @@ export function updatesServiceCreate(db: PrismaClient): UpdatesService {
       if (existing.size === 0) {
         clientsByUser.delete(userId);
       }
+
+      void subscriptionRelease(userId);
     };
   };
 
@@ -92,14 +173,11 @@ export function updatesServiceCreate(db: PrismaClient): UpdatesService {
 
       const update = await updateCreateWithRetry(db, userId, eventType, payload);
       const envelope = updateToEnvelope(update);
-      const clients = clientsByUser.get(userId);
 
-      if (!clients) {
-        return;
-      }
-
-      for (const client of clients.values()) {
-        client.reply.raw.write(`event: update\ndata: ${JSON.stringify(envelope)}\n\n`);
+      if (redisPubSub) {
+        await updatesBroadcast(redisPubSub.pub, userId, envelope);
+      } else {
+        localDeliver(userId, envelope);
       }
     }));
   };
@@ -139,10 +217,28 @@ export function updatesServiceCreate(db: PrismaClient): UpdatesService {
     };
   };
 
+  const stop = async (): Promise<void> => {
+    if (redisPubSub) {
+      redisPubSub.sub.off("message", redisMessageHandle);
+
+      const usersWithLocalClients = Array.from(clientsByUser.keys());
+      const users = new Set<string>([...subscribedUsers.values(), ...usersWithLocalClients]);
+
+      if (users.size > 0) {
+        const channels = Array.from(users.values()).map((userId) => updatesChannelCreate(userId));
+        await redisPubSub.sub.unsubscribe(...channels);
+        subscribedUsers.clear();
+      }
+    }
+
+    clientsByUser.clear();
+  };
+
   return {
     subscribe,
     publishToUsers,
-    diffGet
+    diffGet,
+    stop
   };
 }
 

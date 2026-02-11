@@ -212,18 +212,18 @@ AI users already exist in the schema (`User.kind = AI`). Add API support for cre
 
 Current SSE uses in-memory subscriptions, limiting to single instance. Add Redis pub/sub layer.
 
-- [ ] Create `sources/modules/redis/redisPubSubCreate.ts` — create separate Redis connections for pub and sub (ioredis requires dedicated connections for subscribers)
-- [ ] Create `sources/modules/updates/updatesBroadcast.ts` — publish updates to Redis channel `updates:{userId}` instead of (or in addition to) in-memory map
-- [ ] Update `sources/modules/updates/updatesServiceCreate.ts`:
+- [x] Create `sources/modules/redis/redisPubSubCreate.ts` — create separate Redis connections for pub and sub (ioredis requires dedicated connections for subscribers)
+- [x] Create `sources/modules/updates/updatesBroadcast.ts` — publish updates to Redis channel `updates:{userId}` instead of (or in addition to) in-memory map
+- [x] Update `sources/modules/updates/updatesServiceCreate.ts`:
   - On client subscribe: subscribe to Redis channel `updates:{userId}`
   - On Redis message: forward to local SSE connections for that user
   - On client disconnect: unsubscribe from Redis channel if no more local connections
   - Keep DB persistence (UserUpdate table) unchanged
-- [ ] Ensure graceful shutdown: unsubscribe all Redis channels on server shutdown
-- [ ] Write tests for `redisPubSubCreate` (connect, disconnect, error handling)
-- [ ] Write tests for `updatesBroadcast` (publish to Redis, verify subscribers receive)
-- [ ] Write tests for updated SSE service (multi-instance simulation: publish from one, receive on another)
-- [ ] Run tests — must pass before next task
+- [x] Ensure graceful shutdown: unsubscribe all Redis channels on server shutdown
+- [x] Write tests for `redisPubSubCreate` (connect, disconnect, error handling)
+- [x] Write tests for `updatesBroadcast` (publish to Redis, verify subscribers receive)
+- [x] Write tests for updated SSE service (multi-instance simulation: publish from one, receive on another)
+- [x] Run tests — must pass before next task
 
 ### Task 11: Rate limiting
 

@@ -9,6 +9,7 @@ import { fileCleanupStart } from "./modules/files/fileCleanupStart.js";
 import { idempotencyCleanupStart } from "./modules/idempotency/idempotencyCleanupStart.js";
 import { redisConnect } from "./modules/redis/redisConnect.js";
 import { redisCreate } from "./modules/redis/redisCreate.js";
+import { redisPubSubCreate } from "./modules/redis/redisPubSubCreate.js";
 import { s3ClientCreate } from "./modules/s3/s3ClientCreate.js";
 import { updatesServiceCreate } from "./modules/updates/updatesServiceCreate.js";
 import { getLogger } from "./utils/getLogger.js";
@@ -41,6 +42,14 @@ async function main(): Promise<void> {
     await redis.quit();
   });
 
+  const redisPubSub = redisPubSubCreate(config.redisUrl);
+  const redisPubSubStart = Date.now();
+  await redisPubSub.connect();
+  logger.info("redis pubsub connected", { latencyMs: Date.now() - redisPubSubStart });
+  onShutdown("redis.pubsub", async () => {
+    await redisPubSub.disconnect();
+  });
+
   const tokens = await tokenServiceCreate(config.tokenService, config.tokenSeed);
   const email = emailServiceCreate({
     apiKey: config.resendApiKey,
@@ -56,7 +65,10 @@ async function main(): Promise<void> {
   onShutdown("s3", async () => {
     s3.destroy();
   });
-  const updates = updatesServiceCreate(database);
+  const updates = updatesServiceCreate(database, redisPubSub);
+  onShutdown("updates.service", async () => {
+    await updates.stop();
+  });
   const stopFileCleanup = fileCleanupStart(database, s3, config.s3Bucket);
   onShutdown("files.cleanup", async () => {
     stopFileCleanup();

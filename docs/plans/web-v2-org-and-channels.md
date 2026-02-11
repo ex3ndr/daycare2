@@ -105,14 +105,14 @@ OrgDomain { id, organizationId, domain, createdByUserId, createdAt }
 - Add `DELETE` method support to `apiRequest`
 
 **Checklist:**
-- [ ] Add `orgRole` and `deactivatedAt` to `User` type
-- [ ] Add `OrgInvite` and `OrgDomain` types
-- [ ] Add all org member management methods to API client
-- [ ] Add all org invite methods to API client
-- [ ] Add all org domain methods to API client
-- [ ] Add `channelMemberAdd` and `organizationUpdate` methods
-- [ ] Add `DELETE` method support to `apiRequest`
-- [ ] Run `yarn typecheck` — must pass
+- [x] Add `orgRole` and `deactivatedAt` to `User` type
+- [x] Add `OrgInvite` and `OrgDomain` types
+- [x] Add all org member management methods to API client
+- [x] Add all org invite methods to API client
+- [x] Add all org domain methods to API client
+- [x] Add `channelMemberAdd` and `organizationUpdate` methods
+- [x] Add `DELETE` method support to `apiRequest`
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 2: Orgs page — joinable orgs with inline join flow
 

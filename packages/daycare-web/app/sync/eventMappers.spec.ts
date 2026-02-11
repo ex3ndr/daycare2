@@ -58,6 +58,7 @@ const testUser: User = {
   firstName: "Bob",
   lastName: "Smith",
   avatarUrl: "https://example.com/bob.jpg",
+  deactivatedAt: null,
   createdAt: 1000,
   updatedAt: 2000,
 };

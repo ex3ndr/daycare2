@@ -63,6 +63,16 @@ function createMockApi(): ApiClient {
     presenceGet: vi.fn(),
     updatesDiff: vi.fn(),
     updatesStreamSubscribe: vi.fn(),
+    orgMemberDeactivate: vi.fn(),
+    orgMemberReactivate: vi.fn(),
+    orgMemberRoleSet: vi.fn(),
+    orgInviteCreate: vi.fn(),
+    orgInviteList: vi.fn(),
+    orgInviteRevoke: vi.fn(),
+    orgDomainAdd: vi.fn(),
+    orgDomainList: vi.fn(),
+    orgDomainRemove: vi.fn(),
+    channelMemberAdd: vi.fn(),
   };
 }
 

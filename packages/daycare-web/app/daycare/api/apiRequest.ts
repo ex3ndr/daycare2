@@ -15,7 +15,7 @@ export class ApiError extends Error {
 type ApiRequestArgs = {
   baseUrl: string;
   path: string;
-  method?: "GET" | "POST" | "PATCH";
+  method?: "GET" | "POST" | "PATCH" | "DELETE";
   token?: string | null;
   body?: unknown;
 };

@@ -49,6 +49,8 @@ export type User = {
   bio?: string | null;
   timezone?: string | null;
   systemPrompt?: string | null;
+  orgRole?: "owner" | "member";
+  deactivatedAt: UnixMs | null;
   createdAt: UnixMs;
   updatedAt: UnixMs;
 };
@@ -167,4 +169,24 @@ export type Presence = {
   userId: Id;
   status: PresenceStatus;
   lastSeenAt: UnixMs;
+};
+
+export type OrgInvite = {
+  id: Id;
+  organizationId: Id;
+  invitedByUserId?: Id;
+  email: string;
+  expired?: boolean;
+  expiresAt: UnixMs;
+  acceptedAt: UnixMs | null;
+  revokedAt: UnixMs | null;
+  createdAt: UnixMs;
+};
+
+export type OrgDomain = {
+  id: Id;
+  organizationId: Id;
+  domain: string;
+  createdByUserId: Id;
+  createdAt: UnixMs;
 };

@@ -7,6 +7,8 @@ import type {
   Message,
   MessageListResponse,
   MessageSearchResult,
+  OrgDomain,
+  OrgInvite,
   Organization,
   ReadState,
   Session,
@@ -162,12 +164,22 @@ export type ApiClient = {
     onReady?: () => void,
     onDisconnect?: () => void,
   ) => { close: () => void };
+  orgMemberDeactivate: (token: string, orgId: string, userId: string) => Promise<{ user: { id: string; deactivatedAt: number | null } }>;
+  orgMemberReactivate: (token: string, orgId: string, userId: string) => Promise<{ user: { id: string; deactivatedAt: number | null } }>;
+  orgMemberRoleSet: (token: string, orgId: string, userId: string, input: { role: "OWNER" | "MEMBER" }) => Promise<{ user: { id: string; orgRole: string } }>;
+  orgInviteCreate: (token: string, orgId: string, input: { email: string }) => Promise<{ invite: OrgInvite }>;
+  orgInviteList: (token: string, orgId: string) => Promise<{ invites: OrgInvite[] }>;
+  orgInviteRevoke: (token: string, orgId: string, inviteId: string) => Promise<{ invite: { id: string; revokedAt: number | null } }>;
+  orgDomainAdd: (token: string, orgId: string, input: { domain: string }) => Promise<{ domain: OrgDomain }>;
+  orgDomainList: (token: string, orgId: string) => Promise<{ domains: OrgDomain[] }>;
+  orgDomainRemove: (token: string, orgId: string, domainId: string) => Promise<{ removed: boolean }>;
+  channelMemberAdd: (token: string, orgId: string, channelId: string, input: { userId: string }) => Promise<{ added: boolean; membership: ChannelMember }>;
 };
 
 const DEFAULT_BASE_URL = "http://localhost:3005";
 
 export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
-  const request = <T>(path: string, options: { token?: string | null; method?: "GET" | "POST" | "PATCH"; body?: unknown } = {}) =>
+  const request = <T>(path: string, options: { token?: string | null; method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown } = {}) =>
     apiRequest<T>({
       baseUrl,
       path,
@@ -310,6 +322,26 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
         },
       });
       return subscription;
-    }
+    },
+    orgMemberDeactivate: (token, orgId, userId) =>
+      request(`/api/org/${orgId}/members/${userId}/deactivate`, { method: "POST", token }),
+    orgMemberReactivate: (token, orgId, userId) =>
+      request(`/api/org/${orgId}/members/${userId}/reactivate`, { method: "POST", token }),
+    orgMemberRoleSet: (token, orgId, userId, input) =>
+      request(`/api/org/${orgId}/members/${userId}/role`, { method: "PATCH", token, body: input }),
+    orgInviteCreate: (token, orgId, input) =>
+      request(`/api/org/${orgId}/invites`, { method: "POST", token, body: input }),
+    orgInviteList: (token, orgId) =>
+      request(`/api/org/${orgId}/invites`, { token }),
+    orgInviteRevoke: (token, orgId, inviteId) =>
+      request(`/api/org/${orgId}/invites/${inviteId}/revoke`, { method: "POST", token }),
+    orgDomainAdd: (token, orgId, input) =>
+      request(`/api/org/${orgId}/domains`, { method: "POST", token, body: input }),
+    orgDomainList: (token, orgId) =>
+      request(`/api/org/${orgId}/domains`, { token }),
+    orgDomainRemove: (token, orgId, domainId) =>
+      request(`/api/org/${orgId}/domains/${domainId}`, { method: "DELETE", token }),
+    channelMemberAdd: (token, orgId, channelId, input) =>
+      request(`/api/org/${orgId}/channels/${channelId}/members`, { method: "POST", token, body: input }),
   };
 }

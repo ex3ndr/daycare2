@@ -12,6 +12,11 @@ type ApplyResult = {
   snapshot: RebaseShape;
 };
 
+type MutationContext = {
+  userId: string;
+  messageReactions?: Record<string, Array<{ userId: string; shortcode: string }>>;
+};
+
 // Maps each mutation name to the correct REST API call and returns
 // a server-authoritative snapshot for engine.rebase()
 export async function mutationApply(
@@ -19,6 +24,7 @@ export async function mutationApply(
   token: string,
   orgId: string,
   mutation: PendingMutation,
+  context?: MutationContext,
 ): Promise<ApplyResult> {
   switch (mutation.name) {
     case "messageSend": {
@@ -120,11 +126,17 @@ export async function mutationApply(
         messageId: string;
         shortcode: string;
       };
-      // Add returns { added: boolean }. If not added (reaction already exists), remove instead.
-      const result = await api.messageReactionAdd(token, orgId, input.messageId, {
-        shortcode: input.shortcode,
-      });
-      if (!result.added) {
+      // Determine intent from optimistic state: if the reaction now exists
+      // in the draft, the toggle added it; if absent, the toggle removed it.
+      const reactions = context?.messageReactions?.[input.messageId] ?? [];
+      const wantsAdd = reactions.some(
+        (r) => r.userId === context?.userId && r.shortcode === input.shortcode,
+      );
+      if (wantsAdd) {
+        await api.messageReactionAdd(token, orgId, input.messageId, {
+          shortcode: input.shortcode,
+        });
+      } else {
         await api.messageReactionRemove(token, orgId, input.messageId, {
           shortcode: input.shortcode,
         });

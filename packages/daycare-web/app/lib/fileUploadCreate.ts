@@ -76,6 +76,8 @@ export function fileSizeFormat(bytes: number | null): string {
   return `${size.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
+const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+
 export function fileUploadCreate(
   api: ApiClient,
   token: string,
@@ -142,9 +144,9 @@ export function fileUploadCreate(
       const newEntries: FileUploadEntry[] = files.map((file) => ({
         id: crypto.randomUUID(),
         file,
-        status: "pending" as const,
+        status: file.size > MAX_FILE_SIZE_BYTES ? ("error" as const) : ("pending" as const),
         progress: 0,
-        error: null,
+        error: file.size > MAX_FILE_SIZE_BYTES ? "File too large (max 50 MB)" : null,
         fileId: null,
         url: null,
       }));
@@ -153,9 +155,11 @@ export function fileUploadCreate(
         s.entries = [...s.entries, ...newEntries];
       });
 
-      // Start uploading each file
+      // Start uploading each file (skip those that failed validation)
       for (const entry of newEntries) {
-        void uploadFile(entry);
+        if (entry.status === "pending") {
+          void uploadFile(entry);
+        }
       }
     },
 

@@ -76,7 +76,7 @@ export function sseSubscribe({ url, headers, onEvent, onError, onEnd, onUnauthor
           } else if (line.startsWith("event:")) {
             event = line.slice(6).trim();
           } else if (line.startsWith("data:")) {
-            data += line.slice(5).trim();
+            data += (data ? "\n" : "") + line.slice(5).trim();
           } else if (line.startsWith("id:")) {
             id = line.slice(3).trim();
           }

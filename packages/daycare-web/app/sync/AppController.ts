@@ -248,11 +248,16 @@ export class AppController {
   }
 
   private handleBatch(updates: UpdateEnvelope[]): void {
+    let needChannelSync = false;
+    const channelIdsToResync = new Set<string>();
+
     for (const update of updates) {
-      const rebaseShape = mapEventToRebase(update);
-      if (rebaseShape) {
-        this.engine.rebase(rebaseShape);
+      const result = mapEventToRebase(update);
+      if (result.rebase) {
+        this.engine.rebase(result.rebase);
       }
+      if (result.resyncChannels) needChannelSync = true;
+      if (result.resyncMessages) channelIdsToResync.add(result.resyncMessages);
     }
 
     // Track latest seqno
@@ -264,6 +269,12 @@ export class AppController {
 
     this.storage.getState().updateObjects();
     this.persist();
+
+    // Trigger resyncs for events that carried only IDs
+    if (needChannelSync) void this.syncChannels();
+    for (const channelId of channelIdsToResync) {
+      void this.syncMessages(channelId);
+    }
   }
 
   private handleHole(): void {
@@ -292,11 +303,16 @@ export class AppController {
         return;
       }
 
+      let needChannelSync = false;
+      const channelIdsToResync = new Set<string>();
+
       for (const update of result.updates) {
-        const rebaseShape = mapEventToRebase(update);
-        if (rebaseShape) {
-          this.engine.rebase(rebaseShape);
+        const mapped = mapEventToRebase(update);
+        if (mapped.rebase) {
+          this.engine.rebase(mapped.rebase);
         }
+        if (mapped.resyncChannels) needChannelSync = true;
+        if (mapped.resyncMessages) channelIdsToResync.add(mapped.resyncMessages);
       }
 
       if (result.updates.length > 0) {
@@ -310,6 +326,12 @@ export class AppController {
 
       this.storage.getState().updateObjects();
       this.persist();
+
+      // Trigger resyncs for events that carried only IDs
+      if (needChannelSync) await this.syncChannels();
+      for (const channelId of channelIdsToResync) {
+        await this.syncMessages(channelId);
+      }
     } catch {
       // Diff failed — try full restart
       await this.restartSession();
@@ -473,11 +495,23 @@ export class AppController {
         const mutation = this.engine.pendingMutations[0];
 
         try {
+          // Build context for mutations that need engine state (e.g. reactionToggle)
+          const mutationContext = {
+            userId: this.engine.state.context.userId,
+            messageReactions: Object.fromEntries(
+              Object.entries(this.engine.state.message).map(([id, msg]) => [
+                id,
+                msg.reactions.map((r) => ({ userId: r.userId, shortcode: r.shortcode })),
+              ]),
+            ),
+          };
+
           const result = await mutationApply(
             this.api,
             this.token,
             this.orgId,
             mutation,
+            mutationContext,
           );
 
           if (Object.keys(result.snapshot).length > 0) {

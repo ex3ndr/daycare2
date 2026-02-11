@@ -227,7 +227,7 @@ describe("mutationApply", () => {
   });
 
   describe("reactionToggle", () => {
-    it("calls api.messageReactionAdd first", async () => {
+    it("calls api.messageReactionAdd when optimistic state has the reaction", async () => {
       const api = createMockApi();
       vi.mocked(api.messageReactionAdd).mockResolvedValue({ added: true });
 
@@ -236,7 +236,14 @@ describe("mutationApply", () => {
         shortcode: ":fire:",
       });
 
-      const result = await mutationApply(api, token, orgId, mutation);
+      const context = {
+        userId: "user-1",
+        messageReactions: {
+          "msg-1": [{ userId: "user-1", shortcode: ":fire:" }],
+        },
+      };
+
+      const result = await mutationApply(api, token, orgId, mutation, context);
 
       expect(api.messageReactionAdd).toHaveBeenCalledWith(
         token,
@@ -244,12 +251,12 @@ describe("mutationApply", () => {
         "msg-1",
         { shortcode: ":fire:" },
       );
+      expect(api.messageReactionRemove).not.toHaveBeenCalled();
       expect(result.snapshot).toEqual({});
     });
 
-    it("falls back to api.messageReactionRemove when add returns added: false", async () => {
+    it("calls api.messageReactionRemove when optimistic state lacks the reaction", async () => {
       const api = createMockApi();
-      vi.mocked(api.messageReactionAdd).mockResolvedValue({ added: false });
       vi.mocked(api.messageReactionRemove).mockResolvedValue({
         removed: true,
       });
@@ -259,9 +266,16 @@ describe("mutationApply", () => {
         shortcode: ":fire:",
       });
 
-      const result = await mutationApply(api, token, orgId, mutation);
+      const context = {
+        userId: "user-1",
+        messageReactions: {
+          "msg-1": [],
+        },
+      };
 
-      expect(api.messageReactionAdd).toHaveBeenCalled();
+      const result = await mutationApply(api, token, orgId, mutation, context);
+
+      expect(api.messageReactionAdd).not.toHaveBeenCalled();
       expect(api.messageReactionRemove).toHaveBeenCalledWith(
         token,
         orgId,

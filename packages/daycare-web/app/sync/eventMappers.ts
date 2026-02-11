@@ -106,6 +106,13 @@ export type RebaseShape = {
   context?: { seqno: number };
 };
 
+// Events that only carry IDs (not full objects) require a resync
+export type EventMapResult = {
+  rebase: RebaseShape | null;
+  resyncChannels?: boolean;
+  resyncMessages?: string; // channelId to resync messages for
+};
+
 function messageToRebase(msg: Message): MessageRebaseItem {
   return {
     id: msg.id,
@@ -154,46 +161,63 @@ function userToMember(user: User): MemberRebaseItem {
   };
 }
 
-export function mapEventToRebase(update: UpdateEnvelope): RebaseShape | null {
+export function mapEventToRebase(update: UpdateEnvelope): EventMapResult {
   const payload = update.payload;
 
   switch (update.eventType) {
     case "message.created":
     case "message.updated": {
       const msg = payload.message as Message | undefined;
-      if (!msg) return null;
-      return { message: [messageToRebase(msg)] };
+      if (!msg) {
+        // Server sends ID-only payloads; request a message resync for this channel
+        const channelId = payload.channelId as string | undefined;
+        return { rebase: null, resyncMessages: channelId };
+      }
+      return { rebase: { message: [messageToRebase(msg)] } };
     }
 
     case "message.deleted": {
       const msg = payload.message as Message | undefined;
-      if (!msg) return null;
-      return { message: [messageToRebase(msg)] };
+      if (!msg) {
+        const channelId = payload.channelId as string | undefined;
+        return { rebase: null, resyncMessages: channelId };
+      }
+      return { rebase: { message: [messageToRebase(msg)] } };
+    }
+
+    case "message.reaction": {
+      // Server sends { orgId, channelId, messageId, action, userId, shortcode }
+      // We need a message resync to get the updated reaction state
+      const channelId = payload.channelId as string | undefined;
+      return { rebase: null, resyncMessages: channelId };
     }
 
     case "channel.created":
     case "channel.updated": {
       const ch = payload.channel as Channel | undefined;
-      if (!ch) return null;
-      return { channel: [channelToRebase(ch)] };
+      if (!ch) {
+        // Server sends ID-only payloads; request a channel resync
+        return { rebase: null, resyncChannels: true };
+      }
+      return { rebase: { channel: [channelToRebase(ch)] } };
     }
 
     case "member.joined": {
       const user = payload.user as User | undefined;
-      if (!user) return null;
-      return { member: [userToMember(user)] };
+      if (!user) return { rebase: null };
+      return { rebase: { member: [userToMember(user)] } };
     }
 
     case "member.left": {
       // member.left doesn't remove from the member collection
       // (we keep member info for displaying past messages)
-      return null;
+      return { rebase: null };
     }
 
     case "member.updated": {
       const user = payload.user as User | undefined;
-      if (!user) return null;
-      return { member: [userToMember(user)] };
+      if (!user) return { rebase: null };
+      return { rebase: { member: [userToMember(user)] } };
     }
 
     case "user.typing": {
@@ -204,19 +228,21 @@ export function mapEventToRebase(update: UpdateEnvelope): RebaseShape | null {
         chatId?: string;
         expiresAt?: number;
       };
-      if (!typing.userId || !typing.chatId || !typing.expiresAt) return null;
+      if (!typing.userId || !typing.chatId || !typing.expiresAt) return { rebase: null };
       // Use chatId+userId as the typing entry ID for deduplication
       const id = `${typing.chatId}:${typing.userId}`;
       return {
-        typing: [
-          {
-            id,
-            userId: typing.userId,
-            username: typing.username ?? "",
-            firstName: typing.firstName ?? "",
-            expiresAt: typing.expiresAt,
-          },
-        ],
+        rebase: {
+          typing: [
+            {
+              id,
+              userId: typing.userId,
+              username: typing.username ?? "",
+              firstName: typing.firstName ?? "",
+              expiresAt: typing.expiresAt,
+            },
+          ],
+        },
       };
     }
 
@@ -225,20 +251,22 @@ export function mapEventToRebase(update: UpdateEnvelope): RebaseShape | null {
         userId?: string;
         status?: "online" | "away" | "offline";
       };
-      if (!presence.userId || !presence.status) return null;
+      if (!presence.userId || !presence.status) return { rebase: null };
       return {
-        presence: [
-          {
-            id: presence.userId,
-            userId: presence.userId,
-            status: presence.status,
-            lastSeenAt: update.createdAt,
-          },
-        ],
+        rebase: {
+          presence: [
+            {
+              id: presence.userId,
+              userId: presence.userId,
+              status: presence.status,
+              lastSeenAt: update.createdAt,
+            },
+          ],
+        },
       };
     }
 
     default:
-      return null;
+      return { rebase: null };
   }
 }

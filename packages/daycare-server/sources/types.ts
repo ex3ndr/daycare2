@@ -3,6 +3,7 @@ export type UnixMs = number;
 
 export type UserKind = "human" | "ai";
 export type ChatKind = "channel" | "direct";
+export type OrgRole = "OWNER" | "MEMBER";
 
 export type Session = {
   id: Id;
@@ -36,6 +37,8 @@ export type User = {
   bio: string | null;
   timezone: string | null;
   systemPrompt: string | null;
+  orgRole: OrgRole;
+  deactivatedAt: UnixMs | null;
   createdAt: UnixMs;
   updatedAt: UnixMs;
 };

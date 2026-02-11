@@ -59,7 +59,16 @@ export async function organizationAvailableResolve(
   }
 
   const where: Prisma.OrganizationWhereInput = {
-    OR: orConditions
+    OR: orConditions,
+    // Exclude orgs where this account's user was deactivated
+    NOT: {
+      users: {
+        some: {
+          accountId: input.accountId,
+          deactivatedAt: { not: null }
+        }
+      }
+    }
   };
 
   if (input.organizationId) {

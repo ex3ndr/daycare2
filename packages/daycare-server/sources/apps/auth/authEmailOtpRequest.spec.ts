@@ -40,7 +40,12 @@ describe("authEmailOtpRequest", () => {
         ttlSeconds: 600,
         cooldownSeconds: 60,
         maxAttempts: 5,
-        salt: "salt"
+        salt: "salt",
+        testStatic: {
+          enabled: false,
+          email: "integration-test@daycare.local",
+          code: "424242"
+        }
       },
       email: {
         send: emailSend
@@ -64,7 +69,12 @@ describe("authEmailOtpRequest", () => {
         ttlSeconds: 600,
         cooldownSeconds: 60,
         maxAttempts: 5,
-        salt: "salt"
+        salt: "salt",
+        testStatic: {
+          enabled: false,
+          email: "integration-test@daycare.local",
+          code: "424242"
+        }
       },
       email: {
         send: vi.fn()
@@ -85,7 +95,12 @@ describe("authEmailOtpRequest", () => {
         ttlSeconds: 600,
         cooldownSeconds: 60,
         maxAttempts: 5,
-        salt: "salt"
+        salt: "salt",
+        testStatic: {
+          enabled: false,
+          email: "integration-test@daycare.local",
+          code: "424242"
+        }
       },
       email: {
         send: vi.fn().mockRejectedValue(new Error("fail"))
@@ -99,5 +114,35 @@ describe("authEmailOtpRequest", () => {
     const keySuffix = createHash("sha256").update("user@example.com").digest("hex");
     expect(await redis.get(`otp:${keySuffix}`)).toBeNull();
     expect(await redis.get(`otp:${keySuffix}:cooldown`)).toBeNull();
+  });
+
+  it("does not send email for static integration email when enabled", async () => {
+    const emailSend = vi.fn().mockResolvedValue(undefined);
+    const context = {
+      redis,
+      otp: {
+        ttlSeconds: 600,
+        cooldownSeconds: 60,
+        maxAttempts: 5,
+        salt: "salt",
+        testStatic: {
+          enabled: true,
+          email: "integration-test@daycare.local",
+          code: "424242"
+        }
+      },
+      email: {
+        send: emailSend
+      }
+    } as any;
+
+    const result = await authEmailOtpRequest(context, { email: "integration-test@daycare.local" });
+
+    expect(result.sent).toBe(true);
+    const hashed = authOtpCodeHash("123456", "salt");
+    const keySuffix = createHash("sha256").update("integration-test@daycare.local").digest("hex");
+    const stored = await redis.get(`otp:${keySuffix}`);
+    expect(stored).toBe(hashed);
+    expect(emailSend).not.toHaveBeenCalled();
   });
 });

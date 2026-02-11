@@ -37,21 +37,27 @@ export async function authEmailOtpRequest(
 
   const code = authOtpCodeCreate();
   const hashed = authOtpCodeHash(code, context.otp.salt);
+  const isStaticTestEmail = (
+    context.otp.testStatic.enabled
+    && email === context.otp.testStatic.email
+  );
 
   await context.redis.set(otpKey, hashed, "EX", context.otp.ttlSeconds);
   await context.redis.del(attemptsKey);
 
-  try {
-    const minutes = Math.ceil(context.otp.ttlSeconds / 60);
-    await context.email.send({
-      to: email,
-      subject: "Your daycare login code",
-      text: `Your daycare login code is ${code}. It expires in ${minutes} minutes.`,
-      html: `Your daycare login code is <strong>${code}</strong>. It expires in ${minutes} minutes.`
-    });
-  } catch (error) {
-    await context.redis.del(otpKey, attemptsKey, cooldownKey);
-    throw new ApiError(502, "EMAIL_FAILED", "Failed to deliver OTP email");
+  if (!isStaticTestEmail) {
+    try {
+      const minutes = Math.ceil(context.otp.ttlSeconds / 60);
+      await context.email.send({
+        to: email,
+        subject: "Your daycare login code",
+        text: `Your daycare login code is ${code}. It expires in ${minutes} minutes.`,
+        html: `Your daycare login code is <strong>${code}</strong>. It expires in ${minutes} minutes.`
+      });
+    } catch (error) {
+      await context.redis.del(otpKey, attemptsKey, cooldownKey);
+      throw new ApiError(502, "EMAIL_FAILED", "Failed to deliver OTP email");
+    }
   }
 
   return {

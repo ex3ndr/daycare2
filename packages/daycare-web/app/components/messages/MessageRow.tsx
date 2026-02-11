@@ -100,12 +100,17 @@ export function MessageRow({
 
   const isOwnMessage = message.sender.id === currentUserId;
 
+  const handleEditStart = useCallback(() => {
+    setEditText(message.text);
+    setIsEditing(true);
+  }, [message.text]);
+
   // Trigger edit mode externally (e.g., Up Arrow shortcut)
   useEffect(() => {
     if (startInEditMode && !isEditing && isOwnMessage && !message.deletedAt) {
       handleEditStart();
     }
-  }, [startInEditMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [startInEditMode, isEditing, isOwnMessage, message.deletedAt, handleEditStart]);
 
   // Focus textarea when entering edit mode
   useEffect(() => {
@@ -114,11 +119,6 @@ export function MessageRow({
       editTextareaRef.current.selectionStart = editTextareaRef.current.value.length;
     }
   }, [isEditing]);
-
-  const handleEditStart = useCallback(() => {
-    setEditText(message.text);
-    setIsEditing(true);
-  }, [message.text]);
 
   const handleEditCancel = useCallback(() => {
     setIsEditing(false);

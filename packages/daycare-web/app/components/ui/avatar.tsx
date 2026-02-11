@@ -49,7 +49,7 @@ const Avatar = React.forwardRef<
       className={cn(avatarVariants({ size, className }))}
       {...props}
     />
-    {presence && presence !== "offline" && (
+    {presence && (
       <span
         className={cn(
           "absolute bottom-0 right-0 rounded-full border-background",

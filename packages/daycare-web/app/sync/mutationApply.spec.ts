@@ -112,6 +112,59 @@ describe("mutationApply", () => {
       expect(result.snapshot.message![0].text).toBe("Hello");
       expect(result.snapshot.message![0].createdAt).toBe(2000);
     });
+
+    it("sends empty text when message has attachments but no text", async () => {
+      const api = createMockApi();
+      const serverMessage = {
+        id: "server-msg-2",
+        chatId: "ch-1",
+        senderUserId: "user-1",
+        threadId: null,
+        text: "",
+        createdAt: 3000,
+        editedAt: null,
+        deletedAt: null,
+        threadReplyCount: 0,
+        threadLastReplyAt: null,
+        sender: {
+          id: "user-1",
+          kind: "human" as const,
+          username: "alice",
+          firstName: "Alice",
+          lastName: null,
+          avatarUrl: null,
+        },
+        attachments: [],
+        reactions: [],
+      };
+      vi.mocked(api.messageSend).mockResolvedValue({ message: serverMessage });
+
+      const mutation = makeMutation("messageSend", {
+        id: "temp-msg-2",
+        chatId: "ch-1",
+        text: "",
+        attachments: [
+          {
+            kind: "file",
+            url: "https://example.com/f.txt",
+          },
+        ],
+      });
+
+      await mutationApply(api, token, orgId, mutation);
+
+      expect(api.messageSend).toHaveBeenCalledWith(token, orgId, {
+        channelId: "ch-1",
+        text: "",
+        threadId: undefined,
+        attachments: [
+          {
+            kind: "file",
+            url: "https://example.com/f.txt",
+          },
+        ],
+      });
+    });
   });
 
   describe("messageEdit", () => {

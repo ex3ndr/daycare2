@@ -92,35 +92,35 @@ export function SearchCommandPalette() {
 
   const handleChannelSelect = useCallback(
     (channelId: string) => {
-      searchToggle();
+      searchClose();
       navigate({
         to: "/$orgSlug/c/$channelId",
         params: { orgSlug, channelId },
       });
     },
-    [navigate, orgSlug, searchToggle],
+    [navigate, orgSlug, searchClose],
   );
 
   const handleMessageSelect = useCallback(
     (msg: MessageSearchResult) => {
-      searchToggle();
+      searchClose();
       navigate({
         to: "/$orgSlug/c/$channelId",
         params: { orgSlug, channelId: msg.chatId },
       });
     },
-    [navigate, orgSlug, searchToggle],
+    [navigate, orgSlug, searchClose],
   );
 
   const handleSearchAll = useCallback(() => {
     if (!searchQuery.trim()) return;
-    searchToggle();
+    searchClose();
     navigate({
       to: "/$orgSlug/search",
       params: { orgSlug },
       search: { q: searchQuery.trim() },
     });
-  }, [navigate, orgSlug, searchQuery, searchToggle]);
+  }, [navigate, orgSlug, searchQuery, searchClose]);
 
   const hasResults = channelResults.length > 0 || messageResults.length > 0;
   const emptyMessage = loading

@@ -7,10 +7,11 @@ import { messagesForChannel, typingUsersForChannel } from "@/app/sync/selectors"
 import { useUiStore } from "@/app/stores/uiStoreContext";
 import { MessageRow } from "@/app/components/messages/MessageRow";
 import { Composer } from "@/app/components/messages/Composer";
-import { Hash, Lock } from "lucide-react";
+import { Hash, Lock, ArrowDown, Loader2 } from "lucide-react";
 import { useThrottledTyping } from "@/app/lib/useThrottledTyping";
 import { typingTextFormat } from "@/app/lib/typingTextFormat";
 import { useFileUpload } from "@/app/lib/useFileUpload";
+import { useMessagePagination } from "@/app/lib/useMessagePagination";
 import { cn } from "@/app/lib/utils";
 
 export const channelRoute = createRoute({
@@ -55,43 +56,17 @@ function ChannelPage() {
     mutate("readMark", { chatId: channelId });
   }, [mutate, channelId]);
 
-  // Auto-scroll to bottom
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const isAtBottomRef = useRef(true);
-
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-  }, []);
-
-  // Scroll to bottom on initial load and channel change
-  useEffect(() => {
-    scrollToBottom();
-  }, [channelId, scrollToBottom]);
-
-  // Scroll to bottom on new messages if user is already at bottom
-  useEffect(() => {
-    if (isAtBottomRef.current) {
-      scrollToBottom();
-    }
-  }, [messages.length, scrollToBottom]);
-
-  const handleScroll = useCallback(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const threshold = 100;
-    isAtBottomRef.current =
-      el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
-  }, []);
+  // Pagination
+  const pagination = useMessagePagination(app, channelId, messages);
 
   // Mark read on new messages while viewing
   const prevMessageCountRef = useRef(messages.length);
   useEffect(() => {
-    if (messages.length > prevMessageCountRef.current && isAtBottomRef.current) {
+    if (messages.length > prevMessageCountRef.current && pagination.isAtBottomRef.current) {
       mutate("readMark", { chatId: channelId });
     }
     prevMessageCountRef.current = messages.length;
-  }, [messages.length, mutate, channelId]);
+  }, [messages.length, mutate, channelId, pagination.isAtBottomRef]);
 
   // Typing signal (throttled)
   const emitTyping = useThrottledTyping(app, channelId);
@@ -236,33 +211,61 @@ function ChannelPage() {
         </div>
 
         {/* Message list */}
-        <div
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
-          className="flex-1 overflow-y-auto"
-        >
-          <div className="py-4">
-            {messages.length === 0 ? (
-              <div className="flex items-center justify-center py-12">
-                <p className="text-sm text-muted-foreground">
-                  No messages yet. Start the conversation!
-                </p>
-              </div>
-            ) : (
-              messages.map((msg) => (
-                <MessageRow
-                  key={msg.id}
-                  message={msg}
-                  currentUserId={userId}
-                  onThreadOpen={handleThreadOpen}
-                  onReactionToggle={handleReactionToggle}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                />
-              ))
-            )}
-            <div ref={messagesEndRef} />
+        <div className="relative flex-1 overflow-hidden">
+          <div
+            ref={pagination.scrollContainerRef}
+            onScroll={pagination.handleScroll}
+            className="h-full overflow-y-auto"
+          >
+            <div className="py-4">
+              {/* Loading spinner at top */}
+              {pagination.isLoadingOlder && (
+                <div className="flex items-center justify-center py-3">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              )}
+
+              {!pagination.hasMore && messages.length > 0 && (
+                <div className="flex items-center justify-center py-3">
+                  <p className="text-xs text-muted-foreground">
+                    Beginning of conversation
+                  </p>
+                </div>
+              )}
+
+              {messages.length === 0 ? (
+                <div className="flex items-center justify-center py-12">
+                  <p className="text-sm text-muted-foreground">
+                    No messages yet. Start the conversation!
+                  </p>
+                </div>
+              ) : (
+                messages.map((msg) => (
+                  <MessageRow
+                    key={msg.id}
+                    message={msg}
+                    currentUserId={userId}
+                    onThreadOpen={handleThreadOpen}
+                    onReactionToggle={handleReactionToggle}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                  />
+                ))
+              )}
+              <div ref={pagination.messagesEndRef} />
+            </div>
           </div>
+
+          {/* Jump to bottom button */}
+          {pagination.showJumpToBottom && (
+            <button
+              onClick={pagination.scrollToBottom}
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-background/95 border shadow-md px-4 py-2 text-sm font-medium text-foreground hover:bg-background transition-colors"
+            >
+              <ArrowDown className="h-4 w-4" />
+              Jump to latest
+            </button>
+          )}
         </div>
 
         {/* Typing indicator */}

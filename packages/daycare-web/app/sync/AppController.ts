@@ -319,7 +319,47 @@ export class AppController {
       this.orgId,
       channelId,
     );
-    const messages = result.messages.map((msg) => ({
+    const messages = this.mapMessages(result.messages);
+
+    this.engine.rebase({ message: messages });
+    this.storage.getState().updateObjects();
+    this.persist();
+  }
+
+  /**
+   * Fetch a page of older messages before the given cursor.
+   * Returns the count of messages fetched so callers can determine if more exist.
+   */
+  async syncMessagesPage(
+    channelId: string,
+    options: { before: string; limit: number },
+  ): Promise<{ fetchedCount: number }> {
+    if (this.destroyed) return { fetchedCount: 0 };
+
+    const result = await this.api.messageList(
+      this.token,
+      this.orgId,
+      channelId,
+      { before: options.before, limit: options.limit },
+    );
+    const messages = this.mapMessages(result.messages);
+
+    this.engine.rebase({ message: messages });
+    this.storage.getState().updateObjects();
+    this.persist();
+
+    return { fetchedCount: result.messages.length };
+  }
+
+  private mapMessages(raw: Array<{
+    id: string; chatId: string; senderUserId: string; threadId: string | null;
+    text: string; createdAt: number; editedAt: number | null; deletedAt: number | null;
+    threadReplyCount: number; threadLastReplyAt: number | null;
+    sender: { id: string; kind: string; username: string; firstName: string; lastName: string | null; avatarUrl: string | null };
+    attachments: Array<{ id: string; kind: string; url: string; mimeType: string | null; fileName: string | null; sizeBytes: number | null; sortOrder: number }>;
+    reactions: Array<{ id: string; userId: string; shortcode: string; createdAt: number }>;
+  }>) {
+    return raw.map((msg) => ({
       id: msg.id,
       chatId: msg.chatId,
       senderUserId: msg.senderUserId,
@@ -341,10 +381,6 @@ export class AppController {
       attachments: msg.attachments,
       reactions: msg.reactions,
     }));
-
-    this.engine.rebase({ message: messages });
-    this.storage.getState().updateObjects();
-    this.persist();
   }
 
   async syncThreadMessages(channelId: string, threadId: string): Promise<void> {
@@ -356,28 +392,7 @@ export class AppController {
       channelId,
       { threadId },
     );
-    const messages = result.messages.map((msg) => ({
-      id: msg.id,
-      chatId: msg.chatId,
-      senderUserId: msg.senderUserId,
-      threadId: msg.threadId,
-      text: msg.text,
-      createdAt: msg.createdAt,
-      editedAt: msg.editedAt,
-      deletedAt: msg.deletedAt,
-      threadReplyCount: msg.threadReplyCount,
-      threadLastReplyAt: msg.threadLastReplyAt,
-      sender: {
-        id: msg.sender.id,
-        kind: msg.sender.kind,
-        username: msg.sender.username,
-        firstName: msg.sender.firstName,
-        lastName: msg.sender.lastName,
-        avatarUrl: msg.sender.avatarUrl,
-      },
-      attachments: msg.attachments,
-      reactions: msg.reactions,
-    }));
+    const messages = this.mapMessages(result.messages);
 
     this.engine.rebase({ message: messages });
     this.storage.getState().updateObjects();

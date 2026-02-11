@@ -653,13 +653,13 @@ Depends on backend S3 integration.
 
 #### Task 21: Infinite scroll / message pagination
 
-- [ ] Scroll-to-top loads older messages via `before` cursor
-- [ ] "Jump to bottom" button when scrolled up + new messages arrive
-- [ ] Auto-scroll to bottom on new messages only if already at bottom
-- [ ] Merge paginated messages into sync engine state via rebase
-- [ ] Loading spinner at top while fetching
-- [ ] **agent-browser**: in a channel with many messages, scroll to top → verify spinner appears → verify older messages load → scroll to middle → send message from second tab → verify "jump to bottom" button appears → click it → verify scroll snaps to newest message → screenshot
-- [ ] Run tests — must pass before next task
+- [x] Scroll-to-top loads older messages via `before` cursor
+- [x] "Jump to bottom" button when scrolled up + new messages arrive
+- [x] Auto-scroll to bottom on new messages only if already at bottom
+- [x] Merge paginated messages into sync engine state via rebase
+- [x] Loading spinner at top while fetching
+- [x] **agent-browser**: in a channel with many messages, scroll to top → verify spinner appears → verify older messages load → scroll to middle → send message from second tab → verify "jump to bottom" button appears → click it → verify scroll snaps to newest message → screenshot
+- [x] Run tests — must pass before next task
 
 #### Task 22: Search UI
 

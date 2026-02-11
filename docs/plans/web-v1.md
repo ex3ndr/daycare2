@@ -562,14 +562,14 @@ Build every screen. After this milestone the app is fully functional for core me
 
 The workspace chrome: rail, sidebar, content area, thread panel.
 
-- [ ] Build `app/routes/_workspace.tsx` — CSS Grid layout (rail 76px, sidebar 280px, content 1fr, thread 320px)
-- [ ] Build `app/components/workspace/Rail.tsx` — org avatar, org switcher, logout (dark background)
-- [ ] Build `app/components/workspace/Sidebar.tsx` — org name, user info, channel list, DM section (dark background)
-- [ ] Channel list: ScrollArea, clickable rows with unread Badge, active highlight
-- [ ] "New Channel" button → Dialog
-- [ ] Routing: channel click → `/:orgSlug/c/:channelId`
-- [ ] **agent-browser**: verify 4-column layout (dark rail, dark sidebar, light chat, light thread), click channels and verify URL changes, screenshot full workspace, verify unread badges show on non-selected channels
-- [ ] Run tests — must pass before next task
+- [x] Build `app/routes/_workspace.tsx` — CSS Grid layout (rail 76px, sidebar 280px, content 1fr, thread 320px)
+- [x] Build `app/components/workspace/Rail.tsx` — org avatar, org switcher, logout (dark background)
+- [x] Build `app/components/workspace/Sidebar.tsx` — org name, user info, channel list, DM section (dark background)
+- [x] Channel list: ScrollArea, clickable rows with unread Badge, active highlight
+- [x] "New Channel" button → Dialog
+- [x] Routing: channel click → `/:orgSlug/c/:channelId`
+- [x] **agent-browser**: verify 4-column layout (dark rail, dark sidebar, light chat, light thread), click channels and verify URL changes, screenshot full workspace, verify unread badges show on non-selected channels
+- [x] Run tests — must pass before next task
 
 #### Task 15: Channel view (messages + composer)
 

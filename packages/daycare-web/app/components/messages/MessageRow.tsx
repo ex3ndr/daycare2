@@ -20,6 +20,8 @@ import {
 import { timeFormat } from "@/app/lib/timeFormat";
 import { cn } from "@/app/lib/utils";
 import { MessageSquare, Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ReactionBar } from "./ReactionBar";
+import { EmojiPicker } from "./EmojiPicker";
 
 export type MessageData = {
   id: string;
@@ -74,27 +76,6 @@ function initialsFromSender(sender: MessageData["sender"]): string {
 function displayName(sender: MessageData["sender"]): string {
   const parts = [sender.firstName, sender.lastName].filter(Boolean);
   return parts.length > 0 ? parts.join(" ") : sender.username;
-}
-
-// Group reactions by shortcode with count and whether current user reacted
-function groupReactions(
-  reactions: MessageData["reactions"],
-  currentUserId: string,
-) {
-  const map = new Map<string, { count: number; userReacted: boolean }>();
-  for (const r of reactions) {
-    const existing = map.get(r.shortcode);
-    if (existing) {
-      existing.count++;
-      if (r.userId === currentUserId) existing.userReacted = true;
-    } else {
-      map.set(r.shortcode, {
-        count: 1,
-        userReacted: r.userId === currentUserId,
-      });
-    }
-  }
-  return map;
 }
 
 export function MessageRow({
@@ -178,8 +159,14 @@ export function MessageRow({
   }
 
   const sender = message.sender;
-  const reactionGroups = groupReactions(message.reactions, currentUserId);
   const showContextMenu = isOwnMessage && (onEdit || onDelete) && !message.pending;
+
+  const handleReaction = useCallback(
+    (shortcode: string) => {
+      onReactionToggle?.(message.id, shortcode);
+    },
+    [onReactionToggle, message.id],
+  );
 
   return (
     <>
@@ -263,26 +250,12 @@ export function MessageRow({
           )}
 
           {/* Reactions */}
-          {reactionGroups.size > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {Array.from(reactionGroups.entries()).map(
-                ([shortcode, { count, userReacted }]) => (
-                  <button
-                    key={shortcode}
-                    onClick={() => onReactionToggle?.(message.id, shortcode)}
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs transition-colors hover:bg-accent",
-                      userReacted
-                        ? "border-primary/40 bg-primary/10 text-primary"
-                        : "border-border bg-background text-muted-foreground",
-                    )}
-                  >
-                    <span>{shortcode}</span>
-                    <span className="font-medium">{count}</span>
-                  </button>
-                ),
-              )}
-            </div>
+          {onReactionToggle && (
+            <ReactionBar
+              reactions={message.reactions}
+              currentUserId={currentUserId}
+              onToggle={handleReaction}
+            />
           )}
 
           {/* Thread indicator */}
@@ -307,6 +280,10 @@ export function MessageRow({
 
         {/* Hover actions */}
         <div className="flex items-start gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          {onReactionToggle && !message.pending && (
+            <EmojiPicker onSelect={handleReaction} variant="icon" />
+          )}
+
           {onThreadOpen && message.threadReplyCount === 0 && (
             <Tooltip>
               <TooltipTrigger asChild>

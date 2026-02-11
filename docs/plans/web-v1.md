@@ -618,13 +618,13 @@ The main messaging view.
 
 #### Task 18: Emoji reactions
 
-- [ ] Build `app/components/messages/ReactionBar.tsx` — existing reactions as clickable Badges with count, highlighted if user reacted
-- [ ] Build `app/components/messages/EmojiPicker.tsx` — Popover with grid of common shortcodes (`:thumbsup:`, `:fire:`, `:heart:`, `:laugh:`, `:eyes:`, `:check:`, `:clap:`, `:rocket:`, `:thinking:`, `:100:`)
-- [ ] Click existing reaction → toggle (add/remove via `reactionToggle` mutation)
-- [ ] "+" button → EmojiPicker for new reaction
-- [ ] Optimistic: reaction appears/disappears immediately
-- [ ] **agent-browser**: click "+" on a message → verify emoji picker popover → click `:fire:` → verify reaction badge appears with count 1 and highlighted → click it again → verify it disappears → screenshot picker open and reaction states
-- [ ] Run tests for reaction toggle logic — must pass before next task
+- [x] Build `app/components/messages/ReactionBar.tsx` — existing reactions as clickable Badges with count, highlighted if user reacted
+- [x] Build `app/components/messages/EmojiPicker.tsx` — Popover with grid of common shortcodes (`:thumbsup:`, `:fire:`, `:heart:`, `:laugh:`, `:eyes:`, `:check:`, `:clap:`, `:rocket:`, `:thinking:`, `:100:`)
+- [x] Click existing reaction → toggle (add/remove via `reactionToggle` mutation)
+- [x] "+" button → EmojiPicker for new reaction
+- [x] Optimistic: reaction appears/disappears immediately
+- [x] **agent-browser**: click "+" on a message → verify emoji picker popover → click `:fire:` → verify reaction badge appears with count 1 and highlighted → click it again → verify it disappears → screenshot picker open and reaction states
+- [x] Run tests for reaction toggle logic — must pass before next task
 
 #### Task 19: Direct messages UI
 

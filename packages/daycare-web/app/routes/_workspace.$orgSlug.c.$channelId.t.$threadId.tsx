@@ -117,6 +117,14 @@ function ThreadPanel() {
     [mutate],
   );
 
+  // Reaction toggle
+  const handleReactionToggle = useCallback(
+    (messageId: string, shortcode: string) => {
+      mutate("reactionToggle", { messageId, shortcode });
+    },
+    [mutate],
+  );
+
   // Typing signal for thread
   const emitTyping = useThrottledTyping(app, channelId);
 
@@ -167,6 +175,7 @@ function ThreadPanel() {
               <MessageRow
                 message={rootMessage}
                 currentUserId={userId}
+                onReactionToggle={handleReactionToggle}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
               />
@@ -186,6 +195,7 @@ function ThreadPanel() {
               key={msg.id}
               message={msg}
               currentUserId={userId}
+              onReactionToggle={handleReactionToggle}
               onEdit={handleEdit}
               onDelete={handleDelete}
             />

@@ -98,7 +98,8 @@ export async function channelInviteAdd(
         where: { id: historicalMembership.id },
         data: {
           leftAt: null,
-          joinedAt: new Date()
+          joinedAt: new Date(),
+          role: "MEMBER"
         }
       });
     }
@@ -138,7 +139,7 @@ export async function channelInviteAdd(
           isNew = true;
           return await tx.chatMember.update({
             where: { id: existing.id },
-            data: { leftAt: null, joinedAt: new Date() }
+            data: { leftAt: null, joinedAt: new Date(), role: "MEMBER" }
           });
         }
 

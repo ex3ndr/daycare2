@@ -51,6 +51,20 @@ export async function orgMemberRoleSet(
       throw new ApiError(400, "VALIDATION_ERROR", "User already has this role");
     }
 
+    // Prevent demoting the last active OWNER
+    if (target.orgRole === "OWNER" && input.role === "MEMBER") {
+      const ownerCount = await tx.user.count({
+        where: {
+          organizationId: input.organizationId,
+          orgRole: "OWNER",
+          deactivatedAt: null
+        }
+      });
+      if (ownerCount <= 1) {
+        throw new ApiError(400, "VALIDATION_ERROR", "Cannot demote the last organization owner");
+      }
+    }
+
     return await tx.user.update({
       where: { id: input.targetUserId },
       data: { orgRole: input.role }

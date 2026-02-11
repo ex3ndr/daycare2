@@ -112,12 +112,39 @@ describe("uiStore", () => {
     });
   });
 
+  describe("threadComposerDraftSet", () => {
+    it("sets a draft for a thread", () => {
+      store.getState().threadComposerDraftSet("thread-1", "reply text");
+      expect(store.getState().threadComposerDrafts["thread-1"]).toBe("reply text");
+    });
+
+    it("sets drafts for multiple threads independently", () => {
+      store.getState().threadComposerDraftSet("thread-1", "reply one");
+      store.getState().threadComposerDraftSet("thread-2", "reply two");
+      expect(store.getState().threadComposerDrafts["thread-1"]).toBe("reply one");
+      expect(store.getState().threadComposerDrafts["thread-2"]).toBe("reply two");
+    });
+
+    it("overwrites existing draft for same thread", () => {
+      store.getState().threadComposerDraftSet("thread-1", "first");
+      store.getState().threadComposerDraftSet("thread-1", "second");
+      expect(store.getState().threadComposerDrafts["thread-1"]).toBe("second");
+    });
+
+    it("can clear a draft by setting empty string", () => {
+      store.getState().threadComposerDraftSet("thread-1", "hello");
+      store.getState().threadComposerDraftSet("thread-1", "");
+      expect(store.getState().threadComposerDrafts["thread-1"]).toBe("");
+    });
+  });
+
   describe("initial state", () => {
     it("has correct defaults", () => {
       const state = store.getState();
       expect(state.sidebarCollapsed).toBe(false);
       expect(state.composerDrafts).toEqual({});
       expect(state.threadComposerDraft).toBe("");
+      expect(state.threadComposerDrafts).toEqual({});
       expect(state.activeModal).toBe(null);
       expect(state.searchOpen).toBe(false);
       expect(state.searchQuery).toBe("");

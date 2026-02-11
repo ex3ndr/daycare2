@@ -590,15 +590,15 @@ The main messaging view.
 
 #### Task 16: Thread panel
 
-- [ ] Build `app/routes/_workspace.$orgSlug.c.$channelId.t.$threadId.tsx`:
+- [x] Build `app/routes/_workspace.$orgSlug.c.$channelId.t.$threadId.tsx`:
   - Thread root message at top
   - Thread replies in ScrollArea
   - Thread composer
   - Close button → navigate back to channel
-- [ ] Thread opens via "Thread" button on message → thread URL
-- [ ] Replies use `messageSend` mutation with `threadId`
-- [ ] **agent-browser**: click "Thread" on a message → verify thread panel opens with root message at top and URL updates → type reply → verify it appears → click Close → verify panel closes and URL reverts → screenshot open and closed states
-- [ ] Run tests — must pass before next task
+- [x] Thread opens via "Thread" button on message → thread URL
+- [x] Replies use `messageSend` mutation with `threadId`
+- [x] **agent-browser**: click "Thread" on a message → verify thread panel opens with root message at top and URL updates → type reply → verify it appears → click Close → verify panel closes and URL reverts → screenshot open and closed states
+- [x] Run tests — must pass before next task
 
 ---
 

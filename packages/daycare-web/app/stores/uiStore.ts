@@ -81,7 +81,8 @@ export const uiStoreCreate = () =>
 
     photoViewerOpen: (images, startIndex) => {
       if (images.length === 0) return;
-      set({ photoViewer: { images, currentIndex: startIndex } });
+      const clamped = Math.max(0, Math.min(startIndex, images.length - 1));
+      set({ photoViewer: { images, currentIndex: clamped } });
     },
 
     photoViewerClose: () => set({ photoViewer: null }),

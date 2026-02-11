@@ -57,6 +57,10 @@ export function SettingsLayout({ initialTab }: { initialTab?: SettingsTab }) {
 
   const visibleTabs = TABS.filter((t) => !t.ownerOnly || isOwner);
 
+  // Prevent rendering owner-only tab content while redirect is pending
+  const effectiveTab: SettingsTab =
+    !isOwner && TABS.find((t) => t.id === tab)?.ownerOnly ? "general" : tab;
+
   return (
     <div className="flex flex-1 min-w-0 overflow-hidden">
       {/* Sidebar nav */}
@@ -82,7 +86,7 @@ export function SettingsLayout({ initialTab }: { initialTab?: SettingsTab }) {
                 onClick={() => setTab(t.id)}
                 className={cn(
                   "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md transition-colors",
-                  tab === t.id
+                  effectiveTab === t.id
                     ? "bg-accent text-accent-foreground font-medium"
                     : "text-muted-foreground hover:text-foreground hover:bg-accent/50",
                 )}
@@ -102,10 +106,10 @@ export function SettingsLayout({ initialTab }: { initialTab?: SettingsTab }) {
             <p className="text-muted-foreground text-sm">Loading...</p>
           ) : (
             <>
-              {tab === "general" && <SettingsGeneral isOwner={isOwner} />}
-              {tab === "members" && <SettingsMembers isOwner={isOwner} />}
-              {tab === "invites" && <SettingsInvites isOwner={isOwner} />}
-              {tab === "domains" && <SettingsDomains isOwner={isOwner} />}
+              {effectiveTab === "general" && <SettingsGeneral isOwner={isOwner} />}
+              {effectiveTab === "members" && <SettingsMembers isOwner={isOwner} />}
+              {effectiveTab === "invites" && <SettingsInvites isOwner={isOwner} />}
+              {effectiveTab === "domains" && <SettingsDomains isOwner={isOwner} />}
             </>
           )}
         </div>

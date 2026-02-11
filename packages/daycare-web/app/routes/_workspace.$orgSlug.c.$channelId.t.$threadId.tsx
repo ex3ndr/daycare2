@@ -1,5 +1,6 @@
 import { createRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useMemo } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { channelRoute } from "./_workspace.$orgSlug.c.$channelId";
 import { orgSlugRoute } from "./_workspace.$orgSlug";
 import { useApp, useStorage } from "@/app/sync/AppContext";
@@ -27,11 +28,13 @@ function ThreadPanel() {
   const app = useApp();
 
   const rootMessage = useStorage((s) => s.objects.message[threadId]);
-  const threadMessages = useStorage((s) => threadMessagesForRoot(s.objects, threadId));
+  const threadMessages = useStorage(
+    useShallow((s) => threadMessagesForRoot(s.objects, threadId)),
+  );
   const mutate = useStorage((s) => s.mutate);
   const userId = useStorage((s) => s.objects.context.userId);
-  const typingUsers = useStorage((s) =>
-    typingUsersForChannel(s.objects, channelId, userId),
+  const typingUsers = useStorage(
+    useShallow((s) => typingUsersForChannel(s.objects, channelId, userId)),
   );
 
   const draft = useUiStore((s) => s.threadComposerDrafts[threadId] ?? "");

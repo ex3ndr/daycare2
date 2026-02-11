@@ -20,15 +20,19 @@ import {
 import { Hash, Lock, Plus, MessageSquare, ChevronDown, ChevronRight } from "lucide-react";
 import type { ApiClient } from "@/app/daycare/api/apiClientCreate";
 
+const EMPTY_CHANNEL_MAP: Record<string, never> = {};
+const EMPTY_DIRECT_MAP: Record<string, never> = {};
+const EMPTY_READ_STATE_MAP: Record<string, never> = {};
+
 export function Sidebar() {
   const navigate = useNavigate();
   const app = useApp();
   const orgName = useStorage((s) => s.objects.context.orgName);
   const orgSlug = useStorage((s) => s.objects.context.orgSlug);
   const orgId = useStorage((s) => s.objects.context.orgId);
-  const channelMap = useStorage((s) => s.objects.channel ?? {});
-  const directMap = useStorage((s) => s.objects.direct ?? {});
-  const readStates = useStorage((s) => s.objects.readState ?? {});
+  const channelMap = useStorage((s) => s.objects.channel ?? EMPTY_CHANNEL_MAP);
+  const directMap = useStorage((s) => s.objects.direct ?? EMPTY_DIRECT_MAP);
+  const readStates = useStorage((s) => s.objects.readState ?? EMPTY_READ_STATE_MAP);
   const mutate = useStorage((s) => s.mutate);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
 

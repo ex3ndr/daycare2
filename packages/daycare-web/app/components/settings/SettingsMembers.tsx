@@ -292,8 +292,11 @@ function DeactivateConfirmDialog({
   async function handleConfirm() {
     if (!user) return;
     setLoading(true);
-    await onConfirm(user);
-    setLoading(false);
+    try {
+      await onConfirm(user);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

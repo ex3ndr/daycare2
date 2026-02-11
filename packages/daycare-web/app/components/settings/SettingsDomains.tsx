@@ -275,8 +275,11 @@ function RemoveConfirmDialog({
   async function handleConfirm() {
     if (!domain) return;
     setLoading(true);
-    await onConfirm(domain);
-    setLoading(false);
+    try {
+      await onConfirm(domain);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

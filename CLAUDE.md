@@ -33,6 +33,7 @@
 /:orgSlug/dm/:dmId         -> direct message
 /:orgSlug/dm/:dmId/t/:threadId -> DM + thread panel
 /:orgSlug/search?q=...     -> search results
+/:orgSlug/settings?tab=... -> org settings (general, members, invites, domains)
 ```
 
 ### Web File Organization
@@ -42,9 +43,10 @@ app/
   sync/            -> @slopus/sync schema, AppController, StorageStore, selectors, event mappers, UpdateSequencer
   stores/          -> Zustand UI stores (uiStore, connectionStore, toastStore)
   components/
-    ui/            -> shadcn/ui primitives (button, input, dialog, avatar, badge, etc.)
+    ui/            -> shadcn/ui primitives (button, input, dialog, avatar, badge, etc.), PhotoViewer
     messages/      -> MessageRow, Composer, ReactionBar, EmojiPicker, FileUpload, Attachment
-    workspace/     -> Rail, Sidebar, ChannelSettings, KeyboardShortcutsHelp
+    workspace/     -> Rail, Sidebar, ChannelSettings, ProfileEditor, KeyboardShortcutsHelp
+    settings/      -> SettingsLayout, SettingsGeneral, SettingsMembers, SettingsInvites, SettingsDomains
     search/        -> SearchCommandPalette
     skeletons/     -> Loading skeleton components
   lib/             -> utilities, hooks, session management, route guards

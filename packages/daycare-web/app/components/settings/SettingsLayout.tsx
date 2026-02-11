@@ -45,6 +45,14 @@ export function SettingsLayout({ initialTab }: { initialTab?: SettingsTab }) {
 
   const isOwner = orgRole === "owner";
 
+  // Redirect non-owners away from owner-only tabs (e.g. direct URL navigation)
+  useEffect(() => {
+    if (!loading && !isOwner) {
+      const current = TABS.find((t) => t.id === tab);
+      if (current?.ownerOnly) setTab("general");
+    }
+  }, [loading, isOwner, tab]);
+
   const visibleTabs = TABS.filter((t) => !t.ownerOnly || isOwner);
 
   return (

@@ -42,7 +42,9 @@ function channelOrderKey(orgId: string): string {
 
 function channelOrderRead(orgId: string): string[] {
   try {
-    return JSON.parse(localStorage.getItem(channelOrderKey(orgId)) ?? "[]");
+    const parsed: unknown = JSON.parse(localStorage.getItem(channelOrderKey(orgId)) ?? "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((v): v is string => typeof v === "string");
   } catch {
     return [];
   }

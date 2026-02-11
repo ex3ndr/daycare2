@@ -322,8 +322,11 @@ function RevokeConfirmDialog({
   async function handleConfirm() {
     if (!invite) return;
     setLoading(true);
-    await onConfirm(invite);
-    setLoading(false);
+    try {
+      await onConfirm(invite);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

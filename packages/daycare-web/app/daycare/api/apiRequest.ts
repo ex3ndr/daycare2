@@ -35,10 +35,6 @@ export function apiRequestSetDeactivatedHandler(handler: () => void) {
   onDeactivated = handler;
 }
 
-export function apiRequestFireDeactivated() {
-  onDeactivated?.();
-}
-
 export async function apiRequest<T>({ baseUrl, path, method = "GET", token, body }: ApiRequestArgs): Promise<T> {
   const headers: Record<string, string> = {
     ...(token ? { Authorization: `Bearer ${token}` } : {})

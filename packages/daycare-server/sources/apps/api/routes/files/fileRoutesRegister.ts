@@ -7,6 +7,7 @@ import { fileUploadInit } from "@/apps/files/fileUploadInit.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
 import { idempotencyGuard } from "@/apps/api/lib/idempotencyGuard.js";
+import { rateLimitMiddleware } from "@/apps/api/lib/rateLimitMiddleware.js";
 import { s3ObjectGet } from "@/modules/s3/s3ObjectGet.js";
 
 const orgIdSchema = z.string().min(1);
@@ -23,7 +24,24 @@ const uploadBodySchema = z.object({
 });
 
 export async function fileRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
-  app.post("/api/org/:orgid/files/upload-init", async (request) => {
+  const fileUploadRateLimit = rateLimitMiddleware(context, {
+    scope: "files.upload",
+    limit: 10,
+    windowSeconds: 60,
+    keyCreate: async (request) => {
+      const params = z.object({ orgid: orgIdSchema }).parse(request.params);
+      const auth = await authContextResolve(request, context, params.orgid);
+      return auth.user.id;
+    },
+    message: "Too many file uploads. Please retry later."
+  });
+
+  app.post("/api/org/:orgid/files/upload-init", async (request, reply) => {
+    const allowed = await fileUploadRateLimit(request, reply);
+    if (!allowed) {
+      return;
+    }
+
     const params = z.object({ orgid: orgIdSchema }).parse(request.params);
     const body = uploadInitBodySchema.parse(request.body);
     const auth = await authContextResolve(request, context, params.orgid);
@@ -58,7 +76,12 @@ export async function fileRoutesRegister(app: FastifyInstance, context: ApiConte
     });
   });
 
-  app.post("/api/org/:orgid/files/:fileId/upload", async (request) => {
+  app.post("/api/org/:orgid/files/:fileId/upload", async (request, reply) => {
+    const allowed = await fileUploadRateLimit(request, reply);
+    if (!allowed) {
+      return;
+    }
+
     const params = z.object({ orgid: orgIdSchema, fileId: z.string().min(1) }).parse(request.params);
     const body = uploadBodySchema.parse(request.body);
     const auth = await authContextResolve(request, context, params.orgid);

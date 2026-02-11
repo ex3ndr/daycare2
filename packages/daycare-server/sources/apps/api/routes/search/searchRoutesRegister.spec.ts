@@ -8,6 +8,10 @@ vi.mock("@/apps/api/lib/authContextResolve.js", () => ({
   authContextResolve: vi.fn()
 }));
 
+vi.mock("@/apps/api/lib/rateLimitMiddleware.js", () => ({
+  rateLimitMiddleware: vi.fn(() => vi.fn().mockResolvedValue(true))
+}));
+
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { searchRoutesRegister } from "./searchRoutesRegister.js";
 

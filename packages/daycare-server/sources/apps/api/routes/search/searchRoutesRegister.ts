@@ -5,6 +5,7 @@ import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { channelSearch } from "@/apps/channels/channelSearch.js";
 import { messageSearch } from "@/apps/messages/messageSearch.js";
+import { rateLimitMiddleware } from "@/apps/api/lib/rateLimitMiddleware.js";
 
 const messageSearchQuerySchema = z.object({
   q: z.string().trim().min(1),
@@ -19,7 +20,24 @@ const channelSearchQuerySchema = z.object({
 });
 
 export async function searchRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
-  app.get("/api/org/:orgid/search/messages", async (request) => {
+  const searchRateLimit = rateLimitMiddleware(context, {
+    scope: "search",
+    limit: 20,
+    windowSeconds: 60,
+    keyCreate: async (request) => {
+      const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
+      const auth = await authContextResolve(request, context, params.orgid);
+      return auth.user.id;
+    },
+    message: "Too many search requests. Please retry later."
+  });
+
+  app.get("/api/org/:orgid/search/messages", async (request, reply) => {
+    const allowed = await searchRateLimit(request, reply);
+    if (!allowed) {
+      return;
+    }
+
     const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
     const query = messageSearchQuerySchema.parse(request.query);
     const auth = await authContextResolve(request, context, params.orgid);
@@ -38,7 +56,12 @@ export async function searchRoutesRegister(app: FastifyInstance, context: ApiCon
     });
   });
 
-  app.get("/api/org/:orgid/search/channels", async (request) => {
+  app.get("/api/org/:orgid/search/channels", async (request, reply) => {
+    const allowed = await searchRateLimit(request, reply);
+    if (!allowed) {
+      return;
+    }
+
     const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
     const query = channelSearchQuerySchema.parse(request.query);
     const auth = await authContextResolve(request, context, params.orgid);

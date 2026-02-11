@@ -8,6 +8,7 @@ import { authLogout } from "@/apps/auth/authLogout.js";
 import { accountSessionResolve } from "@/apps/api/lib/accountSessionResolve.js";
 import { ApiError } from "@/apps/api/lib/apiError.js";
 import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
+import { rateLimitMiddleware } from "@/apps/api/lib/rateLimitMiddleware.js";
 
 const loginBodySchema = z.object({
   email: z.string().email().trim().toLowerCase()
@@ -23,6 +24,14 @@ const otpVerifySchema = z.object({
 });
 
 export async function authRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
+  const otpRequestRateLimit = rateLimitMiddleware(context, {
+    scope: "auth.otp.request",
+    limit: 5,
+    windowSeconds: 60,
+    keyCreate: (request) => otpRequestSchema.parse(request.body).email,
+    message: "Too many OTP requests. Please retry later."
+  });
+
   app.post("/api/auth/login", async (request) => {
     if (context.nodeEnv !== "development" && context.nodeEnv !== "test") {
       throw new ApiError(
@@ -39,7 +48,12 @@ export async function authRoutesRegister(app: FastifyInstance, context: ApiConte
     return apiResponseOk(result);
   });
 
-  app.post("/api/auth/email/request-otp", async (request) => {
+  app.post("/api/auth/email/request-otp", async (request, reply) => {
+    const allowed = await otpRequestRateLimit(request, reply);
+    if (!allowed) {
+      return;
+    }
+
     const body = otpRequestSchema.parse(request.body);
 
     const result = await authEmailOtpRequest(context, {

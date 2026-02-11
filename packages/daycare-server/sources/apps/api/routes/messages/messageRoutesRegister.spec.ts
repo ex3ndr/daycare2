@@ -20,6 +20,10 @@ vi.mock("@/apps/api/lib/idempotencyGuard.js", () => ({
   idempotencyGuard: vi.fn((request: unknown, context: unknown, subject: unknown, handler: () => Promise<unknown>) => handler())
 }));
 
+vi.mock("@/apps/api/lib/rateLimitMiddleware.js", () => ({
+  rateLimitMiddleware: vi.fn(() => vi.fn().mockResolvedValue(true))
+}));
+
 vi.mock("@/apps/ai/aiBotWebhookDeliver.js", () => ({
   aiBotWebhookDeliver: vi.fn().mockResolvedValue(true)
 }));

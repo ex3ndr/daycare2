@@ -5,13 +5,31 @@ import { channelTypingSet } from "@/apps/channels/channelTypingSet.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
 import { chatMembershipEnsure } from "@/apps/api/lib/chatMembershipEnsure.js";
+import { rateLimitMiddleware } from "@/apps/api/lib/rateLimitMiddleware.js";
 
 const typingBodySchema = z.object({
   threadRootMessageId: z.string().min(1).nullable().optional()
 });
 
 export async function typingRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
-  app.post("/api/org/:orgid/channels/:channelId/typing", async (request) => {
+  const typingRateLimit = rateLimitMiddleware(context, {
+    scope: "typing",
+    limit: 10,
+    windowSeconds: 60,
+    keyCreate: async (request) => {
+      const params = z.object({ orgid: z.string().min(1), channelId: z.string().min(1) }).parse(request.params);
+      const auth = await authContextResolve(request, context, params.orgid);
+      return `${auth.user.id}:${params.channelId}`;
+    },
+    message: "Too many typing updates. Please retry later."
+  });
+
+  app.post("/api/org/:orgid/channels/:channelId/typing", async (request, reply) => {
+    const allowed = await typingRateLimit(request, reply);
+    if (!allowed) {
+      return;
+    }
+
     const params = z.object({ orgid: z.string().min(1), channelId: z.string().min(1) }).parse(request.params);
     const body = typingBodySchema.parse(request.body);
     const auth = await authContextResolve(request, context, params.orgid);

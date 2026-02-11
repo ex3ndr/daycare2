@@ -12,6 +12,7 @@ import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { chatMembershipEnsure } from "@/apps/api/lib/chatMembershipEnsure.js";
 import { idempotencyGuard } from "@/apps/api/lib/idempotencyGuard.js";
+import { rateLimitMiddleware } from "@/apps/api/lib/rateLimitMiddleware.js";
 
 const messageListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -91,6 +92,18 @@ function messageSerialize(message: MessageWithRelations) {
 }
 
 export async function messageRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
+  const messageSendRateLimit = rateLimitMiddleware(context, {
+    scope: "messages.send",
+    limit: 30,
+    windowSeconds: 60,
+    keyCreate: async (request) => {
+      const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
+      const auth = await authContextResolve(request, context, params.orgid);
+      return auth.user.id;
+    },
+    message: "Too many messages. Please retry later."
+  });
+
   app.get("/api/org/:orgid/channels/:channelId/messages", async (request) => {
     const params = z.object({ orgid: z.string().min(1), channelId: z.string().min(1) }).parse(request.params);
     const query = messageListQuerySchema.parse(request.query);
@@ -252,7 +265,12 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
     });
   });
 
-  app.post("/api/org/:orgid/messages/send", async (request) => {
+  app.post("/api/org/:orgid/messages/send", async (request, reply) => {
+    const allowed = await messageSendRateLimit(request, reply);
+    if (!allowed) {
+      return;
+    }
+
     const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
     const body = messageSendBodySchema.parse(request.body);
     const auth = await authContextResolve(request, context, params.orgid);

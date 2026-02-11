@@ -10,6 +10,10 @@ vi.mock("@/apps/api/lib/idempotencyGuard.js", () => ({
   idempotencyGuard: vi.fn((request: unknown, context: unknown, subject: unknown, handler: () => Promise<unknown>) => handler())
 }));
 
+vi.mock("@/apps/api/lib/rateLimitMiddleware.js", () => ({
+  rateLimitMiddleware: vi.fn(() => vi.fn().mockResolvedValue(true))
+}));
+
 vi.mock("@/modules/s3/s3ObjectPut.js", () => ({
   s3ObjectPut: vi.fn().mockResolvedValue(undefined)
 }));

@@ -10,6 +10,10 @@ vi.mock("@/apps/api/lib/chatMembershipEnsure.js", () => ({
   chatMembershipEnsure: vi.fn()
 }));
 
+vi.mock("@/apps/api/lib/rateLimitMiddleware.js", () => ({
+  rateLimitMiddleware: vi.fn(() => vi.fn().mockResolvedValue(true))
+}));
+
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { chatMembershipEnsure } from "@/apps/api/lib/chatMembershipEnsure.js";
 import { typingRoutesRegister } from "./typingRoutesRegister.js";

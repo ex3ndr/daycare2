@@ -229,17 +229,17 @@ Current SSE uses in-memory subscriptions, limiting to single instance. Add Redis
 
 Add rate limiting on key endpoints to prevent abuse.
 
-- [ ] Create `sources/modules/rateLimit/rateLimitCheck.ts` — Redis-based sliding window rate limiter (`ratelimit:{scope}:{key}` with TTL)
-- [ ] Create `sources/apps/api/lib/rateLimitMiddleware.ts` — Fastify preHandler hook that calls `rateLimitCheck`, returns 429 with `Retry-After` header on limit exceeded
-- [ ] Apply rate limits to key endpoints:
+- [x] Create `sources/modules/rateLimit/rateLimitCheck.ts` — Redis-based sliding window rate limiter (`ratelimit:{scope}:{key}` with TTL)
+- [x] Create `sources/apps/api/lib/rateLimitMiddleware.ts` — Fastify preHandler hook that calls `rateLimitCheck`, returns 429 with `Retry-After` header on limit exceeded
+- [x] Apply rate limits to key endpoints:
   - Auth OTP request: 5/min per email
   - Message send: 30/min per user
   - File upload: 10/min per user
   - Search: 20/min per user
   - Typing: 10/min per user per channel
-- [ ] Write tests for `rateLimitCheck` (under limit, at limit, over limit, window expiry)
-- [ ] Write tests for middleware (429 response, Retry-After header, pass-through when under limit)
-- [ ] Run tests — must pass before next task
+- [x] Write tests for `rateLimitCheck` (under limit, at limit, over limit, window expiry)
+- [x] Write tests for middleware (429 response, Retry-After header, pass-through when under limit)
+- [x] Run tests — must pass before next task
 
 ### Task 12: Verify acceptance criteria
 

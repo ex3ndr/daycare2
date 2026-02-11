@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useApp, useStorage } from "@/app/sync/AppContext";
-import { unreadCountForChannel } from "@/app/sync/selectors";
+import { unreadCountForChannel, presenceForUser } from "@/app/sync/selectors";
 import { useUiStore } from "@/app/stores/uiStoreContext";
 import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { Badge } from "@/app/components/ui/badge";
@@ -23,6 +23,7 @@ import type { ApiClient } from "@/app/daycare/api/apiClientCreate";
 const EMPTY_CHANNEL_MAP: Record<string, never> = {};
 const EMPTY_DIRECT_MAP: Record<string, never> = {};
 const EMPTY_READ_STATE_MAP: Record<string, never> = {};
+const EMPTY_PRESENCE_MAP: Record<string, never> = {};
 
 export function Sidebar() {
   const navigate = useNavigate();
@@ -33,6 +34,7 @@ export function Sidebar() {
   const channelMap = useStorage((s) => s.objects.channel ?? EMPTY_CHANNEL_MAP);
   const directMap = useStorage((s) => s.objects.direct ?? EMPTY_DIRECT_MAP);
   const readStates = useStorage((s) => s.objects.readState ?? EMPTY_READ_STATE_MAP);
+  const presenceMap = useStorage((s) => s.objects.presence ?? EMPTY_PRESENCE_MAP);
   const mutate = useStorage((s) => s.mutate);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
 
@@ -55,6 +57,16 @@ export function Sidebar() {
   const [dmDialogOpen, setDmDialogOpen] = useState(false);
 
   const sortedChannels = [...channels].sort((a, b) => a.name.localeCompare(b.name));
+
+  // Fetch presence for DM users
+  const presenceSyncedRef = useRef<string>("");
+  useEffect(() => {
+    const userIds = directs.map((d) => d.otherUser.id);
+    const key = userIds.sort().join(",");
+    if (key === presenceSyncedRef.current || userIds.length === 0) return;
+    presenceSyncedRef.current = key;
+    app.syncPresence(userIds);
+  }, [directs, app]);
 
   if (sidebarCollapsed) return null;
 
@@ -145,6 +157,11 @@ export function Sidebar() {
                   : user.firstName;
                 const initials = (user.firstName[0] ?? "") + (user.lastName?.[0] ?? "");
 
+                const userPresence = presenceForUser(
+                  { presence: presenceMap } as Parameters<typeof presenceForUser>[0],
+                  user.id,
+                );
+
                 return (
                   <button
                     key={dm.id}
@@ -156,7 +173,7 @@ export function Sidebar() {
                     }
                     className="group flex w-full items-center gap-2 px-4 py-1.5 text-sm hover:bg-sidebar-accent transition-colors"
                   >
-                    <Avatar size="xs">
+                    <Avatar size="xs" presence={userPresence}>
                       {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={displayName} />}
                       <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
                     </Avatar>

@@ -7,6 +7,7 @@ import {
   threadMessagesForRoot,
   unreadCountForChannel,
   typingUsersForChannel,
+  presenceForUser,
 } from "./selectors";
 
 function createEngine() {
@@ -455,6 +456,80 @@ describe("selectors", () => {
       const result = typingUsersForChannel(engine.state, "ch-1", "user-1");
       expect(result).toHaveLength(1);
       expect(result[0].userId).toBe("user-2");
+    });
+  });
+
+  describe("presenceForUser", () => {
+    it("returns 'offline' when no presence data exists for user", () => {
+      expect(presenceForUser(engine.state, "user-1")).toBe("offline");
+    });
+
+    it("returns 'online' when user is online", () => {
+      engine.rebase({
+        presence: [
+          {
+            id: "user-2",
+            userId: "user-2",
+            status: "online" as const,
+            lastSeenAt: Date.now(),
+          },
+        ],
+      });
+
+      expect(presenceForUser(engine.state, "user-2")).toBe("online");
+    });
+
+    it("returns 'away' when user is away", () => {
+      engine.rebase({
+        presence: [
+          {
+            id: "user-2",
+            userId: "user-2",
+            status: "away" as const,
+            lastSeenAt: Date.now(),
+          },
+        ],
+      });
+
+      expect(presenceForUser(engine.state, "user-2")).toBe("away");
+    });
+
+    it("returns 'offline' when user is offline", () => {
+      engine.rebase({
+        presence: [
+          {
+            id: "user-2",
+            userId: "user-2",
+            status: "offline" as const,
+            lastSeenAt: Date.now(),
+          },
+        ],
+      });
+
+      expect(presenceForUser(engine.state, "user-2")).toBe("offline");
+    });
+
+    it("returns correct status for different users", () => {
+      engine.rebase({
+        presence: [
+          {
+            id: "user-2",
+            userId: "user-2",
+            status: "online" as const,
+            lastSeenAt: Date.now(),
+          },
+          {
+            id: "user-3",
+            userId: "user-3",
+            status: "away" as const,
+            lastSeenAt: Date.now(),
+          },
+        ],
+      });
+
+      expect(presenceForUser(engine.state, "user-2")).toBe("online");
+      expect(presenceForUser(engine.state, "user-3")).toBe("away");
+      expect(presenceForUser(engine.state, "user-unknown")).toBe("offline");
     });
   });
 });

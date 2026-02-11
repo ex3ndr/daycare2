@@ -9,6 +9,7 @@ import { mapEventToRebase } from "./eventMappers";
 import { mutationApply } from "./mutationApply";
 
 const STORAGE_KEY = "daycare:engine";
+const HEARTBEAT_INTERVAL_MS = 60_000;
 
 export class AppController {
   readonly engine: SyncEngine<Schema>;
@@ -21,6 +22,7 @@ export class AppController {
   private sseSubscription: { close: () => void } | null = null;
   private processingMutations = false;
   private destroyed = false;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
   private constructor(
     engine: SyncEngine<Schema>,
@@ -443,6 +445,47 @@ export class AppController {
     }
   }
 
+  startPresence(): void {
+    if (this.heartbeatTimer) return;
+
+    // Set initial presence to online
+    this.api.presenceSet(this.token, this.orgId, { status: "online" }).catch(() => {});
+
+    // Heartbeat every 60 seconds
+    this.heartbeatTimer = setInterval(() => {
+      if (this.destroyed) return;
+      this.api.presenceHeartbeat(this.token, this.orgId).catch(() => {});
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  private stopPresence(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  async syncPresence(userIds: string[]): Promise<void> {
+    if (this.destroyed || userIds.length === 0) return;
+
+    try {
+      const result = await this.api.presenceGet(this.token, this.orgId, userIds);
+      const presenceItems = result.presence.map((p) => ({
+        id: p.userId,
+        userId: p.userId,
+        status: p.status,
+        lastSeenAt: Date.now(),
+      }));
+
+      if (presenceItems.length > 0) {
+        this.engine.rebase({ presence: presenceItems });
+        this.storage.getState().updateObjects();
+      }
+    } catch {
+      // Presence sync failure is non-critical
+    }
+  }
+
   persist(): void {
     try {
       localStorage.setItem(STORAGE_KEY, this.engine.persist());
@@ -453,6 +496,7 @@ export class AppController {
 
   destroy(): void {
     this.destroyed = true;
+    this.stopPresence();
     this.sseSubscription?.close();
     this.sseSubscription = null;
     this.sequencer.destroy();

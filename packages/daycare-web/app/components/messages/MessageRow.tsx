@@ -61,6 +61,7 @@ export type MessageData = {
 type MessageRowProps = {
   message: MessageData;
   currentUserId: string;
+  presence?: "online" | "away" | "offline" | null;
   onThreadOpen?: (messageId: string) => void;
   onReactionToggle?: (messageId: string, shortcode: string) => void;
   onEdit?: (messageId: string, text: string) => void;
@@ -82,6 +83,7 @@ function displayName(sender: MessageData["sender"]): string {
 export function MessageRow({
   message,
   currentUserId,
+  presence,
   onThreadOpen,
   onReactionToggle,
   onEdit,
@@ -178,7 +180,7 @@ export function MessageRow({
           isEditing && "bg-accent/20",
         )}
       >
-        <Avatar size="sm" className="mt-0.5 shrink-0">
+        <Avatar size="sm" className="mt-0.5 shrink-0" presence={presence}>
           {sender.avatarUrl && <AvatarImage src={sender.avatarUrl} alt={displayName(sender)} />}
           <AvatarFallback>{initialsFromSender(sender)}</AvatarFallback>
         </Avatar>

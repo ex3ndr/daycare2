@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { orgSlugRoute } from "./_workspace.$orgSlug";
 import { useApp, useStorage } from "@/app/sync/AppContext";
-import { messagesForChannel, typingUsersForChannel } from "@/app/sync/selectors";
+import { messagesForChannel, typingUsersForChannel, presenceForUser } from "@/app/sync/selectors";
 import { useUiStore } from "@/app/stores/uiStoreContext";
 import { MessageRow } from "@/app/components/messages/MessageRow";
 import { Composer } from "@/app/components/messages/Composer";
@@ -33,6 +33,7 @@ function DmPage() {
   );
   const mutate = useStorage((s) => s.mutate);
   const userId = useStorage((s) => s.objects.context.userId);
+  const presenceState = useStorage((s) => s.objects.presence);
   const typingUsers = useStorage(
     useShallow((s) => typingUsersForChannel(s.objects, dmId, userId)),
   );
@@ -51,6 +52,19 @@ function DmPage() {
   useEffect(() => {
     app.syncMessages(dmId);
   }, [app, dmId]);
+
+  // Sync presence for DM users
+  const presenceSyncedRef = useRef<string>("");
+  useEffect(() => {
+    const senderIds = [...new Set(messages.map((m) => m.senderUserId))];
+    if (direct?.otherUser?.id && !senderIds.includes(direct.otherUser.id)) {
+      senderIds.push(direct.otherUser.id);
+    }
+    const key = senderIds.sort().join(",");
+    if (key === presenceSyncedRef.current || senderIds.length === 0) return;
+    presenceSyncedRef.current = key;
+    app.syncPresence(senderIds);
+  }, [messages, direct, app]);
 
   // Mark as read on DM select
   useEffect(() => {
@@ -204,7 +218,7 @@ function DmPage() {
 
         {/* DM header */}
         <div className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-5">
-          <Avatar size="sm">
+          <Avatar size="sm" presence={otherUser ? presenceForUser({ presence: presenceState } as Parameters<typeof presenceForUser>[0], otherUser.id) : undefined}>
             {otherUser?.avatarUrl && (
               <AvatarImage src={otherUser.avatarUrl} alt={displayName} />
             )}
@@ -250,6 +264,7 @@ function DmPage() {
                     key={msg.id}
                     message={msg}
                     currentUserId={userId}
+                    presence={presenceForUser({ presence: presenceState } as Parameters<typeof presenceForUser>[0], msg.senderUserId)}
                     onThreadOpen={handleThreadOpen}
                     onReactionToggle={handleReactionToggle}
                     onEdit={handleEdit}

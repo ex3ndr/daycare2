@@ -678,13 +678,13 @@ Depends on backend full-text search.
 
 Depends on backend presence system.
 
-- [ ] Presence dot on Avatar (green = online, yellow = away, gray = offline)
-- [ ] Fetch presence for visible members
-- [ ] Heartbeat every 60 seconds
-- [ ] Listen for `user.presence` SSE events → update sync state
-- [ ] Show in: member list, DM sidebar, message avatars
-- [ ] **agent-browser**: login in two tabs with different users → verify green presence dots on both users' avatars → close one tab → wait 30s → verify dot turns gray on the remaining tab → screenshot both states
-- [ ] Run tests — must pass before next task
+- [x] Presence dot on Avatar (green = online, yellow = away, gray = offline)
+- [x] Fetch presence for visible members
+- [x] Heartbeat every 60 seconds
+- [x] Listen for `user.presence` SSE events → update sync state
+- [x] Show in: member list, DM sidebar, message avatars
+- [x] **agent-browser**: login in two tabs with different users → verify green presence dots on both users' avatars → close one tab → wait 30s → verify dot turns gray on the remaining tab → screenshot both states
+- [x] Run tests — must pass before next task
 
 #### Task 24: Channel settings and member management
 

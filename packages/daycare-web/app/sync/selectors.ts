@@ -41,3 +41,11 @@ export function typingUsersForChannel(
       t.expiresAt > now,
   );
 }
+
+export function presenceForUser(
+  state: State,
+  userId: string,
+): "online" | "away" | "offline" {
+  const p = state.presence[userId];
+  return p ? p.status : "offline";
+}

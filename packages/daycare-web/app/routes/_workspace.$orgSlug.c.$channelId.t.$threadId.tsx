@@ -4,7 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { channelRoute } from "./_workspace.$orgSlug.c.$channelId";
 import { orgSlugRoute } from "./_workspace.$orgSlug";
 import { useApp, useStorage } from "@/app/sync/AppContext";
-import { threadMessagesForRoot, typingUsersForChannel } from "@/app/sync/selectors";
+import { threadMessagesForRoot, typingUsersForChannel, presenceForUser } from "@/app/sync/selectors";
 import { useUiStore } from "@/app/stores/uiStoreContext";
 import { MessageRow } from "@/app/components/messages/MessageRow";
 import { Composer } from "@/app/components/messages/Composer";
@@ -34,6 +34,7 @@ function ThreadPanel() {
   );
   const mutate = useStorage((s) => s.mutate);
   const userId = useStorage((s) => s.objects.context.userId);
+  const presenceState = useStorage((s) => s.objects.presence);
   const typingUsers = useStorage(
     useShallow((s) => typingUsersForChannel(s.objects, channelId, userId)),
   );
@@ -185,6 +186,7 @@ function ThreadPanel() {
               <MessageRow
                 message={rootMessage}
                 currentUserId={userId}
+                presence={presenceForUser({ presence: presenceState } as Parameters<typeof presenceForUser>[0], rootMessage.senderUserId)}
                 onReactionToggle={handleReactionToggle}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
@@ -205,6 +207,7 @@ function ThreadPanel() {
               key={msg.id}
               message={msg}
               currentUserId={userId}
+              presence={presenceForUser({ presence: presenceState } as Parameters<typeof presenceForUser>[0], msg.senderUserId)}
               onReactionToggle={handleReactionToggle}
               onEdit={handleEdit}
               onDelete={handleDelete}

@@ -88,6 +88,13 @@ type DirectRebaseItem = {
   };
 };
 
+type PresenceRebaseItem = {
+  id: string;
+  userId: string;
+  status: "online" | "away" | "offline";
+  lastSeenAt: number;
+};
+
 export type RebaseShape = {
   message?: MessageRebaseItem[];
   channel?: ChannelRebaseItem[];
@@ -95,6 +102,7 @@ export type RebaseShape = {
   member?: MemberRebaseItem[];
   typing?: TypingRebaseItem[];
   readState?: ReadStateRebaseItem[];
+  presence?: PresenceRebaseItem[];
   context?: { seqno: number };
 };
 
@@ -213,8 +221,21 @@ export function mapEventToRebase(update: UpdateEnvelope): RebaseShape | null {
     }
 
     case "user.presence": {
-      // Presence updates are handled separately (not in sync engine collections)
-      return null;
+      const presence = payload as {
+        userId?: string;
+        status?: "online" | "away" | "offline";
+      };
+      if (!presence.userId || !presence.status) return null;
+      return {
+        presence: [
+          {
+            id: presence.userId,
+            userId: presence.userId,
+            status: presence.status,
+            lastSeenAt: update.createdAt,
+          },
+        ],
+      };
     }
 
     default:

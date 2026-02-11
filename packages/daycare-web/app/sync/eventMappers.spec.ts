@@ -220,12 +220,44 @@ describe("mapEventToRebase", () => {
   });
 
   describe("user.presence", () => {
-    it("returns null (handled separately)", () => {
+    it("returns presence rebase shape", () => {
       const result = mapEventToRebase(
         makeEnvelope("user.presence", {
           userId: "user-2",
           status: "online",
         }),
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.presence).toHaveLength(1);
+      expect(result!.presence![0].id).toBe("user-2");
+      expect(result!.presence![0].userId).toBe("user-2");
+      expect(result!.presence![0].status).toBe("online");
+      expect(result!.presence![0].lastSeenAt).toBeGreaterThan(0);
+    });
+
+    it("handles away status", () => {
+      const result = mapEventToRebase(
+        makeEnvelope("user.presence", {
+          userId: "user-3",
+          status: "away",
+        }),
+      );
+
+      expect(result).not.toBeNull();
+      expect(result!.presence![0].status).toBe("away");
+    });
+
+    it("returns null when required fields are missing", () => {
+      const result = mapEventToRebase(
+        makeEnvelope("user.presence", { userId: "user-2" }),
+      );
+      expect(result).toBeNull();
+    });
+
+    it("returns null when userId is missing", () => {
+      const result = mapEventToRebase(
+        makeEnvelope("user.presence", { status: "online" }),
       );
       expect(result).toBeNull();
     });

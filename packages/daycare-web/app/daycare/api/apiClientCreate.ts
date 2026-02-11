@@ -124,6 +124,9 @@ export type ApiClient = {
     orgId: string,
     query: { q: string; limit?: number }
   ) => Promise<{ channels: ChannelSearchResult[] }>;
+  presenceSet: (token: string, orgId: string, input: { status: "online" | "away" }) => Promise<{ presence: { userId: string; status: "online" | "away" } }>;
+  presenceHeartbeat: (token: string, orgId: string) => Promise<{ presence: { userId: string; status: "online" | "away" | "offline" } }>;
+  presenceGet: (token: string, orgId: string, userIds: string[]) => Promise<{ requesterUserId: string; presence: Array<{ userId: string; status: "online" | "away" | "offline" }> }>;
   updatesDiff: (token: string, orgId: string, input: { offset: number; limit?: number }) => Promise<UpdatesDiffResult>;
   updatesStreamSubscribe: (
     token: string,
@@ -221,6 +224,15 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
       params.set("q", query.q);
       if (query.limit !== undefined) params.set("limit", String(query.limit));
       return request(`/api/org/${orgId}/search/channels?${params.toString()}`, { token });
+    },
+    presenceSet: (token, orgId, input) =>
+      request(`/api/org/${orgId}/presence`, { method: "POST", token, body: input }),
+    presenceHeartbeat: (token, orgId) =>
+      request(`/api/org/${orgId}/presence/heartbeat`, { method: "POST", token }),
+    presenceGet: (token, orgId, userIds) => {
+      const params = new URLSearchParams();
+      params.set("userIds", userIds.join(","));
+      return request(`/api/org/${orgId}/presence?${params.toString()}`, { token });
     },
     updatesDiff: (token, orgId, input) => request(`/api/org/${orgId}/updates/diff`, { method: "POST", token, body: input }),
     updatesStreamSubscribe: (token, orgId, onUpdate, onReady) => {

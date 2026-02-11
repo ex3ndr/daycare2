@@ -99,6 +99,14 @@ export const schema = defineSchema({
     },
   }),
 
+  presence: type({
+    fields: {
+      userId: field<string>(),
+      status: field<"online" | "away" | "offline">(),
+      lastSeenAt: field<number>(),
+    },
+  }),
+
   context: object({
     fields: {
       userId: field<string>(),

@@ -22,17 +22,43 @@ const avatarVariants = cva(
 
 export interface AvatarProps
   extends React.ComponentPropsWithoutRef<typeof AvatarPrimitive.Root>,
-    VariantProps<typeof avatarVariants> {}
+    VariantProps<typeof avatarVariants> {
+  presence?: "online" | "away" | "offline" | null;
+}
+
+const presenceDotSizeMap = {
+  xs: "h-2 w-2 border",
+  sm: "h-2.5 w-2.5 border-[1.5px]",
+  md: "h-3 w-3 border-2",
+  lg: "h-3.5 w-3.5 border-2",
+} as const;
+
+const presenceColorMap = {
+  online: "bg-emerald-500",
+  away: "bg-amber-400",
+  offline: "bg-gray-400",
+} as const;
 
 const Avatar = React.forwardRef<
   React.ComponentRef<typeof AvatarPrimitive.Root>,
   AvatarProps
->(({ className, size, ...props }, ref) => (
-  <AvatarPrimitive.Root
-    ref={ref}
-    className={cn(avatarVariants({ size, className }))}
-    {...props}
-  />
+>(({ className, size, presence, ...props }, ref) => (
+  <div className="relative inline-flex shrink-0">
+    <AvatarPrimitive.Root
+      ref={ref}
+      className={cn(avatarVariants({ size, className }))}
+      {...props}
+    />
+    {presence && presence !== "offline" && (
+      <span
+        className={cn(
+          "absolute bottom-0 right-0 rounded-full border-background",
+          presenceDotSizeMap[size ?? "md"],
+          presenceColorMap[presence],
+        )}
+      />
+    )}
+  </div>
 ));
 Avatar.displayName = AvatarPrimitive.Root.displayName;
 

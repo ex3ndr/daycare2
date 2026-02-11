@@ -52,6 +52,9 @@ function createMockApi(): ApiClient {
     fileGet: vi.fn(),
     searchMessages: vi.fn(),
     searchChannels: vi.fn(),
+    presenceSet: vi.fn(),
+    presenceHeartbeat: vi.fn(),
+    presenceGet: vi.fn(),
     updatesDiff: vi.fn(),
     updatesStreamSubscribe: vi.fn(),
   };

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { orgSlugRoute } from "./_workspace.$orgSlug";
 import { useApp, useStorage } from "@/app/sync/AppContext";
-import { messagesForChannel, typingUsersForChannel } from "@/app/sync/selectors";
+import { messagesForChannel, typingUsersForChannel, presenceForUser } from "@/app/sync/selectors";
 import { useUiStore } from "@/app/stores/uiStoreContext";
 import { MessageRow } from "@/app/components/messages/MessageRow";
 import { Composer } from "@/app/components/messages/Composer";
@@ -32,6 +32,7 @@ function ChannelPage() {
   );
   const mutate = useStorage((s) => s.mutate);
   const userId = useStorage((s) => s.objects.context.userId);
+  const presenceState = useStorage((s) => s.objects.presence);
   const typingUsers = useStorage(
     useShallow((s) => typingUsersForChannel(s.objects, channelId, userId)),
   );
@@ -50,6 +51,16 @@ function ChannelPage() {
   useEffect(() => {
     app.syncMessages(channelId);
   }, [app, channelId]);
+
+  // Sync presence for message senders
+  const presenceSyncedRef = useRef<string>("");
+  useEffect(() => {
+    const senderIds = [...new Set(messages.map((m) => m.senderUserId))];
+    const key = senderIds.sort().join(",");
+    if (key === presenceSyncedRef.current || senderIds.length === 0) return;
+    presenceSyncedRef.current = key;
+    app.syncPresence(senderIds);
+  }, [messages, app]);
 
   // Mark as read on channel select
   useEffect(() => {
@@ -245,6 +256,7 @@ function ChannelPage() {
                     key={msg.id}
                     message={msg}
                     currentUserId={userId}
+                    presence={presenceForUser({ presence: presenceState } as Parameters<typeof presenceForUser>[0], msg.senderUserId)}
                     onThreadOpen={handleThreadOpen}
                     onReactionToggle={handleReactionToggle}
                     onEdit={handleEdit}

@@ -39,3 +39,4 @@ kubectl apply -f packages/daycare-web/deploy/daycare-web.yaml
 - The container expects to listen on port `3005`.
 - Liveness probe uses `/health` and readiness probe uses `/health/ready`.
 - An `emptyDir` volume is mounted at `/app/.daycare` to store uploads. Swap this for a persistent volume if you need durable file storage.
+- `daycare-web` routes `/api/*` to `http://daycare-server:3005` inside the cluster, so web and server can share one public host.

@@ -22,6 +22,7 @@ import { cn } from "@/app/lib/utils";
 import { MessageSquare, Loader2, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { ReactionBar } from "./ReactionBar";
 import { EmojiPicker } from "./EmojiPicker";
+import { AttachmentList } from "./Attachment";
 
 export type MessageData = {
   id: string;
@@ -248,6 +249,9 @@ export function MessageRow({
               {message.text}
             </p>
           )}
+
+          {/* Attachments */}
+          <AttachmentList attachments={message.attachments} />
 
           {/* Reactions */}
           {onReactionToggle && (

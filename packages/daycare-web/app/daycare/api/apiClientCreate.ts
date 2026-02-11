@@ -16,6 +16,27 @@ import type {
 import { apiRequest } from "./apiRequest";
 import { sseSubscribe } from "./sseSubscribe";
 
+export type FileAsset = {
+  id: string;
+  organizationId: string;
+  contentHash: string;
+  mimeType: string;
+  sizeBytes: number;
+  status: "pending" | "committed" | "deleted";
+  createdAt: number;
+  expiresAt: number | null;
+  committedAt: number | null;
+};
+
+export type UploadInitResult = {
+  file: FileAsset;
+  upload: {
+    method: string;
+    contentType: string;
+    url: string;
+  };
+};
+
 export type ApiClient = {
   authLogin: (email: string) => Promise<{ token: string; account: Account; session: Session }>;
   authRequestOtp: (email: string) => Promise<{ sent: boolean; expiresInSeconds: number }>;
@@ -53,7 +74,18 @@ export type ApiClient = {
   messageSend: (
     token: string,
     orgId: string,
-    input: { channelId: string; text: string; threadId?: string | null }
+    input: {
+      channelId: string;
+      text: string;
+      threadId?: string | null;
+      attachments?: Array<{
+        kind: string;
+        url: string;
+        mimeType?: string | null;
+        fileName?: string | null;
+        sizeBytes?: number | null;
+      }>;
+    }
   ) => Promise<{ message: Message }>;
   messageEdit: (token: string, orgId: string, messageId: string, input: { text: string }) => Promise<{ message: Message }>;
   messageDelete: (token: string, orgId: string, messageId: string) => Promise<{ deleted: boolean; messageId: string }>;
@@ -73,6 +105,13 @@ export type ApiClient = {
   readStateGet: (token: string, orgId: string, channelId: string) => Promise<ReadState>;
   directList: (token: string, orgId: string) => Promise<{ directs: Direct[] }>;
   directCreate: (token: string, orgId: string, input: { userId: string }) => Promise<{ channel: Channel }>;
+  fileUploadInit: (
+    token: string,
+    orgId: string,
+    input: { filename: string; mimeType: string; sizeBytes: number; contentHash: string }
+  ) => Promise<UploadInitResult>;
+  fileUpload: (token: string, orgId: string, fileId: string, input: { payloadBase64: string }) => Promise<{ file: FileAsset }>;
+  fileGet: (token: string, orgId: string, fileId: string) => Promise<Response>;
   updatesDiff: (token: string, orgId: string, input: { offset: number; limit?: number }) => Promise<UpdatesDiffResult>;
   updatesStreamSubscribe: (
     token: string,
@@ -148,6 +187,15 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
     readStateGet: (token, orgId, channelId) => request(`/api/org/${orgId}/channels/${channelId}/read-state`, { token }),
     directList: (token, orgId) => request(`/api/org/${orgId}/directs`, { token }),
     directCreate: (token, orgId, input) => request(`/api/org/${orgId}/directs`, { method: "POST", token, body: input }),
+    fileUploadInit: (token, orgId, input) =>
+      request(`/api/org/${orgId}/files/upload-init`, { method: "POST", token, body: input }),
+    fileUpload: (token, orgId, fileId, input) =>
+      request(`/api/org/${orgId}/files/${fileId}/upload`, { method: "POST", token, body: input }),
+    fileGet: (token, orgId, fileId) =>
+      fetch(`${baseUrl}/api/org/${orgId}/files/${fileId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        redirect: "follow",
+      }),
     updatesDiff: (token, orgId, input) => request(`/api/org/${orgId}/updates/diff`, { method: "POST", token, body: input }),
     updatesStreamSubscribe: (token, orgId, onUpdate, onReady) => {
       const subscription = sseSubscribe({

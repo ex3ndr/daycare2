@@ -642,14 +642,14 @@ Depends on backend DM API routes.
 
 Depends on backend S3 integration.
 
-- [ ] Build `app/components/messages/FileUpload.tsx` — drop zone + file picker in composer area
-- [ ] Upload flow: select file → `upload-init` → `upload` (base64) → include fileId in message
-- [ ] Progress indicator (pending → uploading → ready)
-- [ ] Attached files as chips below composer before sending
-- [ ] Build `app/components/messages/Attachment.tsx` — image preview, file icon + name for documents
-- [ ] Drag-and-drop support onto message area
-- [ ] **agent-browser**: click file picker → select an image → verify chip appears below composer with progress → send message → verify image preview renders in message → screenshot composer with attachment and sent message with preview
-- [ ] Run tests for upload state machine — must pass before next task
+- [x] Build `app/components/messages/FileUpload.tsx` — drop zone + file picker in composer area
+- [x] Upload flow: select file → `upload-init` → `upload` (base64) → include fileId in message
+- [x] Progress indicator (pending → uploading → ready)
+- [x] Attached files as chips below composer before sending
+- [x] Build `app/components/messages/Attachment.tsx` — image preview, file icon + name for documents
+- [x] Drag-and-drop support onto message area
+- [x] **agent-browser**: click file picker → select an image → verify chip appears below composer with progress → send message → verify image preview renders in message → screenshot composer with attachment and sent message with preview
+- [x] Run tests for upload state machine — must pass before next task
 
 #### Task 21: Infinite scroll / message pagination
 

@@ -117,6 +117,13 @@ export const schema = defineSchema({
         chatId: string;
         text: string;
         threadId?: string | null;
+        attachments?: Array<{
+          kind: string;
+          url: string;
+          mimeType?: string | null;
+          fileName?: string | null;
+          sizeBytes?: number | null;
+        }>;
       },
     ) => {
       draft.message[input.id] = {
@@ -138,7 +145,15 @@ export const schema = defineSchema({
           lastName: null,
           avatarUrl: null,
         },
-        attachments: [],
+        attachments: (input.attachments ?? []).map((a, i) => ({
+          id: `${input.id}-att-${i}`,
+          kind: a.kind,
+          url: a.url,
+          mimeType: a.mimeType ?? null,
+          fileName: a.fileName ?? null,
+          sizeBytes: a.sizeBytes ?? null,
+          sortOrder: i,
+        })),
         reactions: [],
         pending: true,
       };

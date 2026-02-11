@@ -13,6 +13,7 @@ import { Button } from "@/app/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { useThrottledTyping } from "@/app/lib/useThrottledTyping";
 import { typingTextFormat } from "@/app/lib/typingTextFormat";
+import { useFileUpload } from "@/app/lib/useFileUpload";
 
 export const threadRoute = createRoute({
   getParentRoute: () => channelRoute,
@@ -39,6 +40,9 @@ function ThreadPanel() {
 
   const draft = useUiStore((s) => s.threadComposerDrafts[threadId] ?? "");
   const threadComposerDraftSet = useUiStore((s) => s.threadComposerDraftSet);
+
+  // File upload
+  const fileUpload = useFileUpload(app.api, app.token, app.orgId);
 
   // Fetch thread messages on mount/change
   useEffect(() => {
@@ -82,18 +86,21 @@ function ThreadPanel() {
     });
   }, [navigate, orgSlug, channelId]);
 
-  // Send thread reply
+  // Send thread reply with attachments
   const handleSend = useCallback(
     (text: string) => {
+      const attachments = fileUpload.getReadyAttachments();
       const id = crypto.randomUUID();
       mutate("messageSend", {
         id,
         chatId: channelId,
-        text,
+        text: text || " ",
         threadId,
+        ...(attachments.length > 0 ? { attachments } : {}),
       });
+      fileUpload.clear();
     },
-    [mutate, channelId, threadId],
+    [mutate, channelId, threadId, fileUpload],
   );
 
   // Draft change
@@ -223,6 +230,11 @@ function ThreadPanel() {
         onSend={handleSend}
         onTyping={emitTyping}
         placeholder="Reply in thread..."
+        uploadEntries={fileUpload.entries}
+        onFilesSelected={fileUpload.addFiles}
+        onFileRemove={fileUpload.removeFile}
+        hasReadyAttachments={fileUpload.hasReady}
+        isUploading={fileUpload.hasUploading}
       />
     </div>
   );

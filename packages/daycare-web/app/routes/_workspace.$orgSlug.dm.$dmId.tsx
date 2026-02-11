@@ -1,5 +1,5 @@
 import { createRoute, Outlet, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useMemo } from "react";
+import { useCallback, useEffect, useRef, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { orgSlugRoute } from "./_workspace.$orgSlug";
 import { useApp, useStorage } from "@/app/sync/AppContext";
@@ -10,6 +10,8 @@ import { Composer } from "@/app/components/messages/Composer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import { useThrottledTyping } from "@/app/lib/useThrottledTyping";
 import { typingTextFormat } from "@/app/lib/typingTextFormat";
+import { useFileUpload } from "@/app/lib/useFileUpload";
+import { cn } from "@/app/lib/utils";
 
 export const dmRoute = createRoute({
   getParentRoute: () => orgSlugRoute,
@@ -35,6 +37,13 @@ function DmPage() {
 
   const draft = useUiStore((s) => s.composerDrafts[dmId] ?? "");
   const composerDraftSet = useUiStore((s) => s.composerDraftSet);
+
+  // File upload
+  const fileUpload = useFileUpload(app.api, app.token, app.orgId);
+
+  // Drag-and-drop state
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
 
   // Fetch messages when DM changes
   useEffect(() => {
@@ -85,17 +94,20 @@ function DmPage() {
   // Typing signal (throttled)
   const emitTyping = useThrottledTyping(app, dmId);
 
-  // Send message
+  // Send message with attachments
   const handleSend = useCallback(
     (text: string) => {
+      const attachments = fileUpload.getReadyAttachments();
       const id = crypto.randomUUID();
       mutate("messageSend", {
         id,
         chatId: dmId,
-        text,
+        text: text || " ",
+        ...(attachments.length > 0 ? { attachments } : {}),
       });
+      fileUpload.clear();
     },
-    [mutate, dmId],
+    [mutate, dmId, fileUpload],
   );
 
   // Thread open
@@ -155,9 +167,63 @@ function DmPage() {
     ? (otherUser.firstName[0] ?? "") + (otherUser.lastName?.[0] ?? "")
     : "?";
 
+  // Drag-and-drop handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current++;
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    dragCounterRef.current--;
+    if (dragCounterRef.current === 0) {
+      setIsDragOver(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      dragCounterRef.current = 0;
+      setIsDragOver(false);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) {
+        fileUpload.addFiles(files);
+      }
+    },
+    [fileUpload],
+  );
+
   return (
     <div className="flex flex-1 min-w-0">
-      <div className="flex flex-1 flex-col min-w-0">
+      <div
+        className={cn(
+          "flex flex-1 flex-col min-w-0 relative",
+          isDragOver && "ring-2 ring-primary ring-inset",
+        )}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {/* Drag overlay */}
+        {isDragOver && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-primary/10 pointer-events-none">
+            <div className="rounded-lg border-2 border-dashed border-primary bg-background/80 px-8 py-6">
+              <p className="text-sm font-medium text-primary">
+                Drop files to upload
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* DM header */}
         <div className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-5">
           <Avatar size="sm">
@@ -217,6 +283,11 @@ function DmPage() {
           onSend={handleSend}
           onTyping={emitTyping}
           placeholder={`Message ${displayName}`}
+          uploadEntries={fileUpload.entries}
+          onFilesSelected={fileUpload.addFiles}
+          onFileRemove={fileUpload.removeFile}
+          hasReadyAttachments={fileUpload.hasReady}
+          isUploading={fileUpload.hasUploading}
         />
       </div>
 

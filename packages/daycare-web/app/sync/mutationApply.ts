@@ -27,11 +27,19 @@ export async function mutationApply(
         chatId: string;
         text: string;
         threadId?: string | null;
+        attachments?: Array<{
+          kind: string;
+          url: string;
+          mimeType?: string | null;
+          fileName?: string | null;
+          sizeBytes?: number | null;
+        }>;
       };
       const result = await api.messageSend(token, orgId, {
         channelId: input.chatId,
         text: input.text,
         threadId: input.threadId,
+        attachments: input.attachments,
       });
       const msg = result.message;
       return {

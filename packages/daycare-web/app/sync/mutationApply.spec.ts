@@ -42,6 +42,9 @@ function createMockApi(): ApiClient {
     readStateGet: vi.fn(),
     directList: vi.fn(),
     directCreate: vi.fn(),
+    fileUploadInit: vi.fn(),
+    fileUpload: vi.fn(),
+    fileGet: vi.fn(),
     updatesDiff: vi.fn(),
     updatesStreamSubscribe: vi.fn(),
   };
@@ -91,6 +94,7 @@ describe("mutationApply", () => {
         channelId: "ch-1",
         text: "Hello",
         threadId: null,
+        attachments: undefined,
       });
       expect(result.snapshot.message).toHaveLength(1);
       expect(result.snapshot.message![0].id).toBe("server-msg-1");

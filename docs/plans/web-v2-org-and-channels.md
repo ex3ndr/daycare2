@@ -179,14 +179,14 @@ Show all org members with management actions and search.
 - Cannot deactivate self
 
 **Checklist:**
-- [ ] Create `SettingsMembers.tsx`
-- [ ] Add search/filter input for member list
-- [ ] Display members with role badges and status indicators
-- [ ] Add action dropdown for OWNER (role change, deactivate, reactivate)
-- [ ] Add confirmation dialog for deactivation
-- [ ] Handle API errors and loading states
-- [ ] Wire into SettingsLayout
-- [ ] Run `yarn typecheck` — must pass
+- [x] Create `SettingsMembers.tsx`
+- [x] Add search/filter input for member list
+- [x] Display members with role badges and status indicators
+- [x] Add action dropdown for OWNER (role change, deactivate, reactivate)
+- [x] Add confirmation dialog for deactivation
+- [x] Handle API errors and loading states
+- [x] Wire into SettingsLayout
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 5: Settings — Invites tab with search
 

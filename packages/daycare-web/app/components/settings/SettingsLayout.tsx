@@ -5,6 +5,7 @@ import { ArrowLeft, Settings, Users, Mail, Globe } from "lucide-react";
 import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { cn } from "@/app/lib/utils";
 import { SettingsGeneral } from "./SettingsGeneral";
+import { SettingsMembers } from "./SettingsMembers";
 
 export type SettingsTab = "general" | "members" | "invites" | "domains";
 
@@ -85,22 +86,13 @@ export function SettingsLayout() {
           ) : (
             <>
               {tab === "general" && <SettingsGeneral isOwner={isOwner} />}
-              {tab === "members" && <SettingsMembersPlaceholder />}
+              {tab === "members" && <SettingsMembers isOwner={isOwner} />}
               {tab === "invites" && <SettingsInvitesPlaceholder />}
               {tab === "domains" && <SettingsDomainsPlaceholder />}
             </>
           )}
         </div>
       </ScrollArea>
-    </div>
-  );
-}
-
-function SettingsMembersPlaceholder() {
-  return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">Members</h2>
-      <p className="text-muted-foreground text-sm">Members management coming soon.</p>
     </div>
   );
 }

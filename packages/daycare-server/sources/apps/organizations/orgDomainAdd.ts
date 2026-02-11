@@ -1,4 +1,4 @@
-import type { OrgDomain } from "@prisma/client";
+import { Prisma, type OrgDomain } from "@prisma/client";
 import { createId } from "@paralleldrive/cuid2";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
 import { ApiError } from "@/apps/api/lib/apiError.js";
@@ -34,28 +34,25 @@ export async function orgDomainAdd(
     throw new ApiError(403, "FORBIDDEN", "Only organization owners can add domains");
   }
 
-  // Check for existing domain (unique constraint would catch this, but nicer error)
-  const existing = await context.db.orgDomain.findUnique({
-    where: {
-      organizationId_domain: {
+  let orgDomain: OrgDomain;
+  try {
+    orgDomain = await context.db.orgDomain.create({
+      data: {
+        id: createId(),
         organizationId: input.organizationId,
+        createdByUserId: input.actorUserId,
         domain
       }
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new ApiError(409, "CONFLICT", "Domain is already in the allowlist");
     }
-  });
-
-  if (existing) {
-    throw new ApiError(409, "CONFLICT", "Domain is already in the allowlist");
+    throw error;
   }
-
-  const orgDomain = await context.db.orgDomain.create({
-    data: {
-      id: createId(),
-      organizationId: input.organizationId,
-      createdByUserId: input.actorUserId,
-      domain
-    }
-  });
 
   const recipients = await organizationRecipientIdsResolve(context, input.organizationId);
   await context.updates.publishToUsers(recipients, "organization.domain.added", {

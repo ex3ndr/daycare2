@@ -130,6 +130,11 @@ export async function organizationJoin(
       throw new ApiError(500, "INTERNAL_ERROR", "Failed to join organization");
     }
 
+    // Check deactivation on P2002 recovery path
+    if (user.deactivatedAt !== null) {
+      throw new ApiError(403, "FORBIDDEN", "Account has been deactivated, contact an admin");
+    }
+
     // Mark invite as accepted if we matched one
     if (matchedInviteId) {
       await tx.orgInvite.update({

@@ -16,6 +16,8 @@ export async function channelInviteAdd(
   context: ApiContext,
   input: ChannelInviteAddInput
 ): Promise<ChatMember> {
+  let isNew = false;
+
   const membership = await databaseTransactionRun(context.db, async (tx) => {
     const channel = await tx.chat.findFirst({
       where: {
@@ -27,6 +29,10 @@ export async function channelInviteAdd(
 
     if (!channel) {
       throw new ApiError(404, "NOT_FOUND", "Channel not found");
+    }
+
+    if (channel.archivedAt !== null) {
+      throw new ApiError(400, "VALIDATION_ERROR", "Cannot add members to an archived channel");
     }
 
     if (channel.visibility !== "PRIVATE") {
@@ -87,6 +93,7 @@ export async function channelInviteAdd(
     });
 
     if (historicalMembership) {
+      isNew = true;
       return await tx.chatMember.update({
         where: { id: historicalMembership.id },
         data: {
@@ -97,6 +104,7 @@ export async function channelInviteAdd(
     }
 
     try {
+      isNew = true;
       return await tx.chatMember.create({
         data: {
           id: createId(),
@@ -132,12 +140,14 @@ export async function channelInviteAdd(
     }
   });
 
-  const recipients = await chatRecipientIdsResolve(context, input.channelId);
-  await context.updates.publishToUsers(recipients, "channel.member.joined", {
-    orgId: input.organizationId,
-    channelId: input.channelId,
-    userId: input.targetUserId
-  });
+  if (isNew) {
+    const recipients = await chatRecipientIdsResolve(context, input.channelId);
+    await context.updates.publishToUsers(recipients, "channel.member.joined", {
+      orgId: input.organizationId,
+      channelId: input.channelId,
+      userId: input.targetUserId
+    });
+  }
 
   return membership;
 }

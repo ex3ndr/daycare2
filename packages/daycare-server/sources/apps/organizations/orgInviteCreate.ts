@@ -72,7 +72,8 @@ export async function orgInviteCreate(
           invitedByUserId: input.actorUserId,
           expiresAt: new Date(Date.now() + DEFAULT_INVITE_TTL_DAYS * 24 * 60 * 60 * 1000),
           acceptedAt: null,
-          revokedAt: null
+          revokedAt: null,
+          createdAt: new Date()
         }
       });
     }

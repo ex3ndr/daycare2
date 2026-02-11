@@ -71,6 +71,10 @@ export async function orgMemberDeactivate(
   });
 
   const recipients = await organizationRecipientIdsResolve(context, input.organizationId);
+  // Include the deactivated user so their client can react to the kick
+  if (!recipients.includes(input.targetUserId)) {
+    recipients.push(input.targetUserId);
+  }
   await context.updates.publishToUsers(recipients, "organization.member.deactivated", {
     orgId: input.organizationId,
     userId: input.targetUserId

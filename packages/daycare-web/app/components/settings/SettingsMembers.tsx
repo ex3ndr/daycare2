@@ -289,6 +289,11 @@ function DeactivateConfirmDialog({
 }) {
   const [loading, setLoading] = useState(false);
 
+  // Reset loading when dialog target changes
+  useEffect(() => {
+    setLoading(false);
+  }, [user]);
+
   async function handleConfirm() {
     if (!user) return;
     setLoading(true);

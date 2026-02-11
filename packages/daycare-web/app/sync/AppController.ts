@@ -10,6 +10,7 @@ import { mutationApply } from "./mutationApply";
 import { connectionStatusSet } from "../stores/connectionStoreContext";
 import { toastAdd } from "../stores/toastStoreContext";
 import { sessionClear } from "../lib/sessionStore";
+import { apiRequestFireDeactivated } from "../daycare/api/apiRequest";
 
 const STORAGE_KEY = "daycare:engine";
 const HEARTBEAT_INTERVAL_MS = 60_000;
@@ -265,8 +266,7 @@ export class AppController {
       if (result.deactivatedUserId && result.deactivatedUserId === currentUserId) {
         toastAdd("You've been removed from this organization", "warning");
         this.destroy();
-        sessionClear();
-        window.location.href = "/orgs";
+        apiRequestFireDeactivated();
         return;
       }
     }

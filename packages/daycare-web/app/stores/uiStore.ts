@@ -79,8 +79,10 @@ export const uiStoreCreate = () =>
 
     searchQuerySet: (query) => set({ searchQuery: query }),
 
-    photoViewerOpen: (images, startIndex) =>
-      set({ photoViewer: { images, currentIndex: startIndex } }),
+    photoViewerOpen: (images, startIndex) => {
+      if (images.length === 0) return;
+      set({ photoViewer: { images, currentIndex: startIndex } });
+    },
 
     photoViewerClose: () => set({ photoViewer: null }),
 

@@ -119,6 +119,7 @@ export async function channelInviteAdd(
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === "P2002"
       ) {
+        isNew = false;
         const existing = await tx.chatMember.findFirst({
           where: {
             chatId: input.channelId,

@@ -21,6 +21,8 @@ export async function organizationJoin(
   context: ApiContext,
   input: OrganizationJoinInput
 ): Promise<OrganizationJoinResult> {
+  let isNew = false;
+
   const { organization, user } = await databaseTransactionRun(context.db, async (tx) => {
     const organization = await tx.organization.findUnique({
       where: {
@@ -100,6 +102,7 @@ export async function organizationJoin(
 
     // Create the user
     try {
+      isNew = true;
       user = await tx.user.create({
         data: {
           id: createId(),
@@ -115,6 +118,7 @@ export async function organizationJoin(
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === "P2002"
       ) {
+        isNew = false;
         user = await tx.user.findFirst({
           where: {
             accountId: input.accountId,
@@ -149,11 +153,13 @@ export async function organizationJoin(
     };
   });
 
-  const recipients = await organizationRecipientIdsResolve(context, organization.id);
-  await context.updates.publishToUsers(recipients, "organization.member.joined", {
-    orgId: organization.id,
-    userId: user.id
-  });
+  if (isNew) {
+    const recipients = await organizationRecipientIdsResolve(context, organization.id);
+    await context.updates.publishToUsers(recipients, "organization.member.joined", {
+      orgId: organization.id,
+      userId: user.id
+    });
+  }
 
   return {
     organization,

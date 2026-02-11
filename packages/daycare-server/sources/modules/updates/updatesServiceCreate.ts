@@ -83,6 +83,13 @@ export function updatesServiceCreate(db: PrismaClient): UpdatesService {
   const publishToUsers = async (userIds: string[], eventType: string, payload: UpdatePayload): Promise<void> => {
     const uniqueUserIds = Array.from(new Set(userIds));
     await Promise.all(uniqueUserIds.map(async (userId) => {
+      if (eventType === "message.created") {
+        const deliverable = await messageUpdateDeliverable(db, userId, payload);
+        if (!deliverable) {
+          return;
+        }
+      }
+
       const update = await updateCreateWithRetry(db, userId, eventType, payload);
       const envelope = updateToEnvelope(update);
       const clients = clientsByUser.get(userId);
@@ -137,6 +144,64 @@ export function updatesServiceCreate(db: PrismaClient): UpdatesService {
     publishToUsers,
     diffGet
   };
+}
+
+async function messageUpdateDeliverable(
+  db: PrismaClient,
+  userId: string,
+  payload: UpdatePayload
+): Promise<boolean> {
+  const channelId = typeof payload.channelId === "string" ? payload.channelId : null;
+  const messageId = typeof payload.messageId === "string" ? payload.messageId : null;
+
+  if (!channelId || !messageId) {
+    return true;
+  }
+
+  const membership = await db.chatMember.findFirst({
+    where: {
+      chatId: channelId,
+      userId,
+      leftAt: null
+    },
+    select: {
+      notificationLevel: true,
+      muteForever: true,
+      muteUntil: true
+    }
+  });
+
+  if (!membership) {
+    return false;
+  }
+
+  if (membership.muteForever) {
+    return false;
+  }
+
+  if (membership.muteUntil && membership.muteUntil.getTime() > Date.now()) {
+    return false;
+  }
+
+  if (membership.notificationLevel === "ALL") {
+    return true;
+  }
+
+  if (membership.notificationLevel === "MUTED") {
+    return membership.muteUntil ? membership.muteUntil.getTime() <= Date.now() : false;
+  }
+
+  const mention = await db.messageMention.findFirst({
+    where: {
+      messageId,
+      mentionedUserId: userId
+    },
+    select: {
+      id: true
+    }
+  });
+
+  return Boolean(mention);
 }
 
 async function updateCreateWithRetry(

@@ -8,6 +8,7 @@ import { channelJoin } from "@/apps/channels/channelJoin.js";
 import { channelLeave } from "@/apps/channels/channelLeave.js";
 import { channelMemberKick } from "@/apps/channels/channelMemberKick.js";
 import { channelMemberRoleSet } from "@/apps/channels/channelMemberRoleSet.js";
+import { channelNotificationSet } from "@/apps/channels/channelNotificationSet.js";
 import { channelArchive } from "@/apps/channels/channelArchive.js";
 import { channelUnarchive } from "@/apps/channels/channelUnarchive.js";
 import { channelUpdate } from "@/apps/channels/channelUpdate.js";
@@ -33,6 +34,11 @@ const directCreateSchema = z.object({
 
 const channelMemberRoleSchema = z.object({
   role: z.enum(["OWNER", "MEMBER"])
+});
+
+const channelNotificationSchema = z.object({
+  level: z.enum(["ALL", "MENTIONS_ONLY", "MUTED"]),
+  muteUntil: z.number().int().positive().optional()
 });
 
 export async function channelRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
@@ -390,6 +396,32 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
           role: membership.role.toLowerCase(),
           joinedAt: membership.joinedAt.getTime(),
           leftAt: membership.leftAt?.getTime() ?? null
+        }
+      });
+    });
+  });
+
+  app.patch("/api/org/:orgid/channels/:channelId/notifications", async (request) => {
+    const params = z.object({ orgid: z.string().min(1), channelId: z.string().min(1) }).parse(request.params);
+    const body = channelNotificationSchema.parse(request.body);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const membership = await channelNotificationSet(context, {
+        organizationId: params.orgid,
+        channelId: params.channelId,
+        userId: auth.user.id,
+        level: body.level,
+        muteUntil: body.muteUntil
+      });
+
+      return apiResponseOk({
+        membership: {
+          chatId: membership.chatId,
+          userId: membership.userId,
+          notificationLevel: membership.notificationLevel.toLowerCase(),
+          muteForever: membership.muteForever,
+          muteUntil: membership.muteUntil?.getTime() ?? null
         }
       });
     });

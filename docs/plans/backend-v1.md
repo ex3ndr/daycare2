@@ -159,16 +159,16 @@ The `archivedAt` field exists on Chat but has no endpoints.
 
 `notificationLevel` (ALL/MENTIONS_ONLY/MUTED) exists on ChatMember but isn't enforced during update delivery.
 
-- [ ] Create `sources/apps/channels/channelNotificationSet.ts` — update ChatMember `notificationLevel`, `muteForever`, `muteUntil` fields
-- [ ] Add route: `PATCH /api/org/:orgid/channels/:channelId/notifications` — update notification preferences (body: `{ level: "ALL" | "MENTIONS_ONLY" | "MUTED", muteUntil?: number }`)
-- [ ] Update update delivery logic in `updatesServiceCreate.ts` — when broadcasting `message.created`, check recipient's notification level:
+- [x] Create `sources/apps/channels/channelNotificationSet.ts` — update ChatMember `notificationLevel`, `muteForever`, `muteUntil` fields
+- [x] Add route: `PATCH /api/org/:orgid/channels/:channelId/notifications` — update notification preferences (body: `{ level: "ALL" | "MENTIONS_ONLY" | "MUTED", muteUntil?: number }`)
+- [x] Update update delivery logic in `updatesServiceCreate.ts` — when broadcasting `message.created`, check recipient's notification level:
   - `ALL` → always deliver
   - `MENTIONS_ONLY` → deliver only if user is mentioned in message
   - `MUTED` → skip delivery (unless `muteUntil` has passed)
-- [ ] Write tests for `channelNotificationSet` (set each level, set muteUntil, clear mute)
-- [ ] Write tests for filtered update delivery (muted user doesn't receive, mentions-only receives when mentioned)
-- [ ] Write route-level tests
-- [ ] Run tests — must pass before next task
+- [x] Write tests for `channelNotificationSet` (set each level, set muteUntil, clear mute)
+- [x] Write tests for filtered update delivery (muted user doesn't receive, mentions-only receives when mentioned)
+- [x] Write route-level tests
+- [x] Run tests — must pass before next task
 
 ### Task 8: PostgreSQL full-text search
 

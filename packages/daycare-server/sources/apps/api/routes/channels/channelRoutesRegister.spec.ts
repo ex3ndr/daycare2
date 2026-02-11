@@ -828,4 +828,57 @@ describe("channelRoutesRegister", () => {
 
     await app.close();
   });
+
+  it("updates channel notification preferences", async () => {
+    vi.mocked(authContextResolve).mockResolvedValue({
+      session: {} as any,
+      user: { id: "user-1", organizationId: "org-1" } as any
+    });
+
+    const muteUntil = Date.now() + 60_000;
+    const context = {
+      db: {
+        chatMember: {
+          findFirst: vi.fn().mockResolvedValue({ id: "member-1" }),
+          update: vi.fn().mockResolvedValue({
+            id: "member-1",
+            chatId: "chat-1",
+            userId: "user-1",
+            role: "MEMBER",
+            notificationLevel: "MUTED",
+            muteForever: false,
+            muteUntil: new Date(muteUntil),
+            joinedAt: new Date("2026-02-10T00:00:00.000Z"),
+            leftAt: null
+          })
+        }
+      }
+    } as unknown as ApiContext;
+
+    const app = appCreate(context);
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/org/org-1/channels/chat-1/notifications",
+      headers: {
+        authorization: "Bearer token"
+      },
+      payload: {
+        level: "MUTED",
+        muteUntil
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as any;
+    expect(payload.data.membership.notificationLevel).toBe("muted");
+    expect(payload.data.membership.muteUntil).toBe(muteUntil);
+    expect(context.db.chatMember.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        notificationLevel: "MUTED",
+        muteForever: false
+      })
+    }));
+
+    await app.close();
+  });
 });

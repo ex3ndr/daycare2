@@ -190,4 +190,94 @@ describe("updatesServiceCreate", () => {
     expect(result.resetRequired).toBe(false);
     expect(result.updates).toEqual([]);
   });
+
+  it("does not deliver message.created updates to muted users", async () => {
+    const transaction = vi.fn();
+    const db = {
+      $transaction: transaction,
+      chatMember: {
+        findFirst: vi.fn().mockResolvedValue({
+          notificationLevel: "MUTED",
+          muteForever: true,
+          muteUntil: null
+        })
+      },
+      messageMention: {
+        findFirst: vi.fn()
+      }
+    } as unknown as PrismaClient;
+
+    const service = updatesServiceCreate(db);
+    await service.publishToUsers(["user-1"], "message.created", {
+      orgId: "org-1",
+      channelId: "chat-1",
+      messageId: "m-1"
+    });
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it("delivers message.created updates for mentions-only members when mentioned", async () => {
+    const transaction = vi.fn().mockImplementation(async (callback: (tx: unknown) => Promise<UserUpdate>) => {
+      const tx = {
+        $executeRaw: vi.fn().mockResolvedValue(undefined),
+        userUpdate: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue(userUpdateCreate(1)),
+          findMany: vi.fn().mockResolvedValue([]),
+          deleteMany: vi.fn().mockResolvedValue({ count: 0 })
+        }
+      };
+      return await callback(tx);
+    });
+
+    const db = {
+      $transaction: transaction,
+      chatMember: {
+        findFirst: vi.fn().mockResolvedValue({
+          notificationLevel: "MENTIONS_ONLY",
+          muteForever: false,
+          muteUntil: null
+        })
+      },
+      messageMention: {
+        findFirst: vi.fn().mockResolvedValue({ id: "mention-1" })
+      }
+    } as unknown as PrismaClient;
+
+    const service = updatesServiceCreate(db);
+    await service.publishToUsers(["user-1"], "message.created", {
+      orgId: "org-1",
+      channelId: "chat-1",
+      messageId: "m-1"
+    });
+
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not deliver message.created for muted level without muteUntil", async () => {
+    const transaction = vi.fn();
+    const db = {
+      $transaction: transaction,
+      chatMember: {
+        findFirst: vi.fn().mockResolvedValue({
+          notificationLevel: "MUTED",
+          muteForever: false,
+          muteUntil: null
+        })
+      },
+      messageMention: {
+        findFirst: vi.fn()
+      }
+    } as unknown as PrismaClient;
+
+    const service = updatesServiceCreate(db);
+    await service.publishToUsers(["user-1"], "message.created", {
+      orgId: "org-1",
+      channelId: "chat-1",
+      messageId: "m-1"
+    });
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
 });

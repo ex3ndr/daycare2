@@ -447,7 +447,7 @@ Following happy-list's `AppController` pattern — class that owns engine + stor
 
 Separate thin Zustand store for purely client-side UI state (not synced to server at all).
 
-- [ ] Create `app/stores/uiStore.ts`:
+- [x] Create `app/stores/uiStore.ts`:
   - `sidebarCollapsed: boolean`
   - `composerDrafts: Record<channelId, string>` — per-channel draft text
   - `threadComposerDraft: string`
@@ -455,8 +455,8 @@ Separate thin Zustand store for purely client-side UI state (not synced to serve
   - `searchOpen: boolean`
   - `searchQuery: string`
   - Actions: `sidebarToggle`, `composerDraftSet`, `modalOpen`, `modalClose`, `searchToggle`
-- [ ] Write tests for uiStore (set/get/clear for each field)
-- [ ] Run tests — must pass before next task
+- [x] Write tests for uiStore (set/get/clear for each field)
+- [x] Run tests — must pass before next task
 
 #### Task 9: Create React context and hooks
 

@@ -575,18 +575,18 @@ The workspace chrome: rail, sidebar, content area, thread panel.
 
 The main messaging view.
 
-- [ ] Build `app/routes/_workspace.$orgSlug.c.$channelId.tsx`:
+- [x] Build `app/routes/_workspace.$orgSlug.c.$channelId.tsx`:
   - Channel header (name, topic, sync status badge)
   - Message list in ScrollArea with auto-scroll to bottom
   - Typing indicator line
   - Composer: Textarea + Send Button, Enter to send, Shift+Enter newline
-- [ ] Build `app/components/messages/MessageRow.tsx` — avatar, author name + handle + timestamp, text, reaction badges, thread button
-- [ ] Build `app/components/messages/Composer.tsx` — connected to `messageSend` mutation
-- [ ] Optimistic send: message appears immediately with `pending` badge, resolves on commit
-- [ ] Typing signals: emit on keystroke (throttled 1.5s), show typing users from sync state
-- [ ] Read marking: mark read on channel select + on new messages while viewing
-- [ ] **agent-browser**: type a message → hit Enter → verify message appears instantly with "sending" badge → wait for badge to disappear (SSE confirm) → screenshot. Open second tab, send message there, verify it appears in first tab via SSE.
-- [ ] Run tests — must pass before next task
+- [x] Build `app/components/messages/MessageRow.tsx` — avatar, author name + handle + timestamp, text, reaction badges, thread button
+- [x] Build `app/components/messages/Composer.tsx` — connected to `messageSend` mutation
+- [x] Optimistic send: message appears immediately with `pending` badge, resolves on commit
+- [x] Typing signals: emit on keystroke (throttled 1.5s), show typing users from sync state
+- [x] Read marking: mark read on channel select + on new messages while viewing
+- [x] **agent-browser**: type a message → hit Enter → verify message appears instantly with "sending" badge → wait for badge to disappear (SSE confirm) → screenshot. Open second tab, send message there, verify it appears in first tab via SSE.
+- [x] Run tests — must pass before next task
 
 #### Task 16: Thread panel
 

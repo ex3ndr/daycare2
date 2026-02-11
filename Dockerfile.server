@@ -1,0 +1,46 @@
+# --- base ---
+FROM node:22-alpine AS base
+RUN corepack enable
+WORKDIR /app
+
+# --- deps (all, including dev — needed for prisma cli + tsc) ---
+FROM base AS deps
+COPY package.json yarn.lock ./
+COPY packages/daycare-server/package.json packages/daycare-server/
+COPY packages/daycare-server/prisma packages/daycare-server/prisma
+# stub web workspace so yarn install succeeds without its files
+RUN mkdir -p packages/daycare-web && echo '{"name":"daycare-web","version":"0.0.1"}' > packages/daycare-web/package.json
+RUN yarn install --frozen-lockfile
+
+# --- build ---
+FROM deps AS build
+COPY packages/daycare-server packages/daycare-server
+WORKDIR /app/packages/daycare-server
+RUN yarn build
+
+# --- production deps ---
+FROM base AS prod-deps
+COPY package.json yarn.lock ./
+COPY packages/daycare-server/package.json packages/daycare-server/
+COPY packages/daycare-server/prisma packages/daycare-server/prisma
+RUN mkdir -p packages/daycare-web && echo '{"name":"daycare-web","version":"0.0.1"}' > packages/daycare-web/package.json
+# skip postinstall (prisma generate needs dev deps); copy generated client from deps stage instead
+RUN yarn install --frozen-lockfile --production --ignore-scripts
+
+# --- runtime ---
+FROM node:22-alpine AS runtime
+RUN apk add --no-cache tini
+WORKDIR /app
+
+COPY --from=prod-deps /app/node_modules node_modules
+# copy prisma generated client from full deps stage (where prisma cli was available)
+COPY --from=deps /app/node_modules/.prisma node_modules/.prisma
+COPY --from=build /app/packages/daycare-server/dist packages/daycare-server/dist
+COPY packages/daycare-server/prisma packages/daycare-server/prisma
+COPY packages/daycare-server/package.json packages/daycare-server/
+
+ENV NODE_ENV=production
+EXPOSE 3005
+
+ENTRYPOINT ["tini", "--"]
+CMD ["node", "packages/daycare-server/dist/main.js"]

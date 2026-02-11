@@ -142,7 +142,8 @@ const messagesUpsert = (messages: UiMessage[], incoming: UiMessage): UiMessage[]
 };
 
 export function daycareAppUse(): DaycareModel {
-  const apiBase = (import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE ?? "http://localhost:3005";
+  const fallbackBase = typeof window === "undefined" ? "http://localhost:3005" : window.location.origin;
+  const apiBase = (import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE ?? fallbackBase;
   const api = useMemo(() => apiClientCreate(apiBase), [apiBase]);
 
   const [phase, phaseSet] = useState<AppPhase>("auth");

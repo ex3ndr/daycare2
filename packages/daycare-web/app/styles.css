@@ -1,49 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&family=Karla:wght@400;500;600;700&display=swap");
 
-:root {
-  color-scheme: light;
-  --bg: #f4f1ec;
-  --bg-accent: #ece6dc;
-  --surface: #ffffff;
-  --surface-muted: #f8f5f0;
-  --surface-strong: #ffffff;
-  --ink: #1f1d1a;
-  --ink-soft: #6c635a;
-  --line: rgba(31, 29, 26, 0.12);
-  --shadow: 0 18px 40px rgba(18, 14, 10, 0.12);
-  --shadow-soft: 0 10px 24px rgba(18, 14, 10, 0.08);
-  --accent: #d06a2d;
-  --accent-strong: #b25724;
-  --success: #2f9f7c;
-  --danger: #c44747;
-  --rail: #161a1e;
-  --rail-ink: #f6f2ec;
-  --sidebar: #23282d;
-  --sidebar-ink: #f5f2ec;
-  --sidebar-muted: rgba(245, 242, 236, 0.7);
-  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font: "Karla", "Segoe UI", sans-serif;
-  --display: "Bricolage Grotesque", "Karla", sans-serif;
-  --radius-lg: 18px;
-  --radius-md: 12px;
-  --radius-sm: 9px;
-}
+@layer base {
+  :root {
+    color-scheme: light;
 
-* {
-  box-sizing: border-box;
-}
+    /* shadcn core — Daycare warm palette */
+    --background: 36 25% 94%;
+    --foreground: 36 9% 11%;
 
-html,
-body,
-#root {
-  height: 100%;
-}
+    --card: 0 0% 100%;
+    --card-foreground: 36 9% 11%;
 
-body {
-  margin: 0;
-  font-family: var(--font);
-  color: var(--ink);
-  background: radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.9), transparent 45%),
-    radial-gradient(circle at 85% 15%, #f3d3b7, transparent 40%),
-    linear-gradient(160deg, var(--bg), var(--bg-accent));
+    --popover: 0 0% 100%;
+    --popover-foreground: 36 9% 11%;
+
+    --primary: 22 66% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 37 27% 89%;
+    --secondary-foreground: 36 9% 11%;
+
+    --muted: 37 33% 95%;
+    --muted-foreground: 30 9% 39%;
+
+    --accent: 37 27% 89%;
+    --accent-foreground: 36 9% 11%;
+
+    --destructive: 0 50% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 160 54% 40%;
+
+    --border: 36 9% 11% / 0.12;
+    --input: 36 9% 11% / 0.12;
+    --ring: 22 66% 50%;
+
+    --radius: 12px;
+
+    /* Sidebar — dark tones */
+    --sidebar: 210 12% 16%;
+    --sidebar-foreground: 40 28% 94%;
+    --sidebar-border: 210 12% 22%;
+    --sidebar-accent: 210 12% 22%;
+    --sidebar-accent-foreground: 40 28% 94%;
+    --sidebar-muted: 210 12% 20%;
+    --sidebar-muted-foreground: 40 28% 80%;
+
+    /* Rail — darkest tone */
+    --rail: 210 16% 10%;
+    --rail-foreground: 36 35% 95%;
+
+    /* Daycare legacy tokens (for gradient and custom use) */
+    --bg: #f4f1ec;
+    --bg-accent: #ece6dc;
+    --surface: #ffffff;
+    --ink: #1f1d1a;
+    --ink-soft: #6c635a;
+    --shadow: 0 18px 40px rgba(18, 14, 10, 0.12);
+    --shadow-soft: 0 10px 24px rgba(18, 14, 10, 0.08);
+  }
+
+  .dark {
+    --background: 210 16% 10%;
+    --foreground: 36 35% 95%;
+
+    --card: 210 12% 14%;
+    --card-foreground: 36 35% 95%;
+
+    --popover: 210 12% 14%;
+    --popover-foreground: 36 35% 95%;
+
+    --primary: 22 66% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 12% 20%;
+    --secondary-foreground: 36 35% 95%;
+
+    --muted: 210 12% 18%;
+    --muted-foreground: 36 20% 60%;
+
+    --accent: 210 12% 20%;
+    --accent-foreground: 36 35% 95%;
+
+    --destructive: 0 50% 52%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 160 54% 40%;
+
+    --border: 36 35% 95% / 0.12;
+    --input: 36 35% 95% / 0.12;
+    --ring: 22 66% 50%;
+
+    --sidebar: 210 16% 8%;
+    --sidebar-foreground: 36 35% 95%;
+    --sidebar-border: 210 16% 14%;
+    --sidebar-accent: 210 16% 14%;
+    --sidebar-accent-foreground: 36 35% 95%;
+    --sidebar-muted: 210 16% 12%;
+    --sidebar-muted-foreground: 36 20% 60%;
+
+    --rail: 210 16% 6%;
+    --rail-foreground: 36 35% 95%;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    margin: 0;
+    background: radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.9), transparent 45%),
+      radial-gradient(circle at 85% 15%, #f3d3b7, transparent 40%),
+      linear-gradient(160deg, var(--bg), var(--bg-accent));
+  }
 }

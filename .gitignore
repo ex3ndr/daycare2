@@ -4,3 +4,6 @@ dist
 *.log
 .daycare
 *.tsbuildinfo
+
+# ralphex progress logs
+progress*.txt

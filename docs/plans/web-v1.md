@@ -219,14 +219,14 @@ Remove everything that will be rebuilt. Keep only reusable infra.
 
 #### Task 3: Configure shadcn + Tailwind + Vitest
 
-- [ ] Create `app/lib/utils.ts` with `cn()` helper (clsx + tailwind-merge)
-- [ ] Update `tailwind.config.ts` — map Daycare warm palette into shadcn HSL variable format (`--background` ← beige, `--primary` ← orange, `--destructive` ← red, `--sidebar-*` ← dark tones)
-- [ ] Update `app/styles.css` — add shadcn CSS variables (`:root` and `.dark`) using the warm palette, keep Google Fonts import, keep body background gradient
-- [ ] Create `components.json` for shadcn CLI configuration
-- [ ] Create `packages/daycare-web/vitest.config.ts` with jsdom environment and path aliases
-- [ ] Update `package.json` test script: `"test": "vitest run"`
-- [ ] Write smoke test `app/lib/utils.spec.ts` testing `cn()` utility
-- [ ] Run tests — must pass
+- [x] Create `app/lib/utils.ts` with `cn()` helper (clsx + tailwind-merge)
+- [x] Update `tailwind.config.ts` — map Daycare warm palette into shadcn HSL variable format (`--background` ← beige, `--primary` ← orange, `--destructive` ← red, `--sidebar-*` ← dark tones)
+- [x] Update `app/styles.css` — add shadcn CSS variables (`:root` and `.dark`) using the warm palette, keep Google Fonts import, keep body background gradient
+- [x] Create `components.json` for shadcn CLI configuration
+- [x] Create `packages/daycare-web/vitest.config.ts` with jsdom environment and path aliases
+- [x] Update `package.json` test script: `"test": "vitest run"`
+- [x] Write smoke test `app/lib/utils.spec.ts` testing `cn()` utility
+- [x] Run tests — must pass
 
 ---
 

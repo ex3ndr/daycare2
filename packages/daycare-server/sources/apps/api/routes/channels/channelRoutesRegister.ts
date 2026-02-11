@@ -6,6 +6,8 @@ import { directCreate } from "@/apps/channels/directCreate.js";
 import { directList } from "@/apps/channels/directList.js";
 import { channelJoin } from "@/apps/channels/channelJoin.js";
 import { channelLeave } from "@/apps/channels/channelLeave.js";
+import { channelMemberKick } from "@/apps/channels/channelMemberKick.js";
+import { channelMemberRoleSet } from "@/apps/channels/channelMemberRoleSet.js";
 import { channelUpdate } from "@/apps/channels/channelUpdate.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
@@ -25,6 +27,10 @@ const channelPatchSchema = z.object({
 
 const directCreateSchema = z.object({
   userId: z.string().min(1)
+});
+
+const channelMemberRoleSchema = z.object({
+  role: z.enum(["OWNER", "MEMBER"])
 });
 
 export async function channelRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
@@ -267,6 +273,66 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
           avatarUrl: member.user.avatarUrl
         }
       }))
+    });
+  });
+
+  app.post("/api/org/:orgid/channels/:channelId/members/:userId/kick", async (request) => {
+    const params = z.object({
+      orgid: z.string().min(1),
+      channelId: z.string().min(1),
+      userId: z.string().min(1)
+    }).parse(request.params);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const membership = await channelMemberKick(context, {
+        organizationId: params.orgid,
+        channelId: params.channelId,
+        actorUserId: auth.user.id,
+        targetUserId: params.userId
+      });
+
+      return apiResponseOk({
+        removed: true,
+        membership: {
+          chatId: membership.chatId,
+          userId: membership.userId,
+          role: membership.role.toLowerCase(),
+          joinedAt: membership.joinedAt.getTime(),
+          leftAt: membership.leftAt?.getTime() ?? null
+        }
+      });
+    });
+  });
+
+  app.patch("/api/org/:orgid/channels/:channelId/members/:userId/role", async (request) => {
+    const params = z.object({
+      orgid: z.string().min(1),
+      channelId: z.string().min(1),
+      userId: z.string().min(1)
+    }).parse(request.params);
+    const body = channelMemberRoleSchema.parse(request.body);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const membership = await channelMemberRoleSet(context, {
+        organizationId: params.orgid,
+        channelId: params.channelId,
+        actorUserId: auth.user.id,
+        targetUserId: params.userId,
+        role: body.role
+      });
+
+      return apiResponseOk({
+        updated: true,
+        membership: {
+          chatId: membership.chatId,
+          userId: membership.userId,
+          role: membership.role.toLowerCase(),
+          joinedAt: membership.joinedAt.getTime(),
+          leftAt: membership.leftAt?.getTime() ?? null
+        }
+      });
     });
   });
 }

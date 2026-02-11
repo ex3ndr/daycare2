@@ -127,16 +127,16 @@ Track online/away/offline status using Redis with TTL-based expiration.
 
 Add ability to kick members and change roles. Currently only join/leave exist.
 
-- [ ] Create `sources/apps/channels/channelMemberKick.ts` — owner/admin removes a member (set `leftAt`), emit `member.left` update, prevent kicking self or other owners
-- [ ] Create `sources/apps/channels/channelMemberRoleSet.ts` — owner changes a member's role (OWNER/MEMBER), emit `member.updated` update
-- [ ] Add new SSE event type `member.updated` in updates service
-- [ ] Add routes:
+- [x] Create `sources/apps/channels/channelMemberKick.ts` — owner/admin removes a member (set `leftAt`), emit `member.left` update, prevent kicking self or other owners
+- [x] Create `sources/apps/channels/channelMemberRoleSet.ts` — owner changes a member's role (OWNER/MEMBER), emit `member.updated` update
+- [x] Add new SSE event type `member.updated` in updates service
+- [x] Add routes:
   - `POST /api/org/:orgid/channels/:channelId/members/:userId/kick` — kick member (requires OWNER role)
   - `PATCH /api/org/:orgid/channels/:channelId/members/:userId/role` — change role (body: `{ role: "OWNER" | "MEMBER" }`, requires OWNER)
-- [ ] Write tests for `channelMemberKick` (success, not owner, self-kick rejected, already left)
-- [ ] Write tests for `channelMemberRoleSet` (promote to owner, demote, not authorized)
-- [ ] Write route-level tests for both endpoints
-- [ ] Run tests — must pass before next task
+- [x] Write tests for `channelMemberKick` (success, not owner, self-kick rejected, already left)
+- [x] Write tests for `channelMemberRoleSet` (promote to owner, demote, not authorized)
+- [x] Write route-level tests for both endpoints
+- [x] Run tests — must pass before next task
 
 ### Task 6: Channel archiving
 

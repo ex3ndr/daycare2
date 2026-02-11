@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
 import { ApiError } from "@/apps/api/lib/apiError.js";
 import { apiResponseFail } from "@/apps/api/lib/apiResponseFail.js";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/apps/api/lib/authContextResolve.js", () => ({
   authContextResolve: vi.fn()
@@ -58,6 +58,10 @@ function appCreate(context: ApiContext) {
 }
 
 describe("channelRoutesRegister", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("creates or opens a direct chat", async () => {
     vi.mocked(authContextResolve).mockResolvedValue({
       session: {} as any,
@@ -611,6 +615,110 @@ describe("channelRoutesRegister", () => {
     const payload = response.json() as any;
     expect(payload.ok).toBe(true);
     expect(payload.data.members).toHaveLength(1);
+
+    await app.close();
+  });
+
+  it("kicks a channel member", async () => {
+    vi.mocked(authContextResolve).mockResolvedValue({
+      session: {} as any,
+      user: { id: "owner-1", organizationId: "org-1" } as any
+    });
+    vi.mocked(chatRecipientIdsResolve).mockResolvedValue(["owner-1"]);
+
+    const context = {
+      db: {
+        chat: {
+          findFirst: vi.fn().mockResolvedValue({ id: "chat-1", organizationId: "org-1", kind: "CHANNEL" })
+        },
+        chatMember: {
+          findFirst: vi.fn()
+            .mockResolvedValueOnce({ id: "owner-member", role: "OWNER" })
+            .mockResolvedValueOnce({ id: "target-member", role: "MEMBER" }),
+          findMany: vi.fn().mockResolvedValue([{ userId: "owner-1" }]),
+          update: vi.fn().mockResolvedValue({
+            id: "target-member",
+            chatId: "chat-1",
+            userId: "user-2",
+            role: "MEMBER",
+            notificationLevel: "ALL",
+            joinedAt: new Date("2026-02-10T00:00:00.000Z"),
+            leftAt: new Date("2026-02-10T00:10:00.000Z")
+          })
+        }
+      },
+      updates: {
+        publishToUsers: vi.fn().mockResolvedValue(undefined)
+      }
+    } as unknown as ApiContext;
+
+    const app = appCreate(context);
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/org/org-1/channels/chat-1/members/user-2/kick",
+      headers: {
+        authorization: "Bearer token"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as any;
+    expect(payload.data.removed).toBe(true);
+    expect(payload.data.membership.userId).toBe("user-2");
+
+    await app.close();
+  });
+
+  it("updates a channel member role", async () => {
+    vi.mocked(authContextResolve).mockResolvedValue({
+      session: {} as any,
+      user: { id: "owner-1", organizationId: "org-1" } as any
+    });
+    vi.mocked(chatRecipientIdsResolve).mockResolvedValue(["owner-1", "user-2"]);
+
+    const context = {
+      db: {
+        chat: {
+          findFirst: vi.fn().mockResolvedValue({ id: "chat-1", organizationId: "org-1", kind: "CHANNEL" })
+        },
+        chatMember: {
+          findFirst: vi.fn()
+            .mockResolvedValueOnce({ id: "owner-member", role: "OWNER" })
+            .mockResolvedValueOnce({ id: "target-member", role: "MEMBER" }),
+          count: vi.fn().mockResolvedValue(1),
+          findMany: vi.fn().mockResolvedValue([{ userId: "owner-1" }, { userId: "user-2" }]),
+          update: vi.fn().mockResolvedValue({
+            id: "target-member",
+            chatId: "chat-1",
+            userId: "user-2",
+            role: "OWNER",
+            notificationLevel: "ALL",
+            joinedAt: new Date("2026-02-10T00:00:00.000Z"),
+            leftAt: null
+          })
+        }
+      },
+      updates: {
+        publishToUsers: vi.fn().mockResolvedValue(undefined)
+      }
+    } as unknown as ApiContext;
+
+    const app = appCreate(context);
+    const response = await app.inject({
+      method: "PATCH",
+      url: "/api/org/org-1/channels/chat-1/members/user-2/role",
+      headers: {
+        authorization: "Bearer token"
+      },
+      payload: {
+        role: "OWNER"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as any;
+    expect(payload.data.updated).toBe(true);
+    expect(payload.data.membership.role).toBe("owner");
 
     await app.close();
   });

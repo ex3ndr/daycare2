@@ -118,14 +118,14 @@ model OrgDomain {
 ```
 
 **Checklist:**
-- [ ] Add `OrgRole` enum to schema
-- [ ] Add `orgRole` and `deactivatedAt` fields to `User` model
-- [ ] Add `OrgInvite` model with relations
-- [ ] Add `OrgDomain` model with relations
-- [ ] Add reverse relations on `Organization` and `User` models
-- [ ] Update `organizationCreate` to set first user's `orgRole: OWNER`
-- [ ] Run `npx prisma migrate dev` to generate migration
-- [ ] Run `yarn typecheck` — must pass
+- [x] Add `OrgRole` enum to schema
+- [x] Add `orgRole` and `deactivatedAt` fields to `User` model
+- [x] Add `OrgInvite` model with relations
+- [x] Add `OrgDomain` model with relations
+- [x] Add reverse relations on `Organization` and `User` models
+- [x] Update `organizationCreate` to set first user's `orgRole: OWNER`
+- [x] Run `npx prisma migrate dev` to generate migration
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 2: Update auth middleware — block deactivated users
 

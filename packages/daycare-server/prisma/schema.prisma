@@ -33,6 +33,11 @@ enum NotificationLevel {
   MUTED
 }
 
+enum OrgRole {
+  OWNER
+  MEMBER
+}
+
 enum FileAssetStatus {
   PENDING
   COMMITTED
@@ -48,9 +53,11 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
-  chats Chat[]
-  files FileAsset[]
+  users   User[]
+  chats   Chat[]
+  files   FileAsset[]
+  invites OrgInvite[]
+  domains OrgDomain[]
 
   @@index([createdAt])
 }
@@ -78,6 +85,8 @@ model User {
   avatarUrl      String?
   systemPrompt   String?
   webhookUrl     String?
+  orgRole        OrgRole   @default(MEMBER)
+  deactivatedAt  DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   lastSeenAt     DateTime?
@@ -93,6 +102,8 @@ model User {
   mentions    MessageMention[] @relation("MentionedUser")
   updates     UserUpdate[]
   createdFiles FileAsset[]
+  createdOrgInvites OrgInvite[]
+  createdOrgDomains OrgDomain[]
 
   @@unique([organizationId, username])
   @@unique([organizationId, accountId])
@@ -310,4 +321,36 @@ model IdempotencyKey {
 
   @@unique([subjectType, subjectId, scope, key])
   @@index([createdAt])
+}
+
+model OrgInvite {
+  id              String    @id
+  organizationId  String
+  invitedByUserId String
+  email           String
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedByUser User        @relation(fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, email])
+  @@index([organizationId, expiresAt])
+  @@index([email])
+}
+
+model OrgDomain {
+  id              String   @id
+  organizationId  String
+  domain          String
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByUser User        @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, domain])
+  @@index([domain])
 }

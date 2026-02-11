@@ -32,7 +32,8 @@ export async function organizationCreate(
             accountId: input.accountId,
             kind: "HUMAN",
             firstName: input.firstName,
-            username: input.username
+            username: input.username,
+            orgRole: "OWNER"
           }
         }
       }

@@ -125,6 +125,7 @@ When working on the web app (`packages/daycare-web`), use the public API server 
 - **Always write code, comments, commit messages, and documentation in English.**
 - Never edit `node_modules`.
 - When answering questions, verify in code; do not guess.
+- For Zustand selectors that return derived arrays/objects, almost always use `useShallow` to keep snapshots stable and avoid render loops.
 - Patching dependencies requires explicit approval.
 - **Multi-agent safety:** do not create/apply/drop `git stash` unless explicitly requested.
 - **Multi-agent safety:** do not switch branches unless explicitly requested.

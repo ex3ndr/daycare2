@@ -3,6 +3,7 @@ const SESSION_KEY = "daycare:session";
 export type SessionData = {
   token: string;
   accountId: string;
+  orgSlug?: string | null;
 };
 
 export function sessionGet(): SessionData | null {
@@ -16,7 +17,11 @@ export function sessionGet(): SessionData | null {
       typeof parsed.token === "string" &&
       typeof parsed.accountId === "string"
     ) {
-      return { token: parsed.token, accountId: parsed.accountId };
+      const data: SessionData = { token: parsed.token, accountId: parsed.accountId };
+      if (typeof parsed.orgSlug === "string") {
+        data.orgSlug = parsed.orgSlug;
+      }
+      return data;
     }
     return null;
   } catch {

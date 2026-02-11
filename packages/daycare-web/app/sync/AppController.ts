@@ -317,6 +317,43 @@ export class AppController {
     this.persist();
   }
 
+  async syncThreadMessages(channelId: string, threadId: string): Promise<void> {
+    if (this.destroyed) return;
+
+    const result = await this.api.messageList(
+      this.token,
+      this.orgId,
+      channelId,
+      { threadId },
+    );
+    const messages = result.messages.map((msg) => ({
+      id: msg.id,
+      chatId: msg.chatId,
+      senderUserId: msg.senderUserId,
+      threadId: msg.threadId,
+      text: msg.text,
+      createdAt: msg.createdAt,
+      editedAt: msg.editedAt,
+      deletedAt: msg.deletedAt,
+      threadReplyCount: msg.threadReplyCount,
+      threadLastReplyAt: msg.threadLastReplyAt,
+      sender: {
+        id: msg.sender.id,
+        kind: msg.sender.kind,
+        username: msg.sender.username,
+        firstName: msg.sender.firstName,
+        lastName: msg.sender.lastName,
+        avatarUrl: msg.sender.avatarUrl,
+      },
+      attachments: msg.attachments,
+      reactions: msg.reactions,
+    }));
+
+    this.engine.rebase({ message: messages });
+    this.storage.getState().updateObjects();
+    this.persist();
+  }
+
   private invalidateSync(): void {
     if (this.destroyed) return;
     void this.processPendingMutations();

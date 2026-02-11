@@ -526,12 +526,12 @@ Following happy-list's `context.ts` pattern — AppContext + useApp + useStorage
 
 #### Task 11: Session persistence
 
-- [ ] Create `app/lib/sessionStore.ts` — read/write `{ token, accountId }` to localStorage key `daycare:session`
-- [ ] Create `app/lib/sessionRestore.ts` — on load, read session, validate via `GET /api/me`, restore or clear
-- [ ] Wire into route guards: login stores token, logout clears token
-- [ ] Write tests for `sessionStore` (get/set/clear, handles corrupt data)
-- [ ] Write tests for `sessionRestore` logic (valid token, expired, missing)
-- [ ] Run tests — must pass before next task
+- [x] Create `app/lib/sessionStore.ts` — read/write `{ token, accountId }` to localStorage key `daycare:session`
+- [x] Create `app/lib/sessionRestore.ts` — on load, read session, validate via `GET /api/me`, restore or clear
+- [x] Wire into route guards: login stores token, logout clears token
+- [x] Write tests for `sessionStore` (get/set/clear, handles corrupt data)
+- [x] Write tests for `sessionRestore` logic (valid token, expired, missing)
+- [x] Run tests — must pass before next task
 
 ---
 
@@ -541,64 +541,64 @@ Build every screen. After this milestone the app is fully functional for core me
 
 #### Task 12: Auth screen (`/login`)
 
-- [ ] Build `app/routes/login.tsx` using shadcn Card, Input, Button, Badge
-- [ ] Login flow: email input → `POST /api/auth/login` → store token → redirect to `/orgs`
-- [ ] Loading state (Button disabled + spinner)
-- [ ] Error display (inline error message)
-- [ ] Daycare warm aesthetic (gradient background, grain overlay, centered card)
-- [ ] **agent-browser**: navigate to `/login`, enter integration test email, submit, verify redirect to `/orgs`, screenshot login card and loading state
-- [ ] Run tests — must pass before next task
+- [x] Build `app/routes/login.tsx` using shadcn Card, Input, Button, Badge
+- [x] Login flow: email input → `POST /api/auth/login` → store token → redirect to `/orgs`
+- [x] Loading state (Button disabled + spinner)
+- [x] Error display (inline error message)
+- [x] Daycare warm aesthetic (gradient background, grain overlay, centered card)
+- [x] **agent-browser**: navigate to `/login`, enter integration test email, submit, verify redirect to `/orgs`, screenshot login card and loading state
+- [x] Run tests — must pass before next task
 
 #### Task 13: Organization picker (`/orgs`)
 
-- [ ] Build `app/routes/orgs.tsx` — list orgs from `GET /api/me`, click to enter workspace
-- [ ] "Create Organization" Dialog with form fields (name, slug, firstName, username)
-- [ ] On org click: load org → start sync engine → redirect to `/:orgSlug`
-- [ ] On create: create org → start sync → redirect
-- [ ] **agent-browser**: login → arrive at `/orgs` → screenshot org list → create new org → verify redirect to workspace → screenshot
-- [ ] Run tests — must pass before next task
+- [x] Build `app/routes/orgs.tsx` — list orgs from `GET /api/me`, click to enter workspace
+- [x] "Create Organization" Dialog with form fields (name, slug, firstName, username)
+- [x] On org click: load org → start sync engine → redirect to `/:orgSlug`
+- [x] On create: create org → start sync → redirect
+- [x] **agent-browser**: login → arrive at `/orgs` → screenshot org list → create new org → verify redirect to workspace → screenshot
+- [x] Run tests — must pass before next task
 
 #### Task 14: Workspace layout (`_workspace` route)
 
 The workspace chrome: rail, sidebar, content area, thread panel.
 
-- [ ] Build `app/routes/_workspace.tsx` — CSS Grid layout (rail 76px, sidebar 280px, content 1fr, thread 320px)
-- [ ] Build `app/components/workspace/Rail.tsx` — org avatar, org switcher, logout (dark background)
-- [ ] Build `app/components/workspace/Sidebar.tsx` — org name, user info, channel list, DM section (dark background)
-- [ ] Channel list: ScrollArea, clickable rows with unread Badge, active highlight
-- [ ] "New Channel" button → Dialog
-- [ ] Routing: channel click → `/:orgSlug/c/:channelId`
-- [ ] **agent-browser**: verify 4-column layout (dark rail, dark sidebar, light chat, light thread), click channels and verify URL changes, screenshot full workspace, verify unread badges show on non-selected channels
-- [ ] Run tests — must pass before next task
+- [x] Build `app/routes/_workspace.tsx` — CSS Grid layout (rail 76px, sidebar 280px, content 1fr, thread 320px)
+- [x] Build `app/components/workspace/Rail.tsx` — org avatar, org switcher, logout (dark background)
+- [x] Build `app/components/workspace/Sidebar.tsx` — org name, user info, channel list, DM section (dark background)
+- [x] Channel list: ScrollArea, clickable rows with unread Badge, active highlight
+- [x] "New Channel" button → Dialog
+- [x] Routing: channel click → `/:orgSlug/c/:channelId`
+- [x] **agent-browser**: verify 4-column layout (dark rail, dark sidebar, light chat, light thread), click channels and verify URL changes, screenshot full workspace, verify unread badges show on non-selected channels
+- [x] Run tests — must pass before next task
 
 #### Task 15: Channel view (messages + composer)
 
 The main messaging view.
 
-- [ ] Build `app/routes/_workspace.$orgSlug.c.$channelId.tsx`:
+- [x] Build `app/routes/_workspace.$orgSlug.c.$channelId.tsx`:
   - Channel header (name, topic, sync status badge)
   - Message list in ScrollArea with auto-scroll to bottom
   - Typing indicator line
   - Composer: Textarea + Send Button, Enter to send, Shift+Enter newline
-- [ ] Build `app/components/messages/MessageRow.tsx` — avatar, author name + handle + timestamp, text, reaction badges, thread button
-- [ ] Build `app/components/messages/Composer.tsx` — connected to `messageSend` mutation
-- [ ] Optimistic send: message appears immediately with `pending` badge, resolves on commit
-- [ ] Typing signals: emit on keystroke (throttled 1.5s), show typing users from sync state
-- [ ] Read marking: mark read on channel select + on new messages while viewing
-- [ ] **agent-browser**: type a message → hit Enter → verify message appears instantly with "sending" badge → wait for badge to disappear (SSE confirm) → screenshot. Open second tab, send message there, verify it appears in first tab via SSE.
-- [ ] Run tests — must pass before next task
+- [x] Build `app/components/messages/MessageRow.tsx` — avatar, author name + handle + timestamp, text, reaction badges, thread button
+- [x] Build `app/components/messages/Composer.tsx` — connected to `messageSend` mutation
+- [x] Optimistic send: message appears immediately with `pending` badge, resolves on commit
+- [x] Typing signals: emit on keystroke (throttled 1.5s), show typing users from sync state
+- [x] Read marking: mark read on channel select + on new messages while viewing
+- [x] **agent-browser**: type a message → hit Enter → verify message appears instantly with "sending" badge → wait for badge to disappear (SSE confirm) → screenshot. Open second tab, send message there, verify it appears in first tab via SSE.
+- [x] Run tests — must pass before next task
 
 #### Task 16: Thread panel
 
-- [ ] Build `app/routes/_workspace.$orgSlug.c.$channelId.t.$threadId.tsx`:
+- [x] Build `app/routes/_workspace.$orgSlug.c.$channelId.t.$threadId.tsx`:
   - Thread root message at top
   - Thread replies in ScrollArea
   - Thread composer
   - Close button → navigate back to channel
-- [ ] Thread opens via "Thread" button on message → thread URL
-- [ ] Replies use `messageSend` mutation with `threadId`
-- [ ] **agent-browser**: click "Thread" on a message → verify thread panel opens with root message at top and URL updates → type reply → verify it appears → click Close → verify panel closes and URL reverts → screenshot open and closed states
-- [ ] Run tests — must pass before next task
+- [x] Thread opens via "Thread" button on message → thread URL
+- [x] Replies use `messageSend` mutation with `threadId`
+- [x] **agent-browser**: click "Thread" on a message → verify thread panel opens with root message at top and URL updates → type reply → verify it appears → click Close → verify panel closes and URL reverts → screenshot open and closed states
+- [x] Run tests — must pass before next task
 
 ---
 
@@ -606,25 +606,25 @@ The main messaging view.
 
 #### Task 17: Message edit and delete UI
 
-- [ ] Add "Edit" / "Delete" to message context menu (DropdownMenu on hover)
-- [ ] Edit: inline edit mode — text becomes editable Textarea, save/cancel buttons
-- [ ] Edit uses `messageEdit` mutation (optimistic: text + editedAt update immediately)
-- [ ] Delete: confirmation Dialog, then `messageDelete` mutation (optimistic: set deletedAt)
-- [ ] Show "(edited)" indicator on edited messages
-- [ ] Show deleted messages as "[This message was deleted]" or hide
-- [ ] Only show edit/delete for own messages
-- [ ] **agent-browser**: hover a message → verify context menu appears → click Edit → verify inline textarea with old text → change text → save → verify "(edited)" label appears instantly (optimistic) → screenshot. Click Delete on another message → confirm dialog → verify message disappears → screenshot.
-- [ ] Run tests for edit/delete mutations — must pass before next task
+- [x] Add "Edit" / "Delete" to message context menu (DropdownMenu on hover)
+- [x] Edit: inline edit mode — text becomes editable Textarea, save/cancel buttons
+- [x] Edit uses `messageEdit` mutation (optimistic: text + editedAt update immediately)
+- [x] Delete: confirmation Dialog, then `messageDelete` mutation (optimistic: set deletedAt)
+- [x] Show "(edited)" indicator on edited messages
+- [x] Show deleted messages as "[This message was deleted]" or hide
+- [x] Only show edit/delete for own messages
+- [x] **agent-browser**: hover a message → verify context menu appears → click Edit → verify inline textarea with old text → change text → save → verify "(edited)" label appears instantly (optimistic) → screenshot. Click Delete on another message → confirm dialog → verify message disappears → screenshot.
+- [x] Run tests for edit/delete mutations — must pass before next task
 
 #### Task 18: Emoji reactions
 
-- [ ] Build `app/components/messages/ReactionBar.tsx` — existing reactions as clickable Badges with count, highlighted if user reacted
-- [ ] Build `app/components/messages/EmojiPicker.tsx` — Popover with grid of common shortcodes (`:thumbsup:`, `:fire:`, `:heart:`, `:laugh:`, `:eyes:`, `:check:`, `:clap:`, `:rocket:`, `:thinking:`, `:100:`)
-- [ ] Click existing reaction → toggle (add/remove via `reactionToggle` mutation)
-- [ ] "+" button → EmojiPicker for new reaction
-- [ ] Optimistic: reaction appears/disappears immediately
-- [ ] **agent-browser**: click "+" on a message → verify emoji picker popover → click `:fire:` → verify reaction badge appears with count 1 and highlighted → click it again → verify it disappears → screenshot picker open and reaction states
-- [ ] Run tests for reaction toggle logic — must pass before next task
+- [x] Build `app/components/messages/ReactionBar.tsx` — existing reactions as clickable Badges with count, highlighted if user reacted
+- [x] Build `app/components/messages/EmojiPicker.tsx` — Popover with grid of common shortcodes (`:thumbsup:`, `:fire:`, `:heart:`, `:laugh:`, `:eyes:`, `:check:`, `:clap:`, `:rocket:`, `:thinking:`, `:100:`)
+- [x] Click existing reaction → toggle (add/remove via `reactionToggle` mutation)
+- [x] "+" button → EmojiPicker for new reaction
+- [x] Optimistic: reaction appears/disappears immediately
+- [x] **agent-browser**: click "+" on a message → verify emoji picker popover → click `:fire:` → verify reaction badge appears with count 1 and highlighted → click it again → verify it disappears → screenshot picker open and reaction states
+- [x] Run tests for reaction toggle logic — must pass before next task
 
 #### Task 19: Direct messages UI
 

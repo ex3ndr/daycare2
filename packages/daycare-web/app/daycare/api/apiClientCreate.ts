@@ -17,6 +17,8 @@ import { sseSubscribe } from "./sseSubscribe";
 
 export type ApiClient = {
   authLogin: (email: string) => Promise<{ token: string; account: Account; session: Session }>;
+  authRequestOtp: (email: string) => Promise<{ sent: boolean; expiresInSeconds: number }>;
+  authVerifyOtp: (email: string, code: string) => Promise<{ token: string; account: Account; session: Session }>;
   authLogout: (token: string) => Promise<{ revoked: boolean }>;
   meGet: (token: string) => Promise<{ account: Account; organizations: Organization[] }>;
   organizationAvailableList: (token: string) => Promise<{ organizations: Organization[] }>;
@@ -91,6 +93,8 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
 
   return {
     authLogin: (email) => request("/api/auth/login", { method: "POST", body: { email } }),
+    authRequestOtp: (email) => request("/api/auth/email/request-otp", { method: "POST", body: { email } }),
+    authVerifyOtp: (email, code) => request("/api/auth/email/verify-otp", { method: "POST", body: { email, code } }),
     authLogout: (token) => request("/api/auth/logout", { method: "POST", token }),
     meGet: (token) => request("/api/me", { token }),
     organizationAvailableList: (token) => request("/api/org/available", { token }),

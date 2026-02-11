@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 import { ScrollArea } from "@/app/components/ui/scroll-area";
-import { Hash, Lock, Archive, Bell, UserMinus, Shield, ChevronDown } from "lucide-react";
+import { Hash, Lock, Archive, Bell, UserMinus, Shield, ChevronDown, UserPlus, Search, Loader2 } from "lucide-react";
 import type { ApiClient } from "@/app/daycare/api/apiClientCreate";
 import type { User, ChannelMember } from "@/app/daycare/types";
 import { cn } from "@/app/lib/utils";
@@ -82,6 +82,13 @@ export function ChannelSettings({
   // Archive state
   const [archiveLoading, setArchiveLoading] = useState(false);
 
+  // Add member state
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [orgMembers, setOrgMembers] = useState<User[]>([]);
+  const [orgMembersLoading, setOrgMembersLoading] = useState(false);
+  const [addMemberSearch, setAddMemberSearch] = useState("");
+  const [addingUserId, setAddingUserId] = useState<string | null>(null);
+
   // Current user's role in this channel
   const currentUserRole = useMemo(
     () => members.find((m) => m.userId === currentUserId)?.role ?? "member",
@@ -96,6 +103,8 @@ export function ChannelSettings({
       setTopic(channelTopic ?? "");
       setSaveError(null);
       setTab("overview");
+      setShowAddMember(false);
+      setAddMemberSearch("");
     }
   }, [open, channelName, channelTopic]);
 
@@ -124,6 +133,61 @@ export function ChannelSettings({
       })
       .finally(() => setMembersLoading(false));
   }
+
+  // Load org members for add-member section
+  const loadOrgMembers = useCallback(() => {
+    setOrgMembersLoading(true);
+    api
+      .organizationMembers(token, orgId)
+      .then(({ members: m }) => setOrgMembers(m))
+      .catch(() => {
+        toastAdd("Failed to load organization members", "error");
+      })
+      .finally(() => setOrgMembersLoading(false));
+  }, [api, token, orgId]);
+
+  // Fetch org members when add-member section opens
+  useEffect(() => {
+    if (showAddMember) {
+      loadOrgMembers();
+    }
+  }, [showAddMember, loadOrgMembers]);
+
+  // Org members not yet in the channel, filtered by search
+  const addableMembers = useMemo(() => {
+    const memberIds = new Set(members.map((m) => m.userId));
+    let filtered = orgMembers.filter(
+      (u) => !memberIds.has(u.id) && !u.deactivatedAt,
+    );
+    const q = addMemberSearch.trim().toLowerCase();
+    if (q) {
+      filtered = filtered.filter(
+        (u) =>
+          u.firstName.toLowerCase().includes(q) ||
+          (u.lastName?.toLowerCase().includes(q) ?? false) ||
+          u.username.toLowerCase().includes(q),
+      );
+    }
+    return filtered;
+  }, [orgMembers, members, addMemberSearch]);
+
+  // Add a member to the channel
+  const handleAddMember = useCallback(
+    async (userId: string) => {
+      setAddingUserId(userId);
+      try {
+        await api.channelMemberAdd(token, orgId, channelId, { userId });
+        loadMembers();
+        toastAdd("Member added", "success");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to add member";
+        toastAdd(msg, "error");
+      } finally {
+        setAddingUserId(null);
+      }
+    },
+    [api, token, orgId, channelId, loadMembers],
+  );
 
   // Save overview changes
   async function handleSaveOverview(e: React.FormEvent) {
@@ -329,6 +393,61 @@ export function ChannelSettings({
         {/* Members tab */}
         {tab === "members" && (
           <div>
+            {/* Add member button for private channels (owner only) */}
+            {isOwner && channelVisibility === "private" && (
+              <div className="mb-3">
+                <Button
+                  variant={showAddMember ? "secondary" : "outline"}
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setShowAddMember(!showAddMember)}
+                >
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  {showAddMember ? "Cancel" : "Add Member"}
+                </Button>
+              </div>
+            )}
+
+            {/* Add member section */}
+            {showAddMember && (
+              <div className="mb-3 space-y-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name or username..."
+                    value={addMemberSearch}
+                    onChange={(e) => setAddMemberSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                {orgMembersLoading ? (
+                  <p className="py-3 text-center text-sm text-muted-foreground">
+                    Loading...
+                  </p>
+                ) : addableMembers.length === 0 ? (
+                  <p className="py-3 text-center text-sm text-muted-foreground">
+                    {addMemberSearch.trim()
+                      ? "No matching members found"
+                      : "All org members are already in this channel"}
+                  </p>
+                ) : (
+                  <ScrollArea className="max-h-48">
+                    <div className="space-y-1">
+                      {addableMembers.map((user) => (
+                        <AddableMemberRow
+                          key={user.id}
+                          user={user}
+                          adding={addingUserId === user.id}
+                          onAdd={() => handleAddMember(user.id)}
+                        />
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+                <Separator />
+              </div>
+            )}
+
             {membersError && (
               <p className="text-sm text-destructive mb-2">{membersError}</p>
             )}
@@ -467,6 +586,52 @@ function MemberRow({
           </DropdownMenu>
         )}
       </div>
+    </div>
+  );
+}
+
+function AddableMemberRow({
+  user,
+  adding,
+  onAdd,
+}: {
+  user: User;
+  adding: boolean;
+  onAdd: () => void;
+}) {
+  const displayName = user.lastName
+    ? `${user.firstName} ${user.lastName}`
+    : user.firstName;
+  const initials =
+    (user.firstName[0] ?? "") + (user.lastName?.[0] ?? "");
+
+  return (
+    <div className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-accent/50 transition-colors">
+      <Avatar size="sm">
+        {user.avatarUrl && (
+          <AvatarImage src={user.avatarUrl} alt={displayName} />
+        )}
+        <AvatarFallback>{initials}</AvatarFallback>
+      </Avatar>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{displayName}</p>
+        <p className="text-xs text-muted-foreground">@{user.username}</p>
+      </div>
+
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={onAdd}
+        disabled={adding}
+        className="shrink-0"
+      >
+        {adding ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <UserPlus className="h-4 w-4" />
+        )}
+      </Button>
     </div>
   );
 }

@@ -299,12 +299,12 @@ Enhance the existing `ChannelSettings.tsx` dialog to support adding members to p
 - `ChannelMemberAddSection` — searchable org member list, filtered to exclude existing channel members
 
 **Checklist:**
-- [ ] Add "Add Member" button to members tab (OWNER + private channel only)
-- [ ] Fetch org members, filter out existing channel members
-- [ ] Add search/filter input
-- [ ] On member click → call `channelMemberAdd` → refresh list
-- [ ] Handle errors (already member, deactivated user)
-- [ ] Run `yarn typecheck` — must pass
+- [x] Add "Add Member" button to members tab (OWNER + private channel only)
+- [x] Fetch org members, filter out existing channel members
+- [x] Add search/filter input
+- [x] On member click → call `channelMemberAdd` → refresh list
+- [x] Handle errors (already member, deactivated user)
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 10: Photo viewer / lightbox
 

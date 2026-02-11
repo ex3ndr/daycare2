@@ -526,12 +526,12 @@ Following happy-list's `context.ts` pattern — AppContext + useApp + useStorage
 
 #### Task 11: Session persistence
 
-- [ ] Create `app/lib/sessionStore.ts` — read/write `{ token, accountId }` to localStorage key `daycare:session`
-- [ ] Create `app/lib/sessionRestore.ts` — on load, read session, validate via `GET /api/me`, restore or clear
-- [ ] Wire into route guards: login stores token, logout clears token
-- [ ] Write tests for `sessionStore` (get/set/clear, handles corrupt data)
-- [ ] Write tests for `sessionRestore` logic (valid token, expired, missing)
-- [ ] Run tests — must pass before next task
+- [x] Create `app/lib/sessionStore.ts` — read/write `{ token, accountId }` to localStorage key `daycare:session`
+- [x] Create `app/lib/sessionRestore.ts` — on load, read session, validate via `GET /api/me`, restore or clear
+- [x] Wire into route guards: login stores token, logout clears token
+- [x] Write tests for `sessionStore` (get/set/clear, handles corrupt data)
+- [x] Write tests for `sessionRestore` logic (valid token, expired, missing)
+- [x] Run tests — must pass before next task
 
 ---
 

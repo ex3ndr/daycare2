@@ -404,11 +404,11 @@ Add public/private selector to the create channel dialog.
 - Show lock icon preview for private selection
 
 **Checklist:**
-- [ ] Add visibility selector (toggle/radio) to CreateChannelDialog
-- [ ] Pass selected visibility to API call
-- [ ] Update sync mutation to include visibility
-- [ ] Show visual indicator (lock icon) for private
-- [ ] Run `yarn typecheck` — must pass
+- [x] Add visibility selector (toggle/radio) to CreateChannelDialog
+- [x] Pass selected visibility to API call
+- [x] Update sync mutation to include visibility
+- [x] Show visual indicator (lock icon) for private
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 14: Handle deactivation gracefully
 

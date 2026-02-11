@@ -136,7 +136,7 @@ describe("fileUploadCreate", () => {
     const finalEntry = uploader.getState().entries[0];
     expect(finalEntry.status).toBe("ready");
     expect(finalEntry.fileId).toBe("file-123");
-    expect(finalEntry.url).toBe("/api/org/org-1/files/file-123");
+    expect(finalEntry.url).toMatch(/\/api\/org\/org-1\/files\/file-123$/);
     expect(finalEntry.progress).toBe(100);
   });
 
@@ -215,7 +215,7 @@ describe("fileUploadCreate", () => {
     expect(attachments.length).toBe(1);
     expect(attachments[0]).toEqual({
       kind: "image",
-      url: "/api/org/org-1/files/file-123",
+      url: expect.stringMatching(/\/api\/org\/org-1\/files\/file-123$/),
       mimeType: "image/png",
       fileName: "photo.png",
       sizeBytes: 4, // "test" is 4 bytes

@@ -43,11 +43,13 @@ async function fileSha256(file: File): Promise<string> {
 async function fileToBase64(file: File): Promise<string> {
   const buffer = await fileReadAsArrayBuffer(file);
   const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  // Process in chunks to avoid stack overflow and O(n^2) string concat
+  const CHUNK = 8192;
+  const parts: string[] = [];
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    parts.push(String.fromCharCode(...bytes.subarray(i, i + CHUNK)));
   }
-  return btoa(binary);
+  return btoa(parts.join(""));
 }
 
 // Determine the attachment kind from MIME type

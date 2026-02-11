@@ -120,13 +120,11 @@ export async function mutationApply(
         messageId: string;
         shortcode: string;
       };
-      // Try adding first. If it fails (already exists), remove instead.
-      // The API has separate add/remove endpoints.
-      try {
-        await api.messageReactionAdd(token, orgId, input.messageId, {
-          shortcode: input.shortcode,
-        });
-      } catch {
+      // Add returns { added: boolean }. If not added (reaction already exists), remove instead.
+      const result = await api.messageReactionAdd(token, orgId, input.messageId, {
+        shortcode: input.shortcode,
+      });
+      if (!result.added) {
         await api.messageReactionRemove(token, orgId, input.messageId, {
           shortcode: input.shortcode,
         });

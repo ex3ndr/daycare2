@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useShallow } from "zustand/react/shallow";
 import { useApp, useStorage } from "@/app/sync/AppContext";
 import { unreadCountForChannel, presenceForUser } from "@/app/sync/selectors";
 import { useUiStore } from "@/app/stores/uiStoreContext";
@@ -32,10 +33,10 @@ export function Sidebar() {
   const orgName = useStorage((s) => s.objects.context.orgName);
   const orgSlug = useStorage((s) => s.objects.context.orgSlug);
   const orgId = useStorage((s) => s.objects.context.orgId);
-  const channelMap = useStorage((s) => s.objects.channel ?? EMPTY_CHANNEL_MAP);
-  const directMap = useStorage((s) => s.objects.direct ?? EMPTY_DIRECT_MAP);
-  const readStates = useStorage((s) => s.objects.readState ?? EMPTY_READ_STATE_MAP);
-  const presenceMap = useStorage((s) => s.objects.presence ?? EMPTY_PRESENCE_MAP);
+  const channelMap = useStorage(useShallow((s) => s.objects.channel ?? EMPTY_CHANNEL_MAP));
+  const directMap = useStorage(useShallow((s) => s.objects.direct ?? EMPTY_DIRECT_MAP));
+  const readStates = useStorage(useShallow((s) => s.objects.readState ?? EMPTY_READ_STATE_MAP));
+  const presenceMap = useStorage(useShallow((s) => s.objects.presence ?? EMPTY_PRESENCE_MAP));
   const mutate = useStorage((s) => s.mutate);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
 

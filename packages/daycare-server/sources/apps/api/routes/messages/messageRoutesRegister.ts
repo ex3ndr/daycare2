@@ -22,17 +22,37 @@ const messageListQuerySchema = z.object({
   threadId: z.string().min(1).nullable().optional()
 });
 
+const messageAttachmentUrlSchema = z.string().trim().min(1).refine((value) => {
+  if (/^\/api\/org\/[^/]+\/files\/[^/?#]+$/.test(value)) {
+    return true;
+  }
+  return z.string().url().safeParse(value).success;
+}, "Invalid url");
+
 const messageSendBodySchema = z.object({
   channelId: z.string().min(1),
-  text: z.string().trim().min(1).max(10000),
+  text: z.string().max(10000),
   threadId: z.string().min(1).nullable().optional(),
   attachments: z.array(z.object({
     kind: z.string().min(1),
-    url: z.string().url(),
+    url: messageAttachmentUrlSchema,
     mimeType: z.string().nullable().optional(),
     fileName: z.string().nullable().optional(),
     sizeBytes: z.number().int().positive().nullable().optional()
   })).max(10).optional()
+}).superRefine((input, ctx) => {
+  const hasText = input.text.trim().length > 0;
+  const hasAttachments = (input.attachments?.length ?? 0) > 0;
+  if (hasText || hasAttachments) return;
+  ctx.addIssue({
+    code: z.ZodIssueCode.too_small,
+    minimum: 1,
+    type: "string",
+    inclusive: true,
+    exact: false,
+    message: "String must contain at least 1 character(s)",
+    path: ["text"]
+  });
 });
 
 const messageEditBodySchema = z.object({
@@ -280,7 +300,7 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
         organizationId: params.orgid,
         channelId: body.channelId,
         userId: auth.user.id,
-        text: body.text,
+        text: body.text.trim(),
         threadId: body.threadId,
         attachments: body.attachments
       });

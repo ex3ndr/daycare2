@@ -247,11 +247,9 @@ describe("mutationApply", () => {
       expect(result.snapshot).toEqual({});
     });
 
-    it("falls back to api.messageReactionRemove when add fails", async () => {
+    it("falls back to api.messageReactionRemove when add returns added: false", async () => {
       const api = createMockApi();
-      vi.mocked(api.messageReactionAdd).mockRejectedValue(
-        new Error("Already exists"),
-      );
+      vi.mocked(api.messageReactionAdd).mockResolvedValue({ added: false });
       vi.mocked(api.messageReactionRemove).mockResolvedValue({
         removed: true,
       });

@@ -121,6 +121,7 @@ export async function authRoutesRegister(app: FastifyInstance, context: ApiConte
         id: organization.id,
         slug: organization.slug,
         name: organization.name,
+        public: organization.public,
         avatarUrl: organization.avatarUrl,
         createdAt: organization.createdAt.getTime(),
         updatedAt: organization.updatedAt.getTime()

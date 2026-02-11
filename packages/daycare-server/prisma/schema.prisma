@@ -43,6 +43,7 @@ model Organization {
   id        String   @id
   slug      String   @unique
   name      String
+  public    Boolean  @default(false)
   avatarUrl String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

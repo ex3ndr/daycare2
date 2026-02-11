@@ -57,8 +57,8 @@ describe("routes live integration", () => {
     await live.close();
   });
 
-  async function login(email: string): Promise<string> {
-    const response = await app.inject({
+  async function login(email: string, targetApp: FastifyInstance = app): Promise<string> {
+    const response = await targetApp.inject({
       method: "POST",
       url: "/api/auth/login",
       payload: { email }
@@ -68,17 +68,22 @@ describe("routes live integration", () => {
     return data.token;
   }
 
-  async function orgCreate(ownerToken: string): Promise<{ orgId: string; ownerUserId: string }> {
+  async function orgCreate(
+    ownerToken: string,
+    isPublic = false,
+    targetApp: FastifyInstance = app
+  ): Promise<{ orgId: string; ownerUserId: string }> {
     const slug = `org-${createId().slice(0, 8)}`;
     const username = `owner-${createId().slice(0, 6)}`;
 
-    const createResponse = await app.inject({
+    const createResponse = await targetApp.inject({
       method: "POST",
       url: "/api/org/create",
       headers: { authorization: `Bearer ${ownerToken}` },
       payload: {
         slug,
         name: "Acme",
+        public: isPublic,
         firstName: "Owner",
         username
       }
@@ -87,7 +92,7 @@ describe("routes live integration", () => {
     const createData = responseDataGet<{ organization: { id: string } }>(createResponse);
     const orgId = createData.organization.id;
 
-    const profileResponse = await app.inject({
+    const profileResponse = await targetApp.inject({
       method: "GET",
       url: `/api/org/${orgId}/profile`,
       headers: { authorization: `Bearer ${ownerToken}` }
@@ -170,14 +175,19 @@ describe("routes live integration", () => {
   it("handles organization, membership and profile routes", async () => {
     const ownerToken = await login(`owner-${createId().slice(0, 8)}@example.com`);
     const { orgId } = await orgCreate(ownerToken);
+    const otherOwnerToken = await login(`other-owner-${createId().slice(0, 8)}@example.com`);
+    const { orgId: publicOrgId } = await orgCreate(otherOwnerToken, true);
+    const { orgId: privateOrgId } = await orgCreate(otherOwnerToken, false);
 
     const availableResponse = await app.inject({
       method: "GET",
       url: "/api/org/available",
       headers: { authorization: `Bearer ${ownerToken}` }
     });
-    const availableData = responseDataGet<{ organizations: Array<{ id: string }> }>(availableResponse);
+    const availableData = responseDataGet<{ organizations: Array<{ id: string; public: boolean }> }>(availableResponse);
     expect(availableData.organizations.some((item) => item.id === orgId)).toBe(true);
+    expect(availableData.organizations.some((item) => item.id === publicOrgId && item.public)).toBe(true);
+    expect(availableData.organizations.some((item) => item.id === privateOrgId)).toBe(false);
 
     const profilePatchResponse = await app.inject({
       method: "PATCH",
@@ -197,6 +207,57 @@ describe("routes live integration", () => {
     });
     const membersData = responseDataGet<{ members: Array<{ id: string }> }>(membersResponse);
     expect(membersData.members.length).toBeGreaterThan(0);
+  });
+
+  it("allows joining public organizations when open join is disabled", async () => {
+    const restrictedApp = await apiCreate({
+      ...live.context,
+      allowOpenOrgJoin: false
+    });
+    await restrictedApp.ready();
+
+    try {
+      const ownerToken = await login(`owner-${createId().slice(0, 8)}@example.com`, restrictedApp);
+      const { orgId: publicOrgId } = await orgCreate(ownerToken, true, restrictedApp);
+      const { orgId: privateOrgId } = await orgCreate(ownerToken, false, restrictedApp);
+      const memberToken = await login(`member-${createId().slice(0, 8)}@example.com`, restrictedApp);
+
+      const availableResponse = await restrictedApp.inject({
+        method: "GET",
+        url: "/api/org/available",
+        headers: { authorization: `Bearer ${memberToken}` }
+      });
+      const availableData = responseDataGet<{ organizations: Array<{ id: string }> }>(availableResponse);
+      expect(availableData.organizations.some((item) => item.id === publicOrgId)).toBe(true);
+      expect(availableData.organizations.some((item) => item.id === privateOrgId)).toBe(false);
+
+      const publicJoinResponse = await restrictedApp.inject({
+        method: "POST",
+        url: `/api/org/${publicOrgId}/join`,
+        headers: { authorization: `Bearer ${memberToken}` },
+        payload: {
+          firstName: "Member",
+          username: `member-${createId().slice(0, 6)}`
+        }
+      });
+      responseDataGet(publicJoinResponse);
+
+      const privateJoinResponse = await restrictedApp.inject({
+        method: "POST",
+        url: `/api/org/${privateOrgId}/join`,
+        headers: { authorization: `Bearer ${memberToken}` },
+        payload: {
+          firstName: "Member",
+          username: `member-${createId().slice(0, 6)}`
+        }
+      });
+      expect(privateJoinResponse.statusCode).toBe(403);
+      const payload = privateJoinResponse.json() as ApiFail;
+      expect(payload.ok).toBe(false);
+      expect(payload.error.code).toBe("FORBIDDEN");
+    } finally {
+      await restrictedApp.close();
+    }
   });
 
   it("handles channel and direct routes", async () => {

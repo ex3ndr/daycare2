@@ -18,6 +18,7 @@ export type Organization = {
   id: Id;
   slug: string;
   name: string;
+  public: boolean;
   avatarUrl: string | null;
   createdAt: UnixMs;
   updatedAt: UnixMs;

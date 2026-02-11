@@ -8,6 +8,7 @@ type OrganizationCreateInput = {
   accountId: string;
   slug: string;
   name: string;
+  public?: boolean;
   firstName: string;
   username: string;
 };
@@ -24,6 +25,7 @@ export async function organizationCreate(
         id: createId(),
         slug: input.slug,
         name: input.name,
+        public: input.public ?? false,
         users: {
           create: {
             id: createId(),

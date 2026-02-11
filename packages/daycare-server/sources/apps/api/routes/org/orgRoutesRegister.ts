@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { organizationAvailableResolve } from "@/apps/organizations/organizationAvailableResolve.js";
 import { organizationCreate } from "@/apps/organizations/organizationCreate.js";
 import { organizationJoin } from "@/apps/organizations/organizationJoin.js";
 import { userProfileUpdate } from "@/apps/users/userProfileUpdate.js";
@@ -13,6 +14,7 @@ import { idempotencyGuard } from "@/apps/api/lib/idempotencyGuard.js";
 const organizationCreateSchema = z.object({
   slug: z.string().trim().min(2).max(64),
   name: z.string().trim().min(2).max(120),
+  public: z.boolean().optional(),
   firstName: z.string().trim().min(1).max(64),
   username: z.string().trim().min(2).max(64)
 });
@@ -35,17 +37,8 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
   app.get("/api/org/available", async (request) => {
     const account = await accountSessionResolve(request, context);
 
-    const organizations = await context.db.organization.findMany({
-      where: {
-        users: {
-          some: {
-            accountId: account.accountId
-          }
-        }
-      },
-      orderBy: {
-        createdAt: "asc"
-      }
+    const organizations = await organizationAvailableResolve(context, {
+      accountId: account.accountId
     });
 
     return apiResponseOk({
@@ -53,6 +46,7 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
         id: item.id,
         slug: item.slug,
         name: item.name,
+        public: item.public,
         avatarUrl: item.avatarUrl,
         createdAt: item.createdAt.getTime(),
         updatedAt: item.updatedAt.getTime()
@@ -69,6 +63,7 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
         accountId: account.accountId,
         slug: body.slug,
         name: body.name,
+        public: body.public,
         firstName: body.firstName,
         username: body.username
       });
@@ -78,6 +73,7 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
           id: org.id,
           slug: org.slug,
           name: org.name,
+          public: org.public,
           avatarUrl: org.avatarUrl,
           createdAt: org.createdAt.getTime(),
           updatedAt: org.updatedAt.getTime()
@@ -93,7 +89,27 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
 
     return await idempotencyGuard(request, context, { type: "account", id: account.accountId }, async () => {
       if (!context.allowOpenOrgJoin) {
-        throw new ApiError(403, "FORBIDDEN", "Open organization join is disabled");
+        const available = await organizationAvailableResolve(context, {
+          accountId: account.accountId,
+          organizationId: params.orgid
+        });
+
+        if (available.length === 0) {
+          const organization = await context.db.organization.findUnique({
+            where: {
+              id: params.orgid
+            },
+            select: {
+              id: true
+            }
+          });
+
+          if (!organization) {
+            throw new ApiError(404, "NOT_FOUND", "Organization not found");
+          }
+
+          throw new ApiError(403, "FORBIDDEN", "Organization is not available to join");
+        }
       }
       const { organization, user } = await organizationJoin(context, {
         accountId: account.accountId,
@@ -137,6 +153,7 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
         id: organization.id,
         slug: organization.slug,
         name: organization.name,
+        public: organization.public,
         avatarUrl: organization.avatarUrl,
         createdAt: organization.createdAt.getTime(),
         updatedAt: organization.updatedAt.getTime()

@@ -462,7 +462,7 @@ Separate thin Zustand store for purely client-side UI state (not synced to serve
 
 Following happy-list's `context.ts` pattern — AppContext + useApp + useStorage.
 
-- [ ] Create `app/sync/AppContext.ts`:
+- [x] Create `app/sync/AppContext.ts`:
   ```typescript
   import * as React from 'react';
   import { AppController } from './AppController';
@@ -481,13 +481,13 @@ Following happy-list's `context.ts` pattern — AppContext + useApp + useStorage
     return useApp().storage(selector);
   }
   ```
-- [ ] Create derived selectors in `app/sync/selectors.ts`:
+- [x] Create derived selectors in `app/sync/selectors.ts`:
   - `channelsForCurrentOrg(state)` — channels filtered by context.orgId
   - `messagesForChannel(state, channelId)` — sorted by createdAt
   - `threadMessagesForRoot(state, threadId)` — thread replies sorted
   - `unreadCountForChannel(state, chatId)` — from readState collection
   - `typingUsersForChannel(state, chatId, selfUserId)` — filtered, exclude self, exclude expired
-- [ ] Usage in components:
+- [x] Usage in components:
   ```typescript
   // Read reactive state
   const channels = useStorage((s) => Object.values(s.objects.channel));
@@ -496,8 +496,8 @@ Following happy-list's `context.ts` pattern — AppContext + useApp + useStorage
   // Dispatch optimistic mutation
   mutate('messageSend', { id: cuid(), chatId, text });
   ```
-- [ ] Write tests for derived selectors (given mock state → expected output)
-- [ ] Run tests — must pass before next task
+- [x] Write tests for derived selectors (given mock state → expected output)
+- [x] Run tests — must pass before next task
 
 ---
 

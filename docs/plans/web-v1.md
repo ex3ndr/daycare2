@@ -411,7 +411,7 @@ Following happy-list's `storage.ts` pattern — wrap sync engine in Zustand for 
 
 Following happy-list's `AppController` pattern — class that owns engine + store + SSE + mutation dispatch.
 
-- [ ] Create `app/sync/AppController.ts`:
+- [x] Create `app/sync/AppController.ts`:
   - `static async create(api, token)` factory:
     - Fetch profile via `api.meGet(token)`
     - Try restoring from `localStorage` via `syncEngine(schema, { from: 'restore', data })`, fall back to `syncEngine(schema, { from: 'new', objects: { context: { userId, orgId, ... } } })`
@@ -428,20 +428,20 @@ Following happy-list's `AppController` pattern — class that owns engine + stor
   - `syncChannels()`, `syncMessages(channelId)` — fetch + rebase
   - `persist()` — `engine.persist()` → `localStorage.setItem('daycare:engine', data)`
   - `destroy()` — close SSE, cleanup
-- [ ] Create `app/sync/mutationApply.ts` — `applyServerMutation(api, mutation)` function:
+- [x] Create `app/sync/mutationApply.ts` — `applyServerMutation(api, mutation)` function:
   - Maps each mutation name to the correct REST API call (like happy-list's `applyServerMutation`)
   - Returns `{ snapshot }` with server-authoritative data for `engine.rebase()`
   - Example: `messageSend` → `api.messageSend()` → return `{ message: [serverMessage] }`
-- [ ] Create `app/sync/UpdateSequencer.ts` — batching + hole detection:
+- [x] Create `app/sync/UpdateSequencer.ts` — batching + hole detection:
   - 100ms debounce for batching consecutive updates
   - 5s timeout for missing seqno (hole detection)
   - On hole timeout → trigger session restart (re-fetch all state)
   - Track `currentSeqno` via `engine.rebase({ context: { seqno } }, { allowLocalFields: true })`
-- [ ] Create `app/sync/eventMappers.ts` — pure functions mapping `UpdateEnvelope` payloads to `PartialServerUpdate` shapes for `engine.rebase()`
-- [ ] Write tests for `eventMappers` (each SSE event type → correct rebase shape)
-- [ ] Write tests for `applyServerMutation` (each mutation → correct API call + snapshot shape)
-- [ ] Write tests for `UpdateSequencer` (sequential delivery, hole detection, batch flush)
-- [ ] Run tests — must pass before next task
+- [x] Create `app/sync/eventMappers.ts` — pure functions mapping `UpdateEnvelope` payloads to `PartialServerUpdate` shapes for `engine.rebase()`
+- [x] Write tests for `eventMappers` (each SSE event type → correct rebase shape)
+- [x] Write tests for `applyServerMutation` (each mutation → correct API call + snapshot shape)
+- [x] Write tests for `UpdateSequencer` (sequential delivery, hole detection, batch flush)
+- [x] Run tests — must pass before next task
 
 #### Task 8: Create Zustand UI store
 

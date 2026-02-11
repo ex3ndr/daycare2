@@ -1,0 +1,378 @@
+import { syncEngine, type SyncEngine } from "@slopus/sync";
+import type { StoreApi } from "zustand";
+import type { ApiClient } from "../daycare/api/apiClientCreate";
+import type { UpdateEnvelope } from "../daycare/types";
+import { schema, type Schema } from "./schema";
+import { storageStoreCreate, type StorageStore } from "./storageStoreCreate";
+import { UpdateSequencer } from "./UpdateSequencer";
+import { mapEventToRebase } from "./eventMappers";
+import { mutationApply } from "./mutationApply";
+
+const STORAGE_KEY = "daycare:engine";
+
+export class AppController {
+  readonly engine: SyncEngine<Schema>;
+  readonly storage: StoreApi<StorageStore>;
+  readonly api: ApiClient;
+  readonly token: string;
+  readonly orgId: string;
+
+  private sequencer: UpdateSequencer;
+  private sseSubscription: { close: () => void } | null = null;
+  private processingMutations = false;
+  private destroyed = false;
+
+  private constructor(
+    engine: SyncEngine<Schema>,
+    storage: StoreApi<StorageStore>,
+    api: ApiClient,
+    token: string,
+    orgId: string,
+  ) {
+    this.engine = engine;
+    this.storage = storage;
+    this.api = api;
+    this.token = token;
+    this.orgId = orgId;
+
+    this.sequencer = new UpdateSequencer({
+      onBatch: (updates) => this.handleBatch(updates),
+      onHole: () => this.handleHole(),
+    }, engine.state.context.seqno);
+  }
+
+  static async create(api: ApiClient, token: string): Promise<AppController> {
+    const profile = await api.meGet(token);
+    const org = profile.organizations[0];
+    if (!org) {
+      throw new Error("No organizations available");
+    }
+
+    let engine: SyncEngine<Schema>;
+
+    // Try restoring from localStorage
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        engine = syncEngine(schema, { from: "restore", data: saved });
+        // Verify the restored engine matches current user/org
+        if (
+          engine.state.context.userId !== profile.account.id ||
+          engine.state.context.orgId !== org.id
+        ) {
+          // User/org mismatch — start fresh
+          engine = syncEngine(schema, {
+            from: "new",
+            objects: {
+              context: {
+                userId: profile.account.id,
+                orgId: org.id,
+                orgSlug: org.slug,
+                orgName: org.name,
+              },
+            },
+          });
+        }
+      } catch {
+        // Corrupt data — start fresh
+        engine = syncEngine(schema, {
+          from: "new",
+          objects: {
+            context: {
+              userId: profile.account.id,
+              orgId: org.id,
+              orgSlug: org.slug,
+              orgName: org.name,
+            },
+          },
+        });
+      }
+    } else {
+      engine = syncEngine(schema, {
+        from: "new",
+        objects: {
+          context: {
+            userId: profile.account.id,
+            orgId: org.id,
+            orgSlug: org.slug,
+            orgName: org.name,
+          },
+        },
+      });
+    }
+
+    const controller = new AppController(
+      engine,
+      null as unknown as StoreApi<StorageStore>,
+      api,
+      token,
+      org.id,
+    );
+
+    // Create storage store with onMutate wired to pending mutation processing
+    const storage = storageStoreCreate(engine, () => {
+      controller.invalidateSync();
+    });
+
+    // Assign storage (circumvent readonly for construction)
+    (controller as { storage: StoreApi<StorageStore> }).storage = storage;
+
+    return controller;
+  }
+
+  static createWithOrg(
+    api: ApiClient,
+    token: string,
+    userId: string,
+    orgId: string,
+    orgSlug: string,
+    orgName: string,
+  ): AppController {
+    let engine: SyncEngine<Schema>;
+
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        engine = syncEngine(schema, { from: "restore", data: saved });
+        if (
+          engine.state.context.userId !== userId ||
+          engine.state.context.orgId !== orgId
+        ) {
+          engine = syncEngine(schema, {
+            from: "new",
+            objects: { context: { userId, orgId, orgSlug, orgName } },
+          });
+        }
+      } catch {
+        engine = syncEngine(schema, {
+          from: "new",
+          objects: { context: { userId, orgId, orgSlug, orgName } },
+        });
+      }
+    } else {
+      engine = syncEngine(schema, {
+        from: "new",
+        objects: { context: { userId, orgId, orgSlug, orgName } },
+      });
+    }
+
+    const controller = new AppController(
+      engine,
+      null as unknown as StoreApi<StorageStore>,
+      api,
+      token,
+      orgId,
+    );
+
+    const storage = storageStoreCreate(engine, () => {
+      controller.invalidateSync();
+    });
+    (controller as { storage: StoreApi<StorageStore> }).storage = storage;
+
+    return controller;
+  }
+
+  startSSE(): void {
+    if (this.sseSubscription) return;
+
+    this.sseSubscription = this.api.updatesStreamSubscribe(
+      this.token,
+      this.orgId,
+      (update: UpdateEnvelope) => {
+        this.sequencer.push(update);
+      },
+      () => {
+        // SSE stream is ready — catch up from current seqno
+        this.catchUp();
+      },
+    );
+  }
+
+  private handleBatch(updates: UpdateEnvelope[]): void {
+    for (const update of updates) {
+      const rebaseShape = mapEventToRebase(update);
+      if (rebaseShape) {
+        this.engine.rebase(rebaseShape);
+      }
+    }
+
+    // Track latest seqno
+    const lastSeqno = updates[updates.length - 1].seqno;
+    this.engine.rebase(
+      { context: { seqno: lastSeqno } },
+      { allowLocalFields: true, allowServerFields: false },
+    );
+
+    this.storage.getState().updateObjects();
+    this.persist();
+  }
+
+  private handleHole(): void {
+    // Missing seqno detected — do a full restart
+    this.restartSession();
+  }
+
+  private async catchUp(): Promise<void> {
+    if (this.destroyed) return;
+
+    const currentSeqno = this.engine.state.context.seqno;
+    if (currentSeqno === 0) {
+      // Fresh session — do a full sync instead of diff
+      await this.syncChannels();
+      return;
+    }
+
+    try {
+      const result = await this.api.updatesDiff(this.token, this.orgId, {
+        offset: currentSeqno,
+      });
+
+      if (result.resetRequired) {
+        await this.restartSession();
+        return;
+      }
+
+      for (const update of result.updates) {
+        const rebaseShape = mapEventToRebase(update);
+        if (rebaseShape) {
+          this.engine.rebase(rebaseShape);
+        }
+      }
+
+      if (result.updates.length > 0) {
+        const lastSeqno = result.updates[result.updates.length - 1].seqno;
+        this.engine.rebase(
+          { context: { seqno: lastSeqno } },
+          { allowLocalFields: true, allowServerFields: false },
+        );
+        this.sequencer.reset(lastSeqno);
+      }
+
+      this.storage.getState().updateObjects();
+      this.persist();
+    } catch {
+      // Diff failed — try full restart
+      await this.restartSession();
+    }
+  }
+
+  private async restartSession(): Promise<void> {
+    if (this.destroyed) return;
+    this.sequencer.reset(0);
+    await this.syncChannels();
+  }
+
+  async syncChannels(): Promise<void> {
+    if (this.destroyed) return;
+
+    const result = await this.api.channelList(this.token, this.orgId);
+    const channels = result.channels.map((ch) => ({
+      id: ch.id,
+      organizationId: ch.organizationId,
+      name: ch.name,
+      topic: ch.topic,
+      visibility: ch.visibility as "public" | "private",
+      createdAt: ch.createdAt,
+      updatedAt: ch.updatedAt,
+    }));
+
+    this.engine.rebase({ channel: channels });
+    this.storage.getState().updateObjects();
+    this.persist();
+  }
+
+  async syncMessages(channelId: string): Promise<void> {
+    if (this.destroyed) return;
+
+    const result = await this.api.messageList(
+      this.token,
+      this.orgId,
+      channelId,
+    );
+    const messages = result.messages.map((msg) => ({
+      id: msg.id,
+      chatId: msg.chatId,
+      senderUserId: msg.senderUserId,
+      threadId: msg.threadId,
+      text: msg.text,
+      createdAt: msg.createdAt,
+      editedAt: msg.editedAt,
+      deletedAt: msg.deletedAt,
+      threadReplyCount: msg.threadReplyCount,
+      threadLastReplyAt: msg.threadLastReplyAt,
+      sender: {
+        id: msg.sender.id,
+        kind: msg.sender.kind,
+        username: msg.sender.username,
+        firstName: msg.sender.firstName,
+        lastName: msg.sender.lastName,
+        avatarUrl: msg.sender.avatarUrl,
+      },
+      attachments: msg.attachments,
+      reactions: msg.reactions,
+    }));
+
+    this.engine.rebase({ message: messages });
+    this.storage.getState().updateObjects();
+    this.persist();
+  }
+
+  private invalidateSync(): void {
+    if (this.destroyed) return;
+    void this.processPendingMutations();
+  }
+
+  private async processPendingMutations(): Promise<void> {
+    if (this.processingMutations || this.destroyed) return;
+    this.processingMutations = true;
+
+    try {
+      while (this.engine.pendingMutations.length > 0) {
+        if (this.destroyed) break;
+        const mutation = this.engine.pendingMutations[0];
+
+        try {
+          const result = await mutationApply(
+            this.api,
+            this.token,
+            this.orgId,
+            mutation,
+          );
+
+          if (Object.keys(result.snapshot).length > 0) {
+            this.engine.rebase(result.snapshot);
+          }
+          this.engine.commit(mutation.id);
+          this.storage.getState().updateObjects();
+          this.persist();
+        } catch (error) {
+          // Mutation failed — remove it and let the UI reflect rollback
+          console.error(
+            `Mutation ${mutation.name} failed:`,
+            error,
+          );
+          this.engine.commit(mutation.id);
+          this.storage.getState().updateObjects();
+          break;
+        }
+      }
+    } finally {
+      this.processingMutations = false;
+    }
+  }
+
+  persist(): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, this.engine.persist());
+    } catch {
+      // localStorage might be full or unavailable
+    }
+  }
+
+  destroy(): void {
+    this.destroyed = true;
+    this.sseSubscription?.close();
+    this.sseSubscription = null;
+    this.sequencer.destroy();
+  }
+}

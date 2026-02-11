@@ -59,7 +59,12 @@ describe("authEmailOtpVerify", () => {
         ttlSeconds: 600,
         cooldownSeconds: 60,
         maxAttempts: 5,
-        salt: "salt"
+        salt: "salt",
+        testStatic: {
+          enabled: false,
+          email: "integration-test@daycare.local",
+          code: "424242"
+        }
       }
     } as any;
 
@@ -84,7 +89,12 @@ describe("authEmailOtpVerify", () => {
         ttlSeconds: 600,
         cooldownSeconds: 60,
         maxAttempts: 5,
-        salt: "salt"
+        salt: "salt",
+        testStatic: {
+          enabled: false,
+          email: "integration-test@daycare.local",
+          code: "424242"
+        }
       }
     } as any;
 
@@ -109,11 +119,86 @@ describe("authEmailOtpVerify", () => {
         ttlSeconds: 600,
         cooldownSeconds: 60,
         maxAttempts: 5,
-        salt: "salt"
+        salt: "salt",
+        testStatic: {
+          enabled: false,
+          email: "integration-test@daycare.local",
+          code: "424242"
+        }
       }
     } as any;
 
     await expect(authEmailOtpVerify(context, { email, code: "123456" }))
+      .rejects
+      .toBeInstanceOf(ApiError);
+  });
+
+  it("verifies using static integration OTP when enabled and matched", async () => {
+    const email = "integration-test@daycare.local";
+
+    const context = {
+      db,
+      redis,
+      tokens,
+      otp: {
+        ttlSeconds: 600,
+        cooldownSeconds: 60,
+        maxAttempts: 5,
+        salt: "salt",
+        testStatic: {
+          enabled: true,
+          email,
+          code: "424242"
+        }
+      }
+    } as any;
+
+    const result = await authEmailOtpVerify(context, { email, code: "424242" });
+    expect(result.token).toBeTruthy();
+  });
+
+  it("does not bypass OTP for other emails when static integration OTP is enabled", async () => {
+    const context = {
+      db,
+      redis,
+      tokens,
+      otp: {
+        ttlSeconds: 600,
+        cooldownSeconds: 60,
+        maxAttempts: 5,
+        salt: "salt",
+        testStatic: {
+          enabled: true,
+          email: "integration-test@daycare.local",
+          code: "424242"
+        }
+      }
+    } as any;
+
+    await expect(authEmailOtpVerify(context, { email: "user@example.com", code: "424242" }))
+      .rejects
+      .toBeInstanceOf(ApiError);
+  });
+
+  it("does not bypass OTP for static email with wrong code", async () => {
+    const context = {
+      db,
+      redis,
+      tokens,
+      otp: {
+        ttlSeconds: 600,
+        cooldownSeconds: 60,
+        maxAttempts: 5,
+        salt: "salt",
+        testStatic: {
+          enabled: true,
+          email: "integration-test@daycare.local",
+          code: "424242"
+        }
+      }
+    } as any;
+
+    await expect(authEmailOtpVerify(context, { email: "integration-test@daycare.local", code: "000000" }))
       .rejects
       .toBeInstanceOf(ApiError);
   });

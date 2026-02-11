@@ -76,7 +76,12 @@ describeIntegration("api integration", () => {
         ttlSeconds: 600,
         cooldownSeconds: 60,
         maxAttempts: 5,
-        salt: tokenSeed
+        salt: tokenSeed,
+        testStatic: {
+          enabled: false,
+          email: "integration-test@daycare.local",
+          code: "424242"
+        }
       }
     });
     await app.ready();

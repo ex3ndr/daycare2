@@ -49,6 +49,14 @@ export async function authEmailOtpVerify(
   const email = input.email.trim().toLowerCase();
   const code = input.code.trim();
 
+  if (
+    context.otp.testStatic.enabled
+    && email === context.otp.testStatic.email
+    && code === context.otp.testStatic.code
+  ) {
+    return await authLogin(context, email);
+  }
+
   const keySuffix = createHash("sha256").update(email).digest("hex");
   const otpKey = `otp:${keySuffix}`;
   const attemptsKey = `otp:${keySuffix}:attempts`;

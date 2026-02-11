@@ -15,6 +15,9 @@ const configSchema = z.object({
   OTP_COOLDOWN_SECONDS: z.coerce.number().int().positive().default(60),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   OTP_SALT: z.string().optional(),
+  OTP_STATIC_ENABLED: z.enum(["true", "false"]).default("false"),
+  OTP_STATIC_EMAIL: z.string().email().default("integration-test@daycare.local"),
+  OTP_STATIC_CODE: z.string().regex(/^\d{6}$/).default("424242"),
   S3_ENDPOINT: z.string().url().default("http://localhost:9000"),
   S3_ACCESS_KEY: z.string().min(1),
   S3_SECRET_KEY: z.string().min(1),
@@ -37,6 +40,9 @@ export type DaycareConfig = {
   otpCooldownSeconds: number;
   otpMaxAttempts: number;
   otpSalt: string;
+  otpStaticEnabled: boolean;
+  otpStaticEmail: string;
+  otpStaticCode: string;
   s3Endpoint: string;
   s3AccessKey: string;
   s3SecretKey: string;
@@ -65,6 +71,9 @@ export function configRead(env: NodeJS.ProcessEnv = process.env): DaycareConfig 
     otpCooldownSeconds: parsed.OTP_COOLDOWN_SECONDS,
     otpMaxAttempts: parsed.OTP_MAX_ATTEMPTS,
     otpSalt: parsed.OTP_SALT ?? parsed.TOKEN_SEED,
+    otpStaticEnabled: parsed.OTP_STATIC_ENABLED === "true",
+    otpStaticEmail: parsed.OTP_STATIC_EMAIL.toLowerCase(),
+    otpStaticCode: parsed.OTP_STATIC_CODE,
     s3Endpoint: parsed.S3_ENDPOINT,
     s3AccessKey: parsed.S3_ACCESS_KEY,
     s3SecretKey: parsed.S3_SECRET_KEY,

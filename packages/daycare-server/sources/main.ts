@@ -80,7 +80,12 @@ async function main(): Promise<void> {
       ttlSeconds: config.otpTtlSeconds,
       cooldownSeconds: config.otpCooldownSeconds,
       maxAttempts: config.otpMaxAttempts,
-      salt: config.otpSalt
+      salt: config.otpSalt,
+      testStatic: {
+        enabled: config.otpStaticEnabled,
+        email: config.otpStaticEmail,
+        code: config.otpStaticCode
+      }
     }
   });
   await apiStart(app, config.host, config.port);

@@ -25,5 +25,10 @@ export type ApiContext = {
     cooldownSeconds: number;
     maxAttempts: number;
     salt: string;
+    testStatic: {
+      enabled: boolean;
+      email: string;
+      code: string;
+    };
   };
 };

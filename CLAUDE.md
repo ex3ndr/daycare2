@@ -27,6 +27,14 @@
 - Type-check: `yarn typecheck` (tsc)
 - Tests: `yarn test` (vitest)
 
+## Integration OTP (Static Code)
+- Purpose: allow integration testing on live-like environments without bypassing OTP for all users.
+- Enable with env flag: `OTP_STATIC_ENABLED=true`
+- Static identity:
+  - email from `OTP_STATIC_EMAIL` (default `integration-test@daycare.local`)
+  - code from `OTP_STATIC_CODE` (default `424242`, six digits)
+- Behavior: only `POST /api/auth/email/verify-otp` for this exact email+code pair bypasses Redis OTP state; all other emails/codes still use normal OTP verification.
+
 ## Coding Style
 - Language: TypeScript (ESM). Prefer strict typing; avoid `any`.
 - Brief comments for tricky or non-obvious logic only.

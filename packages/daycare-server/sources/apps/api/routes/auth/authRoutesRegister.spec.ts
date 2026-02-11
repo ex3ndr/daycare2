@@ -75,7 +75,12 @@ describe("authRoutesRegister", () => {
         ttlSeconds: 600,
         cooldownSeconds: 60,
         maxAttempts: 5,
-        salt: "salt"
+        salt: "salt",
+        testStatic: {
+          enabled: false,
+          email: "integration-test@daycare.local",
+          code: "424242"
+        }
       }
     });
     await app.ready();
@@ -226,6 +231,61 @@ describe("authRoutesRegister", () => {
       payload: {
         email,
         code: "123456"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as any;
+    expect(payload.ok).toBe(true);
+    expect(payload.data.token).toBeTruthy();
+
+    await app.close();
+  });
+
+  it("verifies static integration OTP in production when explicitly enabled", async () => {
+    const email = emailServiceCreate({
+      nodeEnv: "production",
+      apiKey: "test-key",
+      from: "Daycare <no-reply@daycare.local>"
+    });
+    const updates = updatesServiceCreate(db);
+    const s3 = s3ClientCreate({
+      endpoint: "http://localhost:9000",
+      accessKey: "minioadmin",
+      secretKey: "minioadmin",
+      forcePathStyle: true
+    });
+
+    const app = await apiCreate({
+      db,
+      redis,
+      tokens,
+      email,
+      updates,
+      s3,
+      s3Bucket: "daycare",
+      nodeEnv: "production",
+      allowOpenOrgJoin: true,
+      otp: {
+        ttlSeconds: 600,
+        cooldownSeconds: 60,
+        maxAttempts: 5,
+        salt: "salt",
+        testStatic: {
+          enabled: true,
+          email: "integration-test@daycare.local",
+          code: "424242"
+        }
+      }
+    });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/auth/email/verify-otp",
+      payload: {
+        email: "integration-test@daycare.local",
+        code: "424242"
       }
     });
 

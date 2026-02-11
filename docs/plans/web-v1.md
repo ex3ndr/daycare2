@@ -688,14 +688,14 @@ Depends on backend presence system.
 
 #### Task 24: Channel settings and member management
 
-- [ ] Build `app/components/workspace/ChannelSettings.tsx` — Dialog with tabs:
+- [x] Build `app/components/workspace/ChannelSettings.tsx` — Dialog with tabs:
   - Overview: editable name, topic, visibility
   - Members: list with role badges, kick (owner), role change (owner)
-- [ ] Open via channel header settings icon
-- [ ] Archive/unarchive button (owner, depends on backend)
-- [ ] Notification preferences dropdown (ALL / MENTIONS_ONLY / MUTED)
-- [ ] **agent-browser**: click settings icon in channel header → verify dialog opens with Overview tab → edit channel name → save → verify header updates → switch to Members tab → verify member list with role badges → screenshot both tabs
-- [ ] Run tests — must pass before next task
+- [x] Open via channel header settings icon
+- [x] Archive/unarchive button (owner, depends on backend)
+- [x] Notification preferences dropdown (ALL / MENTIONS_ONLY / MUTED)
+- [x] **agent-browser**: click settings icon in channel header → verify dialog opens with Overview tab → edit channel name → save → verify header updates → switch to Members tab → verify member list with role badges → screenshot both tabs
+- [x] Run tests — must pass before next task
 
 ---
 

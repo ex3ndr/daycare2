@@ -235,6 +235,80 @@ describe("schema", () => {
     });
   });
 
+  describe("channelUpdate", () => {
+    beforeEach(() => {
+      engine.mutate("channelCreate", {
+        id: "ch-1",
+        name: "general",
+        topic: "Old topic",
+        visibility: "public",
+      });
+    });
+
+    it("updates channel name", () => {
+      engine.mutate("channelUpdate", {
+        id: "ch-1",
+        name: "renamed",
+      });
+
+      const ch = engine.state.channel["ch-1"];
+      expect(ch.name).toBe("renamed");
+      expect(ch.topic).toBe("Old topic");
+      expect(ch.visibility).toBe("public");
+    });
+
+    it("updates channel topic", () => {
+      engine.mutate("channelUpdate", {
+        id: "ch-1",
+        topic: "New topic",
+      });
+
+      const ch = engine.state.channel["ch-1"];
+      expect(ch.name).toBe("general");
+      expect(ch.topic).toBe("New topic");
+    });
+
+    it("clears topic to null", () => {
+      engine.mutate("channelUpdate", {
+        id: "ch-1",
+        topic: null,
+      });
+
+      const ch = engine.state.channel["ch-1"];
+      expect(ch.topic).toBeNull();
+    });
+
+    it("updates visibility", () => {
+      engine.mutate("channelUpdate", {
+        id: "ch-1",
+        visibility: "private",
+      });
+
+      const ch = engine.state.channel["ch-1"];
+      expect(ch.visibility).toBe("private");
+    });
+
+    it("updates updatedAt timestamp", () => {
+      const before = engine.state.channel["ch-1"].updatedAt;
+
+      engine.mutate("channelUpdate", {
+        id: "ch-1",
+        name: "updated",
+      });
+
+      expect(engine.state.channel["ch-1"].updatedAt).toBeGreaterThanOrEqual(before);
+    });
+
+    it("does nothing for non-existent channel", () => {
+      engine.mutate("channelUpdate", {
+        id: "ch-nonexistent",
+        name: "nope",
+      });
+
+      expect(engine.state.channel["ch-nonexistent"]).toBeUndefined();
+    });
+  });
+
   describe("readMark", () => {
     it("creates readState entry if none exists", () => {
       engine.mutate("readMark", { chatId: "ch-1" });

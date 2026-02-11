@@ -231,6 +231,25 @@ export const schema = defineSchema({
     },
   ),
 
+  channelUpdate: mutation(
+    (
+      draft,
+      input: {
+        id: string;
+        name?: string;
+        topic?: string | null;
+        visibility?: "public" | "private";
+      },
+    ) => {
+      const ch = draft.channel[input.id];
+      if (!ch) return;
+      if (input.name !== undefined) ch.name = input.name;
+      if (input.topic !== undefined) ch.topic = input.topic;
+      if (input.visibility !== undefined) ch.visibility = input.visibility;
+      ch.updatedAt = Date.now();
+    },
+  ),
+
   readMark: mutation((draft, input: { chatId: string }) => {
     const rs = draft.readState[input.chatId];
     if (rs) {

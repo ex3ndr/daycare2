@@ -124,6 +124,33 @@ export type ApiClient = {
     orgId: string,
     query: { q: string; limit?: number }
   ) => Promise<{ channels: ChannelSearchResult[] }>;
+  channelUpdate: (
+    token: string,
+    orgId: string,
+    channelId: string,
+    input: { name?: string; topic?: string | null; visibility?: "public" | "private" }
+  ) => Promise<{ channel: Channel }>;
+  channelArchive: (token: string, orgId: string, channelId: string) => Promise<{ archived: boolean }>;
+  channelUnarchive: (token: string, orgId: string, channelId: string) => Promise<{ unarchived: boolean }>;
+  channelMemberKick: (
+    token: string,
+    orgId: string,
+    channelId: string,
+    userId: string
+  ) => Promise<{ kicked: boolean }>;
+  channelMemberRoleUpdate: (
+    token: string,
+    orgId: string,
+    channelId: string,
+    userId: string,
+    input: { role: "owner" | "member" }
+  ) => Promise<{ updated: boolean }>;
+  channelNotificationsUpdate: (
+    token: string,
+    orgId: string,
+    channelId: string,
+    input: { setting: "ALL" | "MENTIONS_ONLY" | "MUTED" }
+  ) => Promise<{ setting: "ALL" | "MENTIONS_ONLY" | "MUTED" }>;
   presenceSet: (token: string, orgId: string, input: { status: "online" | "away" }) => Promise<{ presence: { userId: string; status: "online" | "away" } }>;
   presenceHeartbeat: (token: string, orgId: string) => Promise<{ presence: { userId: string; status: "online" | "away" | "offline" } }>;
   presenceGet: (token: string, orgId: string, userIds: string[]) => Promise<{ requesterUserId: string; presence: Array<{ userId: string; status: "online" | "away" | "offline" }> }>;
@@ -225,6 +252,18 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
       if (query.limit !== undefined) params.set("limit", String(query.limit));
       return request(`/api/org/${orgId}/search/channels?${params.toString()}`, { token });
     },
+    channelUpdate: (token, orgId, channelId, input) =>
+      request(`/api/org/${orgId}/channels/${channelId}`, { method: "PATCH", token, body: input }),
+    channelArchive: (token, orgId, channelId) =>
+      request(`/api/org/${orgId}/channels/${channelId}/archive`, { method: "POST", token }),
+    channelUnarchive: (token, orgId, channelId) =>
+      request(`/api/org/${orgId}/channels/${channelId}/unarchive`, { method: "POST", token }),
+    channelMemberKick: (token, orgId, channelId, userId) =>
+      request(`/api/org/${orgId}/channels/${channelId}/members/${userId}/kick`, { method: "POST", token }),
+    channelMemberRoleUpdate: (token, orgId, channelId, userId, input) =>
+      request(`/api/org/${orgId}/channels/${channelId}/members/${userId}/role`, { method: "PATCH", token, body: input }),
+    channelNotificationsUpdate: (token, orgId, channelId, input) =>
+      request(`/api/org/${orgId}/channels/${channelId}/notifications`, { method: "PATCH", token, body: input }),
     presenceSet: (token, orgId, input) =>
       request(`/api/org/${orgId}/presence`, { method: "POST", token, body: input }),
     presenceHeartbeat: (token, orgId) =>

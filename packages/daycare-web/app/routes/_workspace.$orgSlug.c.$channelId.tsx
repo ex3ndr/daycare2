@@ -7,7 +7,10 @@ import { messagesForChannel, typingUsersForChannel, presenceForUser } from "@/ap
 import { useUiStore } from "@/app/stores/uiStoreContext";
 import { MessageRow } from "@/app/components/messages/MessageRow";
 import { Composer } from "@/app/components/messages/Composer";
-import { Hash, Lock, ArrowDown, Loader2 } from "lucide-react";
+import { Hash, Lock, ArrowDown, Loader2, Settings } from "lucide-react";
+import { Button } from "@/app/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/app/components/ui/tooltip";
+import { ChannelSettings } from "@/app/components/workspace/ChannelSettings";
 import { useThrottledTyping } from "@/app/lib/useThrottledTyping";
 import { typingTextFormat } from "@/app/lib/typingTextFormat";
 import { useFileUpload } from "@/app/lib/useFileUpload";
@@ -42,6 +45,9 @@ function ChannelPage() {
 
   // File upload
   const fileUpload = useFileUpload(app.api, app.token, app.orgId);
+
+  // Settings dialog
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Drag-and-drop state
   const [isDragOver, setIsDragOver] = useState(false);
@@ -141,6 +147,11 @@ function ChannelPage() {
     [composerDraftSet, channelId],
   );
 
+  // Channel updated (from settings dialog)
+  const handleChannelUpdated = useCallback(() => {
+    app.syncChannels();
+  }, [app]);
+
   // Typing indicator text
   const typingText = useMemo(() => typingTextFormat(typingUsers), [typingUsers]);
 
@@ -219,6 +230,23 @@ function ChannelPage() {
               </span>
             </>
           )}
+          <div className="ml-auto shrink-0">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setSettingsOpen(true)}
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Channel settings</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
 
         {/* Message list */}
@@ -308,6 +336,23 @@ function ChannelPage() {
 
       {/* Thread panel outlet */}
       <Outlet />
+
+      {/* Channel settings dialog */}
+      {channel && (
+        <ChannelSettings
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          channelId={channelId}
+          channelName={channel.name}
+          channelTopic={channel.topic}
+          channelVisibility={channel.visibility}
+          currentUserId={userId}
+          api={app.api}
+          token={app.token}
+          orgId={app.orgId}
+          onChannelUpdated={handleChannelUpdated}
+        />
+      )}
     </div>
   );
 }

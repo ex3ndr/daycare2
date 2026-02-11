@@ -47,6 +47,12 @@ function createMockApi(): ApiClient {
     fileGet: vi.fn(),
     searchMessages: vi.fn(),
     searchChannels: vi.fn(),
+    channelUpdate: vi.fn(),
+    channelArchive: vi.fn(),
+    channelUnarchive: vi.fn(),
+    channelMemberKick: vi.fn(),
+    channelMemberRoleUpdate: vi.fn(),
+    channelNotificationsUpdate: vi.fn(),
     presenceSet: vi.fn(),
     presenceHeartbeat: vi.fn(),
     presenceGet: vi.fn(),
@@ -248,6 +254,43 @@ describe("mutationApply", () => {
       expect(result.snapshot.channel).toHaveLength(1);
       expect(result.snapshot.channel![0].id).toBe("server-ch-1");
       expect(result.snapshot.channel![0].name).toBe("general");
+    });
+  });
+
+  describe("channelUpdate", () => {
+    it("calls api.channelUpdate and returns channel snapshot", async () => {
+      const api = createMockApi();
+      const serverChannel = {
+        id: "ch-1",
+        organizationId: "org-1",
+        name: "renamed",
+        topic: "New topic",
+        visibility: "public" as const,
+        createdAt: 1000,
+        updatedAt: 5000,
+      };
+      vi.mocked(api.channelUpdate).mockResolvedValue({
+        channel: serverChannel,
+      });
+
+      const mutation = makeMutation("channelUpdate", {
+        id: "ch-1",
+        name: "renamed",
+        topic: "New topic",
+      });
+
+      const result = await mutationApply(api, token, orgId, mutation);
+
+      expect(api.channelUpdate).toHaveBeenCalledWith(token, orgId, "ch-1", {
+        name: "renamed",
+        topic: "New topic",
+        visibility: undefined,
+      });
+      expect(result.snapshot.channel).toHaveLength(1);
+      expect(result.snapshot.channel![0].id).toBe("ch-1");
+      expect(result.snapshot.channel![0].name).toBe("renamed");
+      expect(result.snapshot.channel![0].topic).toBe("New topic");
+      expect(result.snapshot.channel![0].updatedAt).toBe(5000);
     });
   });
 

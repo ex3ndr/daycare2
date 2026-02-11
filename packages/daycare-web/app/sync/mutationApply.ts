@@ -165,6 +165,36 @@ export async function mutationApply(
       };
     }
 
+    case "channelUpdate": {
+      const input = mutation.input as {
+        id: string;
+        name?: string;
+        topic?: string | null;
+        visibility?: "public" | "private";
+      };
+      const result = await api.channelUpdate(token, orgId, input.id, {
+        name: input.name,
+        topic: input.topic,
+        visibility: input.visibility,
+      });
+      const ch = result.channel;
+      return {
+        snapshot: {
+          channel: [
+            {
+              id: ch.id,
+              organizationId: ch.organizationId,
+              name: ch.name,
+              topic: ch.topic,
+              visibility: ch.visibility,
+              createdAt: ch.createdAt,
+              updatedAt: ch.updatedAt,
+            },
+          ],
+        },
+      };
+    }
+
     case "readMark": {
       const input = mutation.input as { chatId: string };
       const result = await api.readStateSet(token, orgId, input.chatId);

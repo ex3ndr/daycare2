@@ -6,6 +6,88 @@ type LogCall = {
   meta?: unknown;
 };
 
+function requestMetaCreate(request: unknown): Record<string, unknown> {
+  if (!request || typeof request !== "object") {
+    return {};
+  }
+
+  const candidate = request as {
+    method?: unknown;
+    url?: unknown;
+    headers?: unknown;
+    ip?: unknown;
+    socket?: unknown;
+  };
+
+  const headers = candidate.headers;
+  const socket = candidate.socket as { remotePort?: unknown } | undefined;
+  const host = (
+    headers
+    && typeof headers === "object"
+    && "host" in headers
+    && typeof headers.host === "string"
+  ) ? headers.host : undefined;
+
+  const remoteAddress = typeof candidate.ip === "string" ? candidate.ip : undefined;
+  const remotePort = socket && typeof socket.remotePort === "number" ? socket.remotePort : undefined;
+
+  return {
+    method: typeof candidate.method === "string" ? candidate.method : undefined,
+    url: typeof candidate.url === "string" ? candidate.url : undefined,
+    host,
+    remoteAddress,
+    remotePort
+  };
+}
+
+function responseMetaCreate(response: unknown): Record<string, unknown> {
+  if (!response || typeof response !== "object") {
+    return {};
+  }
+
+  const candidate = response as {
+    statusCode?: unknown;
+  };
+
+  return {
+    statusCode: typeof candidate.statusCode === "number" ? candidate.statusCode : undefined
+  };
+}
+
+function errorMetaCreate(error: unknown): unknown {
+  if (!(error instanceof Error)) {
+    return error;
+  }
+
+  return {
+    type: error.name,
+    message: error.message,
+    stack: error.stack
+  };
+}
+
+function metaNormalize(meta: unknown): unknown {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) {
+    return meta;
+  }
+
+  const normalized = { ...meta };
+
+  if ("req" in normalized) {
+    normalized.req = requestMetaCreate(normalized.req);
+  }
+
+  if ("res" in normalized) {
+    normalized.res = responseMetaCreate(normalized.res);
+  }
+
+  if ("err" in normalized) {
+    normalized.err = errorMetaCreate(normalized.err);
+  }
+
+  return normalized;
+}
+
 function logCallCreate(defaultMessage: string, args: unknown[]): LogCall {
   const [first, second, ...rest] = args;
 
@@ -18,7 +100,9 @@ function logCallCreate(defaultMessage: string, args: unknown[]): LogCall {
 
     return {
       message: first,
-      meta: [second, ...rest].filter((value) => value !== undefined)
+      meta: [second, ...rest]
+        .filter((value) => value !== undefined)
+        .map((value) => metaNormalize(value))
     };
   }
 
@@ -26,13 +110,13 @@ function logCallCreate(defaultMessage: string, args: unknown[]): LogCall {
     if (rest.length === 0) {
       return {
         message: second,
-        meta: first
+        meta: metaNormalize(first)
       };
     }
 
     return {
       message: second,
-      meta: [first, ...rest]
+      meta: [first, ...rest].map((value) => metaNormalize(value))
     };
   }
 
@@ -44,7 +128,9 @@ function logCallCreate(defaultMessage: string, args: unknown[]): LogCall {
 
   return {
     message: defaultMessage,
-    meta: [first, second, ...rest].filter((value) => value !== undefined)
+    meta: [first, second, ...rest]
+      .filter((value) => value !== undefined)
+      .map((value) => metaNormalize(value))
   };
 }
 

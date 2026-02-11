@@ -18,15 +18,20 @@ const TABS: Array<{ id: SettingsTab; label: string; icon: typeof Settings; owner
   { id: "domains", label: "Domains", icon: Globe, ownerOnly: true },
 ];
 
-export function SettingsLayout() {
+export function SettingsLayout({ initialTab }: { initialTab?: SettingsTab }) {
   const app = useApp();
   const navigate = useNavigate();
   const orgSlug = useStorage((s) => s.objects.context.orgSlug);
   const orgName = useStorage((s) => s.objects.context.orgName);
 
-  const [tab, setTab] = useState<SettingsTab>("general");
+  const [tab, setTab] = useState<SettingsTab>(initialTab ?? "general");
   const [orgRole, setOrgRole] = useState<"owner" | "member">("member");
   const [loading, setLoading] = useState(true);
+
+  // Sync tab when navigated with a different search param
+  useEffect(() => {
+    if (initialTab) setTab(initialTab);
+  }, [initialTab]);
 
   useEffect(() => {
     app.api

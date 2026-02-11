@@ -280,10 +280,10 @@ Add a dropdown menu to the org name in the Sidebar header.
   - Org name + slug display (informational)
 
 **Checklist:**
-- [ ] Add dropdown trigger to org name in Sidebar header
-- [ ] Add menu items: Settings, Invite People, Members
-- [ ] Navigate to appropriate settings tab on click
-- [ ] Run `yarn typecheck` — must pass
+- [x] Add dropdown trigger to org name in Sidebar header
+- [x] Add menu items: Settings, Invite People, Members
+- [x] Navigate to appropriate settings tab on click
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 9: Channel settings — add member to private channel
 

@@ -18,7 +18,15 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/app/components/ui/dialog";
-import { Hash, Lock, Plus, MessageSquare, ChevronDown, ChevronRight } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/app/components/ui/dropdown-menu";
+import { Hash, Lock, Plus, MessageSquare, ChevronDown, ChevronRight, Settings, Users, Mail } from "lucide-react";
 import type { ApiClient } from "@/app/daycare/api/apiClientCreate";
 import { ChannelListSkeleton } from "@/app/components/skeletons/ChannelListSkeleton";
 
@@ -85,10 +93,58 @@ export function Sidebar() {
 
   return (
     <div className="flex w-[280px] shrink-0 flex-col bg-sidebar text-sidebar-foreground">
-      {/* Org header */}
-      <div className="flex h-14 items-center px-4">
-        <h2 className="font-display text-lg font-semibold truncate">{orgName}</h2>
-      </div>
+      {/* Org header with dropdown */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex h-14 w-full items-center gap-1 px-4 text-left hover:bg-sidebar-accent/50 transition-colors focus-visible:outline-none">
+            <h2 className="font-display text-lg font-semibold truncate">{orgName}</h2>
+            <ChevronDown className="h-4 w-4 shrink-0 text-sidebar-muted-foreground" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-56">
+          <DropdownMenuLabel className="font-normal">
+            <p className="text-sm font-medium">{orgName}</p>
+            <p className="text-xs text-muted-foreground">/{orgSlug}</p>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() =>
+              navigate({
+                to: "/$orgSlug/settings",
+                params: { orgSlug },
+                search: { tab: "general" },
+              })
+            }
+          >
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() =>
+              navigate({
+                to: "/$orgSlug/settings",
+                params: { orgSlug },
+                search: { tab: "invites" },
+              })
+            }
+          >
+            <Mail className="mr-2 h-4 w-4" />
+            Invite People
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() =>
+              navigate({
+                to: "/$orgSlug/settings",
+                params: { orgSlug },
+                search: { tab: "members" },
+              })
+            }
+          >
+            <Users className="mr-2 h-4 w-4" />
+            Members
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <Separator className="bg-sidebar-border" />
 

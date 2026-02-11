@@ -1,6 +1,3 @@
--- CreateSchema
-CREATE SCHEMA IF NOT EXISTS "public";
-
 -- CreateEnum
 CREATE TYPE "UserKind" AS ENUM ('HUMAN', 'AI');
 
@@ -54,6 +51,7 @@ CREATE TABLE "User" (
     "timezone" TEXT,
     "avatarUrl" TEXT,
     "systemPrompt" TEXT,
+    "webhookUrl" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "lastSeenAt" TIMESTAMP(3),
@@ -176,6 +174,7 @@ CREATE TABLE "MessageReaction" (
 CREATE TABLE "FileAsset" (
     "id" TEXT NOT NULL,
     "organizationId" TEXT NOT NULL,
+    "createdByUserId" TEXT,
     "storageKey" TEXT NOT NULL,
     "contentHash" TEXT NOT NULL,
     "mimeType" TEXT NOT NULL,
@@ -211,6 +210,21 @@ CREATE TABLE "UserUpdate" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "UserUpdate_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "IdempotencyKey" (
+    "id" TEXT NOT NULL,
+    "subjectType" TEXT NOT NULL,
+    "subjectId" TEXT NOT NULL,
+    "scope" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "requestHash" TEXT NOT NULL,
+    "responseJson" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "IdempotencyKey_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -298,6 +312,9 @@ CREATE INDEX "FileAsset_organizationId_status_createdAt_idx" ON "FileAsset"("org
 CREATE INDEX "FileAsset_contentHash_idx" ON "FileAsset"("contentHash");
 
 -- CreateIndex
+CREATE INDEX "FileAsset_createdByUserId_idx" ON "FileAsset"("createdByUserId");
+
+-- CreateIndex
 CREATE INDEX "ChatTypingState_chatId_expiresAt_idx" ON "ChatTypingState"("chatId", "expiresAt");
 
 -- CreateIndex
@@ -308,6 +325,12 @@ CREATE INDEX "UserUpdate_userId_createdAt_idx" ON "UserUpdate"("userId", "create
 
 -- CreateIndex
 CREATE UNIQUE INDEX "UserUpdate_userId_seqno_key" ON "UserUpdate"("userId", "seqno");
+
+-- CreateIndex
+CREATE INDEX "IdempotencyKey_createdAt_idx" ON "IdempotencyKey"("createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "IdempotencyKey_subjectType_subjectId_scope_key_key" ON "IdempotencyKey"("subjectType", "subjectId", "scope", "key");
 
 -- AddForeignKey
 ALTER TABLE "User" ADD CONSTRAINT "User_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -367,6 +390,9 @@ ALTER TABLE "MessageReaction" ADD CONSTRAINT "MessageReaction_userId_fkey" FOREI
 ALTER TABLE "FileAsset" ADD CONSTRAINT "FileAsset_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "FileAsset" ADD CONSTRAINT "FileAsset_createdByUserId_fkey" FOREIGN KEY ("createdByUserId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "ChatTypingState" ADD CONSTRAINT "ChatTypingState_chatId_fkey" FOREIGN KEY ("chatId") REFERENCES "Chat"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -374,4 +400,3 @@ ALTER TABLE "ChatTypingState" ADD CONSTRAINT "ChatTypingState_userId_fkey" FOREI
 
 -- AddForeignKey
 ALTER TABLE "UserUpdate" ADD CONSTRAINT "UserUpdate_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-

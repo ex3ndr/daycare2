@@ -6,6 +6,16 @@ export type ModalType =
   | "channelSettings"
   | "userProfile";
 
+export type PhotoViewerImage = {
+  url: string;
+  fileName: string | null;
+};
+
+export type PhotoViewerState = {
+  images: PhotoViewerImage[];
+  currentIndex: number;
+};
+
 export type UiStore = {
   sidebarCollapsed: boolean;
   composerDrafts: Record<string, string>;
@@ -14,6 +24,7 @@ export type UiStore = {
   activeModal: ModalType | null;
   searchOpen: boolean;
   searchQuery: string;
+  photoViewer: PhotoViewerState | null;
 
   sidebarToggle: () => void;
   composerDraftSet: (channelId: string, text: string) => void;
@@ -23,6 +34,10 @@ export type UiStore = {
   searchToggle: () => void;
   searchClose: () => void;
   searchQuerySet: (query: string) => void;
+  photoViewerOpen: (images: PhotoViewerImage[], startIndex: number) => void;
+  photoViewerClose: () => void;
+  photoViewerNext: () => void;
+  photoViewerPrev: () => void;
 };
 
 export const uiStoreCreate = () =>
@@ -34,6 +49,7 @@ export const uiStoreCreate = () =>
     activeModal: null,
     searchOpen: false,
     searchQuery: "",
+    photoViewer: null,
 
     sidebarToggle: () =>
       set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -62,4 +78,24 @@ export const uiStoreCreate = () =>
       set({ searchOpen: false, searchQuery: "" }),
 
     searchQuerySet: (query) => set({ searchQuery: query }),
+
+    photoViewerOpen: (images, startIndex) =>
+      set({ photoViewer: { images, currentIndex: startIndex } }),
+
+    photoViewerClose: () => set({ photoViewer: null }),
+
+    photoViewerNext: () =>
+      set((s) => {
+        if (!s.photoViewer) return s;
+        const next = (s.photoViewer.currentIndex + 1) % s.photoViewer.images.length;
+        return { photoViewer: { ...s.photoViewer, currentIndex: next } };
+      }),
+
+    photoViewerPrev: () =>
+      set((s) => {
+        if (!s.photoViewer) return s;
+        const len = s.photoViewer.images.length;
+        const prev = (s.photoViewer.currentIndex - 1 + len) % len;
+        return { photoViewer: { ...s.photoViewer, currentIndex: prev } };
+      }),
   }));

@@ -138,6 +138,58 @@ describe("uiStore", () => {
     });
   });
 
+  describe("photoViewer", () => {
+    const images = [
+      { url: "/img/a.png", fileName: "a.png" },
+      { url: "/img/b.png", fileName: "b.png" },
+      { url: "/img/c.png", fileName: null },
+    ];
+
+    it("starts as null", () => {
+      expect(store.getState().photoViewer).toBe(null);
+    });
+
+    it("opens with images and start index", () => {
+      store.getState().photoViewerOpen(images, 1);
+      const pv = store.getState().photoViewer;
+      expect(pv).not.toBe(null);
+      expect(pv!.images).toEqual(images);
+      expect(pv!.currentIndex).toBe(1);
+    });
+
+    it("closes and resets to null", () => {
+      store.getState().photoViewerOpen(images, 0);
+      store.getState().photoViewerClose();
+      expect(store.getState().photoViewer).toBe(null);
+    });
+
+    it("navigates to next image with wraparound", () => {
+      store.getState().photoViewerOpen(images, 1);
+      store.getState().photoViewerNext();
+      expect(store.getState().photoViewer!.currentIndex).toBe(2);
+      store.getState().photoViewerNext();
+      expect(store.getState().photoViewer!.currentIndex).toBe(0);
+    });
+
+    it("navigates to previous image with wraparound", () => {
+      store.getState().photoViewerOpen(images, 0);
+      store.getState().photoViewerPrev();
+      expect(store.getState().photoViewer!.currentIndex).toBe(2);
+      store.getState().photoViewerPrev();
+      expect(store.getState().photoViewer!.currentIndex).toBe(1);
+    });
+
+    it("next is a no-op when viewer is closed", () => {
+      store.getState().photoViewerNext();
+      expect(store.getState().photoViewer).toBe(null);
+    });
+
+    it("prev is a no-op when viewer is closed", () => {
+      store.getState().photoViewerPrev();
+      expect(store.getState().photoViewer).toBe(null);
+    });
+  });
+
   describe("initial state", () => {
     it("has correct defaults", () => {
       const state = store.getState();
@@ -148,6 +200,7 @@ describe("uiStore", () => {
       expect(state.activeModal).toBe(null);
       expect(state.searchOpen).toBe(false);
       expect(state.searchQuery).toBe("");
+      expect(state.photoViewer).toBe(null);
     });
   });
 });

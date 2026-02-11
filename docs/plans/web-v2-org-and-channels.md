@@ -330,11 +330,11 @@ Add a fullscreen photo viewer overlay when clicking image attachments.
 - For previewable images: onClick → open PhotoViewer instead of `target="_blank"`
 
 **Checklist:**
-- [ ] Create `PhotoViewer.tsx` component with overlay, zoom, close, download
-- [ ] Add state management for photo viewer (uiStore or local context)
-- [ ] Update `Attachment.tsx` to open PhotoViewer on image click
-- [ ] Add keyboard support (Escape to close, arrow keys for multi-image nav)
-- [ ] Run `yarn typecheck` — must pass
+- [x] Create `PhotoViewer.tsx` component with overlay, zoom, close, download
+- [x] Add state management for photo viewer (uiStore or local context)
+- [x] Update `Attachment.tsx` to open PhotoViewer on image click
+- [x] Add keyboard support (Escape to close, arrow keys for multi-image nav)
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 11: Message grouping / collapsing
 

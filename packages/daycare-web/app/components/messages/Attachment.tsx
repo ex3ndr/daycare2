@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { isPreviewableImage, fileSizeFormat } from "@/app/lib/fileUploadCreate";
 import { useApp } from "@/app/sync/AppContext";
+import { useUiStore } from "@/app/stores/uiStoreContext";
 import { FileIcon, Download } from "lucide-react";
+import type { PhotoViewerImage } from "@/app/stores/uiStore";
 
 type AttachmentData = {
   id: string;
@@ -15,6 +17,7 @@ type AttachmentData = {
 
 type AttachmentProps = {
   attachment: AttachmentData;
+  onImageClick?: () => void;
 };
 
 function attachmentFileRefParse(url: string): { orgId: string; fileId: string } | null {
@@ -29,22 +32,22 @@ function attachmentFileRefParse(url: string): { orgId: string; fileId: string } 
   }
 }
 
-export function Attachment({ attachment }: AttachmentProps) {
+function useResolvedUrl(url: string) {
   const app = useApp();
-  const [resolvedUrl, setResolvedUrl] = useState(attachment.url);
+  const [resolvedUrl, setResolvedUrl] = useState(url);
 
   useEffect(() => {
     let disposed = false;
-    setResolvedUrl(attachment.url);
+    setResolvedUrl(url);
 
-    const fileRef = attachmentFileRefParse(attachment.url);
+    const fileRef = attachmentFileRefParse(url);
     if (!fileRef) return;
 
     app.api
       .fileGet(app.token, fileRef.orgId, fileRef.fileId)
       .then((response) => {
         if (!response.ok || disposed) return;
-        setResolvedUrl(response.url || attachment.url);
+        setResolvedUrl(response.url || url);
       })
       .catch(() => {
         // Keep original URL as a fallback if authorized resolution fails.
@@ -53,15 +56,20 @@ export function Attachment({ attachment }: AttachmentProps) {
     return () => {
       disposed = true;
     };
-  }, [attachment.url, app]);
+  }, [url, app]);
+
+  return resolvedUrl;
+}
+
+export function Attachment({ attachment, onImageClick }: AttachmentProps) {
+  const resolvedUrl = useResolvedUrl(attachment.url);
 
   if (isPreviewableImage(attachment.mimeType)) {
     return (
-      <a
-        href={resolvedUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-1 inline-block max-w-sm"
+      <button
+        type="button"
+        onClick={onImageClick}
+        className="mt-1 inline-block max-w-sm text-left cursor-pointer"
       >
         <img
           src={resolvedUrl}
@@ -74,7 +82,7 @@ export function Attachment({ attachment }: AttachmentProps) {
             {attachment.fileName}
           </span>
         )}
-      </a>
+      </button>
     );
   }
 
@@ -102,12 +110,37 @@ type AttachmentListProps = {
 };
 
 export function AttachmentList({ attachments }: AttachmentListProps) {
+  const photoViewerOpen = useUiStore((s) => s.photoViewerOpen);
+
+  // Collect previewable image attachments for multi-image navigation
+  const imageAttachments = useMemo(
+    () => attachments.filter((a) => isPreviewableImage(a.mimeType)),
+    [attachments],
+  );
+
   if (attachments.length === 0) return null;
+
+  function handleImageClick(attachment: AttachmentData) {
+    const imageIndex = imageAttachments.findIndex((a) => a.id === attachment.id);
+    const images: PhotoViewerImage[] = imageAttachments.map((a) => ({
+      url: a.url,
+      fileName: a.fileName,
+    }));
+    photoViewerOpen(images, Math.max(0, imageIndex));
+  }
 
   return (
     <div className="mt-1 flex flex-wrap gap-2">
       {attachments.map((att) => (
-        <Attachment key={att.id} attachment={att} />
+        <Attachment
+          key={att.id}
+          attachment={att}
+          onImageClick={
+            isPreviewableImage(att.mimeType)
+              ? () => handleImageClick(att)
+              : undefined
+          }
+        />
       ))}
     </div>
   );

@@ -97,13 +97,13 @@ MinIO is running in Docker Compose but file uploads currently store base64 in th
 
 ### Task 3: File cleanup service for S3
 
-The existing `fileCleanupRun.ts` needs to actually delete from S3.
+The existing cleanup service needs to actually delete from S3.
 
-- [ ] Create `sources/modules/s3/s3ObjectDelete.ts` — delete object from S3 by key
-- [ ] Update `sources/modules/files/fileCleanupRun.ts` — for expired PENDING files and DELETED files, delete from S3 before removing DB records
-- [ ] Write tests for `s3ObjectDelete` (mock S3 client)
-- [ ] Write tests for updated cleanup (verify S3 delete called for each file)
-- [ ] Run tests — must pass before next task
+- [x] Create `sources/modules/s3/s3ObjectDelete.ts` — delete object from S3 by key
+- [x] Update `sources/modules/files/fileCleanupStart.ts` — for expired PENDING files and DELETED files, delete from S3 before removing DB records
+- [x] Write tests for `s3ObjectDelete` (mock S3 client)
+- [x] Write tests for updated cleanup (verify S3 delete called for each file)
+- [x] Run tests — must pass before next task
 
 ### Task 4: User presence system
 

@@ -57,7 +57,7 @@ async function main(): Promise<void> {
     s3.destroy();
   });
   const updates = updatesServiceCreate(database);
-  const stopFileCleanup = fileCleanupStart(database);
+  const stopFileCleanup = fileCleanupStart(database, s3, config.s3Bucket);
   onShutdown("files.cleanup", async () => {
     stopFileCleanup();
   });

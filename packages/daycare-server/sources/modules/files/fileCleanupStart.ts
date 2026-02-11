@@ -1,29 +1,18 @@
 import type { PrismaClient } from "@prisma/client";
-import { access, rm } from "node:fs/promises";
-import path from "node:path";
+import type { DaycareS3Client } from "@/modules/s3/s3ClientCreate.js";
+import { s3ObjectDelete } from "@/modules/s3/s3ObjectDelete.js";
 import { getLogger } from "@/utils/getLogger.js";
 
 type CleanupOptions = {
   intervalMs?: number;
 };
 
-async function fileSafeDelete(storageKey: string): Promise<void> {
-  const uploadsRoot = path.resolve(process.cwd(), ".daycare", "uploads");
-  const filePath = path.resolve(uploadsRoot, storageKey);
-
-  if (!filePath.startsWith(uploadsRoot + path.sep)) {
-    return;
-  }
-
-  try {
-    await access(filePath);
-    await rm(filePath, { force: true });
-  } catch {
-    // File may not exist locally in some deployments.
-  }
-}
-
-export function fileCleanupStart(db: PrismaClient, options: CleanupOptions = {}): () => void {
+export function fileCleanupStart(
+  db: PrismaClient,
+  s3: DaycareS3Client,
+  s3Bucket: string,
+  options: CleanupOptions = {}
+): () => void {
   const intervalMs = options.intervalMs ?? 60_000;
   const logger = getLogger("files.cleanup");
 
@@ -31,12 +20,19 @@ export function fileCleanupStart(db: PrismaClient, options: CleanupOptions = {})
     void (async () => {
       const now = new Date();
 
-      const expiredPendingFiles = await db.fileAsset.findMany({
+      const filesToDelete = await db.fileAsset.findMany({
         where: {
-          status: "PENDING",
-          expiresAt: {
-            lte: now
-          }
+          OR: [
+            {
+              status: "PENDING",
+              expiresAt: {
+                lte: now
+              }
+            },
+            {
+              status: "DELETED"
+            }
+          ]
         },
         select: {
           id: true,
@@ -45,16 +41,36 @@ export function fileCleanupStart(db: PrismaClient, options: CleanupOptions = {})
         take: 1000
       });
 
-      if (expiredPendingFiles.length === 0) {
+      if (filesToDelete.length === 0) {
         return;
       }
 
-      await Promise.all(expiredPendingFiles.map((file) => fileSafeDelete(file.storageKey)));
+      const deletedFileIds: string[] = [];
+      for (const file of filesToDelete) {
+        try {
+          await s3ObjectDelete({
+            client: s3,
+            bucket: s3Bucket,
+            key: file.storageKey
+          });
+          deletedFileIds.push(file.id);
+        } catch (error) {
+          logger.warn("cleanup object delete failed", {
+            fileId: file.id,
+            storageKey: file.storageKey,
+            error
+          });
+        }
+      }
+
+      if (deletedFileIds.length === 0) {
+        return;
+      }
 
       await db.fileAsset.deleteMany({
         where: {
           id: {
-            in: expiredPendingFiles.map((file) => file.id)
+            in: deletedFileIds
           }
         }
       });

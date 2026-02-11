@@ -1,32 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const accessMock = vi.fn();
-const rmMock = vi.fn();
-
-vi.mock("node:fs/promises", () => ({
-  access: accessMock,
-  rm: rmMock
+vi.mock("@/modules/s3/s3ObjectDelete.js", () => ({
+  s3ObjectDelete: vi.fn().mockResolvedValue(undefined)
 }));
+
+import { s3ObjectDelete } from "@/modules/s3/s3ObjectDelete.js";
+import { fileCleanupStart } from "./fileCleanupStart.js";
 
 describe("fileCleanupStart", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    accessMock.mockReset();
-    rmMock.mockReset();
-    accessMock.mockResolvedValue(undefined);
-    rmMock.mockResolvedValue(undefined);
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    vi.restoreAllMocks();
   });
 
-  it("removes expired pending files from disk and database", async () => {
+  it("removes expired pending and deleted files from S3 and database", async () => {
     const findMany = vi.fn().mockResolvedValue([
-      { id: "f1", storageKey: "org/user/f1/file.txt" }
+      { id: "f1", storageKey: "org/user/f1/file.txt" },
+      { id: "f2", storageKey: "org/user/f2/file.txt" }
     ]);
-    const deleteMany = vi.fn().mockResolvedValue({ count: 1 });
+    const deleteMany = vi.fn().mockResolvedValue({ count: 2 });
 
     const db = {
       fileAsset: {
@@ -35,20 +31,24 @@ describe("fileCleanupStart", () => {
       }
     } as any;
 
-    const { fileCleanupStart } = await import("./fileCleanupStart.js");
-    const stop = fileCleanupStart(db, { intervalMs: 1000 });
+    const stop = fileCleanupStart(db, {} as any, "daycare", { intervalMs: 1000 });
 
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(findMany).toHaveBeenCalledTimes(1);
-    expect(accessMock).toHaveBeenCalledTimes(1);
-    expect(rmMock).toHaveBeenCalledTimes(1);
-    expect(deleteMany).toHaveBeenCalledTimes(1);
+    expect(s3ObjectDelete).toHaveBeenCalledTimes(2);
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: {
+          in: ["f1", "f2"]
+        }
+      }
+    });
 
     stop();
   });
 
-  it("skips delete when no files are expired", async () => {
+  it("skips deletes when no files are eligible", async () => {
     const findMany = vi.fn().mockResolvedValue([]);
     const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
 
@@ -59,23 +59,27 @@ describe("fileCleanupStart", () => {
       }
     } as any;
 
-    const { fileCleanupStart } = await import("./fileCleanupStart.js");
-    const stop = fileCleanupStart(db, { intervalMs: 1000 });
+    const stop = fileCleanupStart(db, {} as any, "daycare", { intervalMs: 1000 });
 
     await vi.advanceTimersByTimeAsync(1000);
 
     expect(findMany).toHaveBeenCalledTimes(1);
+    expect(s3ObjectDelete).not.toHaveBeenCalled();
     expect(deleteMany).not.toHaveBeenCalled();
-    expect(rmMock).not.toHaveBeenCalled();
 
     stop();
   });
 
-  it("skips disk delete when storage key escapes uploads root", async () => {
+  it("deletes database rows only for successfully deleted S3 objects", async () => {
     const findMany = vi.fn().mockResolvedValue([
-      { id: "f1", storageKey: "../escape.txt" }
+      { id: "f1", storageKey: "org/user/f1/file.txt" },
+      { id: "f2", storageKey: "org/user/f2/file.txt" }
     ]);
     const deleteMany = vi.fn().mockResolvedValue({ count: 1 });
+
+    vi.mocked(s3ObjectDelete)
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error("s3 down"));
 
     const db = {
       fileAsset: {
@@ -84,25 +88,29 @@ describe("fileCleanupStart", () => {
       }
     } as any;
 
-    const { fileCleanupStart } = await import("./fileCleanupStart.js");
-    const stop = fileCleanupStart(db, { intervalMs: 1000 });
+    const stop = fileCleanupStart(db, {} as any, "daycare", { intervalMs: 1000 });
 
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(accessMock).not.toHaveBeenCalled();
-    expect(rmMock).not.toHaveBeenCalled();
-    expect(deleteMany).toHaveBeenCalledTimes(1);
+    expect(s3ObjectDelete).toHaveBeenCalledTimes(2);
+    expect(deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: {
+          in: ["f1"]
+        }
+      }
+    });
 
     stop();
   });
 
-  it("ignores missing files on disk", async () => {
-    accessMock.mockRejectedValue(new Error("missing"));
-
+  it("does not delete database rows when all S3 deletions fail", async () => {
     const findMany = vi.fn().mockResolvedValue([
       { id: "f1", storageKey: "org/user/f1/file.txt" }
     ]);
-    const deleteMany = vi.fn().mockResolvedValue({ count: 1 });
+    const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
+
+    vi.mocked(s3ObjectDelete).mockRejectedValue(new Error("s3 down"));
 
     const db = {
       fileAsset: {
@@ -111,13 +119,11 @@ describe("fileCleanupStart", () => {
       }
     } as any;
 
-    const { fileCleanupStart } = await import("./fileCleanupStart.js");
-    const stop = fileCleanupStart(db, { intervalMs: 1000 });
+    const stop = fileCleanupStart(db, {} as any, "daycare", { intervalMs: 1000 });
 
     await vi.advanceTimersByTimeAsync(1000);
 
-    expect(rmMock).not.toHaveBeenCalled();
-    expect(deleteMany).toHaveBeenCalledTimes(1);
+    expect(deleteMany).not.toHaveBeenCalled();
 
     stop();
   });

@@ -36,6 +36,24 @@ export async function messageSend(
 ): Promise<MessageWithRelations> {
   await chatMembershipEnsure(context, input.channelId, input.userId);
 
+  const chat = await context.db.chat.findFirst({
+    where: {
+      id: input.channelId,
+      organizationId: input.organizationId
+    },
+    select: {
+      archivedAt: true
+    }
+  });
+
+  if (!chat) {
+    throw new ApiError(404, "NOT_FOUND", "Chat not found");
+  }
+
+  if (chat.archivedAt) {
+    throw new ApiError(403, "FORBIDDEN", "Cannot send messages to archived channels");
+  }
+
   const threadId = input.threadId ?? null;
   const usernames = mentionUsernamesExtract(input.text);
   const message = await databaseTransactionRun(context.db, async (tx) => {

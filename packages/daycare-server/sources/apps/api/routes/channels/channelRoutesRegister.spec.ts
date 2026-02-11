@@ -619,6 +619,112 @@ describe("channelRoutesRegister", () => {
     await app.close();
   });
 
+  it("archives a channel", async () => {
+    vi.mocked(authContextResolve).mockResolvedValue({
+      session: {} as any,
+      user: { id: "owner-1", organizationId: "org-1" } as any
+    });
+    vi.mocked(chatRecipientIdsResolve).mockResolvedValue(["owner-1"]);
+
+    const context = {
+      db: {
+        chat: {
+          findFirst: vi.fn().mockResolvedValue({
+            id: "chat-1",
+            organizationId: "org-1",
+            kind: "CHANNEL",
+            archivedAt: null
+          }),
+          update: vi.fn().mockResolvedValue({
+            id: "chat-1",
+            organizationId: "org-1",
+            name: "general",
+            topic: null,
+            visibility: "PUBLIC",
+            archivedAt: new Date("2026-02-10T00:10:00.000Z"),
+            createdAt: new Date("2026-02-10T00:00:00.000Z"),
+            updatedAt: new Date("2026-02-10T00:10:00.000Z")
+          })
+        },
+        chatMember: {
+          findFirst: vi.fn().mockResolvedValue({ id: "owner-member", role: "OWNER" }),
+          findMany: vi.fn().mockResolvedValue([{ userId: "owner-1" }])
+        }
+      },
+      updates: {
+        publishToUsers: vi.fn().mockResolvedValue(undefined)
+      }
+    } as unknown as ApiContext;
+
+    const app = appCreate(context);
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/org/org-1/channels/chat-1/archive",
+      headers: {
+        authorization: "Bearer token"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as any;
+    expect(payload.data.channel.archivedAt).not.toBeNull();
+
+    await app.close();
+  });
+
+  it("unarchives a channel", async () => {
+    vi.mocked(authContextResolve).mockResolvedValue({
+      session: {} as any,
+      user: { id: "owner-1", organizationId: "org-1" } as any
+    });
+    vi.mocked(chatRecipientIdsResolve).mockResolvedValue(["owner-1"]);
+
+    const context = {
+      db: {
+        chat: {
+          findFirst: vi.fn().mockResolvedValue({
+            id: "chat-1",
+            organizationId: "org-1",
+            kind: "CHANNEL",
+            archivedAt: new Date("2026-02-10T00:00:00.000Z")
+          }),
+          update: vi.fn().mockResolvedValue({
+            id: "chat-1",
+            organizationId: "org-1",
+            name: "general",
+            topic: null,
+            visibility: "PUBLIC",
+            archivedAt: null,
+            createdAt: new Date("2026-02-10T00:00:00.000Z"),
+            updatedAt: new Date("2026-02-10T00:10:00.000Z")
+          })
+        },
+        chatMember: {
+          findFirst: vi.fn().mockResolvedValue({ id: "owner-member", role: "OWNER" }),
+          findMany: vi.fn().mockResolvedValue([{ userId: "owner-1" }])
+        }
+      },
+      updates: {
+        publishToUsers: vi.fn().mockResolvedValue(undefined)
+      }
+    } as unknown as ApiContext;
+
+    const app = appCreate(context);
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/org/org-1/channels/chat-1/unarchive",
+      headers: {
+        authorization: "Bearer token"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as any;
+    expect(payload.data.channel.archivedAt).toBeNull();
+
+    await app.close();
+  });
+
   it("kicks a channel member", async () => {
     vi.mocked(authContextResolve).mockResolvedValue({
       session: {} as any,

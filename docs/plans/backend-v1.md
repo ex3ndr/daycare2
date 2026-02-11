@@ -142,18 +142,18 @@ Add ability to kick members and change roles. Currently only join/leave exist.
 
 The `archivedAt` field exists on Chat but has no endpoints.
 
-- [ ] Create `sources/apps/channels/channelArchive.ts` — set `archivedAt` timestamp (owner only), emit `channel.updated` event, prevent sending messages to archived channels
-- [ ] Create `sources/apps/channels/channelUnarchive.ts` — clear `archivedAt` (owner only), emit `channel.updated` event
-- [ ] Add new SSE event type `channel.updated` in updates service
-- [ ] Add routes:
+- [x] Create `sources/apps/channels/channelArchive.ts` — set `archivedAt` timestamp (owner only), emit `channel.updated` event, prevent sending messages to archived channels
+- [x] Create `sources/apps/channels/channelUnarchive.ts` — clear `archivedAt` (owner only), emit `channel.updated` event
+- [x] Add new SSE event type `channel.updated` in updates service
+- [x] Add routes:
   - `POST /api/org/:orgid/channels/:channelId/archive` — archive channel (requires OWNER)
   - `POST /api/org/:orgid/channels/:channelId/unarchive` — unarchive channel (requires OWNER)
-- [ ] Add guard in `messageSend.ts` — reject messages to archived channels with 403
-- [ ] Write tests for `channelArchive` (success, not owner, already archived)
-- [ ] Write tests for `channelUnarchive` (success, not archived)
-- [ ] Write test for message send rejection on archived channel
-- [ ] Write route-level tests
-- [ ] Run tests — must pass before next task
+- [x] Add guard in `messageSend.ts` — reject messages to archived channels with 403
+- [x] Write tests for `channelArchive` (success, not owner, already archived)
+- [x] Write tests for `channelUnarchive` (success, not archived)
+- [x] Write test for message send rejection on archived channel
+- [x] Write route-level tests
+- [x] Run tests — must pass before next task
 
 ### Task 7: Notification preference enforcement
 

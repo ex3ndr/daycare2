@@ -323,6 +323,9 @@ describe("messageRoutesRegister", () => {
 
     const context = {
       db: {
+        chat: {
+          findFirst: vi.fn().mockResolvedValue({ archivedAt: null })
+        },
         message: {
           findFirst: vi.fn().mockResolvedValue({ id: "thread-1", chatId: "chat-1" }),
           create: vi.fn().mockResolvedValue(created),
@@ -383,6 +386,9 @@ describe("messageRoutesRegister", () => {
 
     const context = {
       db: {
+        chat: {
+          findFirst: vi.fn().mockResolvedValue({ archivedAt: null })
+        },
         message: {
           findFirst: vi.fn().mockResolvedValue(null)
         }
@@ -404,6 +410,39 @@ describe("messageRoutesRegister", () => {
     });
 
     expect(response.statusCode).toBe(404);
+
+    await app.close();
+  });
+
+  it("rejects sending to archived channels", async () => {
+    vi.mocked(authContextResolve).mockResolvedValue({
+      session: {} as any,
+      user: { id: "user-1", organizationId: "org-1" } as any
+    });
+    vi.mocked(chatMembershipEnsure).mockResolvedValue({ id: "membership-1" } as any);
+
+    const context = {
+      db: {
+        chat: {
+          findFirst: vi.fn().mockResolvedValue({ archivedAt: new Date("2026-02-11T00:00:00.000Z") })
+        }
+      }
+    } as unknown as ApiContext;
+
+    const app = appCreate(context);
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/org/org-1/messages/send",
+      headers: {
+        authorization: "Bearer token"
+      },
+      payload: {
+        channelId: "chat-1",
+        text: "blocked"
+      }
+    });
+
+    expect(response.statusCode).toBe(403);
 
     await app.close();
   });

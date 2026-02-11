@@ -8,6 +8,8 @@ import { channelJoin } from "@/apps/channels/channelJoin.js";
 import { channelLeave } from "@/apps/channels/channelLeave.js";
 import { channelMemberKick } from "@/apps/channels/channelMemberKick.js";
 import { channelMemberRoleSet } from "@/apps/channels/channelMemberRoleSet.js";
+import { channelArchive } from "@/apps/channels/channelArchive.js";
+import { channelUnarchive } from "@/apps/channels/channelUnarchive.js";
 import { channelUpdate } from "@/apps/channels/channelUpdate.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
@@ -54,6 +56,7 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
           name: direct.name,
           topic: direct.topic,
           visibility: direct.visibility?.toLowerCase() ?? "private",
+          archivedAt: direct.archivedAt?.getTime() ?? null,
           createdAt: direct.createdAt.getTime(),
           updatedAt: direct.updatedAt.getTime()
         }
@@ -79,6 +82,7 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
           name: direct.chat.name,
           topic: direct.chat.topic,
           visibility: direct.chat.visibility?.toLowerCase() ?? "private",
+          archivedAt: direct.chat.archivedAt?.getTime() ?? null,
           createdAt: direct.chat.createdAt.getTime(),
           updatedAt: direct.chat.updatedAt.getTime()
         },
@@ -128,6 +132,7 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
         name: channel.name,
         topic: channel.topic,
         visibility: channel.visibility?.toLowerCase() ?? "public",
+        archivedAt: channel.archivedAt?.getTime() ?? null,
         createdAt: channel.createdAt.getTime(),
         updatedAt: channel.updatedAt.getTime()
       }))
@@ -155,6 +160,7 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
           name: chat.name,
           topic: chat.topic,
           visibility: chat.visibility?.toLowerCase() ?? "public",
+          archivedAt: chat.archivedAt?.getTime() ?? null,
           createdAt: chat.createdAt.getTime(),
           updatedAt: chat.updatedAt.getTime()
         }
@@ -184,6 +190,7 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
           name: channel.name,
           topic: channel.topic,
           visibility: channel.visibility?.toLowerCase() ?? "public",
+          archivedAt: channel.archivedAt?.getTime() ?? null,
           createdAt: channel.createdAt.getTime(),
           updatedAt: channel.updatedAt.getTime()
         }
@@ -273,6 +280,58 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
           avatarUrl: member.user.avatarUrl
         }
       }))
+    });
+  });
+
+  app.post("/api/org/:orgid/channels/:channelId/archive", async (request) => {
+    const params = z.object({ orgid: z.string().min(1), channelId: z.string().min(1) }).parse(request.params);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const channel = await channelArchive(context, {
+        organizationId: params.orgid,
+        channelId: params.channelId,
+        actorUserId: auth.user.id
+      });
+
+      return apiResponseOk({
+        channel: {
+          id: channel.id,
+          organizationId: channel.organizationId,
+          name: channel.name,
+          topic: channel.topic,
+          visibility: channel.visibility?.toLowerCase() ?? "public",
+          archivedAt: channel.archivedAt?.getTime() ?? null,
+          createdAt: channel.createdAt.getTime(),
+          updatedAt: channel.updatedAt.getTime()
+        }
+      });
+    });
+  });
+
+  app.post("/api/org/:orgid/channels/:channelId/unarchive", async (request) => {
+    const params = z.object({ orgid: z.string().min(1), channelId: z.string().min(1) }).parse(request.params);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const channel = await channelUnarchive(context, {
+        organizationId: params.orgid,
+        channelId: params.channelId,
+        actorUserId: auth.user.id
+      });
+
+      return apiResponseOk({
+        channel: {
+          id: channel.id,
+          organizationId: channel.organizationId,
+          name: channel.name,
+          topic: channel.topic,
+          visibility: channel.visibility?.toLowerCase() ?? "public",
+          archivedAt: channel.archivedAt?.getTime() ?? null,
+          createdAt: channel.createdAt.getTime(),
+          updatedAt: channel.updatedAt.getTime()
+        }
+      });
     });
   });
 

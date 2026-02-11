@@ -87,6 +87,7 @@
 - `channel.member.joined`
 - `user.presence`
 - `user.typing`
+- `organization.member.joined`
 - `organization.member.updated`
 - `organization.member.deactivated`
 - `organization.member.reactivated`

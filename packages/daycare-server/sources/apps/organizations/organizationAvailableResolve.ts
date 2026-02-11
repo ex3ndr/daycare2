@@ -20,7 +20,8 @@ export async function organizationAvailableResolve(
     {
       users: {
         some: {
-          accountId: input.accountId
+          accountId: input.accountId,
+          deactivatedAt: null
         }
       }
     },

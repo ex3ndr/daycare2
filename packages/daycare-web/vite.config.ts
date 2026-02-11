@@ -7,8 +7,9 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:3005",
-        changeOrigin: true
+        target: "https://daycare-api.korshakov.org",
+        changeOrigin: true,
+        secure: true
       }
     }
   },

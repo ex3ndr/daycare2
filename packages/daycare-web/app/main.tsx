@@ -7,7 +7,7 @@ import { sessionGet } from "./lib/sessionStore";
 import { sessionRestore, type SessionRestoreResult } from "./lib/sessionRestore";
 import { apiClientCreate } from "./daycare/api/apiClientCreate";
 
-const api = apiClientCreate("/api");
+const api = apiClientCreate("");
 
 function App() {
   // Start with synchronous read for instant render (avoids flash)

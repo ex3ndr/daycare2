@@ -541,13 +541,13 @@ Build every screen. After this milestone the app is fully functional for core me
 
 #### Task 12: Auth screen (`/login`)
 
-- [ ] Build `app/routes/login.tsx` using shadcn Card, Input, Button, Badge
-- [ ] Login flow: email input → `POST /api/auth/login` → store token → redirect to `/orgs`
-- [ ] Loading state (Button disabled + spinner)
-- [ ] Error display (inline error message)
-- [ ] Daycare warm aesthetic (gradient background, grain overlay, centered card)
-- [ ] **agent-browser**: navigate to `/login`, enter integration test email, submit, verify redirect to `/orgs`, screenshot login card and loading state
-- [ ] Run tests — must pass before next task
+- [x] Build `app/routes/login.tsx` using shadcn Card, Input, Button, Badge
+- [x] Login flow: email input → `POST /api/auth/login` → store token → redirect to `/orgs`
+- [x] Loading state (Button disabled + spinner)
+- [x] Error display (inline error message)
+- [x] Daycare warm aesthetic (gradient background, grain overlay, centered card)
+- [x] **agent-browser**: navigate to `/login`, enter integration test email, submit, verify redirect to `/orgs`, screenshot login card and loading state
+- [x] Run tests — must pass before next task
 
 #### Task 13: Organization picker (`/orgs`)
 

@@ -14,6 +14,8 @@ function makeMutation(name: string, input: Record<string, unknown>) {
 function createMockApi(): ApiClient {
   return {
     authLogin: vi.fn(),
+    authRequestOtp: vi.fn(),
+    authVerifyOtp: vi.fn(),
     authLogout: vi.fn(),
     meGet: vi.fn(),
     organizationAvailableList: vi.fn(),

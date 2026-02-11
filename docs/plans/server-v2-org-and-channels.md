@@ -214,14 +214,14 @@ Email-targeted invites with expiry and revocation.
 - `POST /api/org/:orgid/invites/:inviteId/revoke` — revoke invite
 
 **Checklist:**
-- [ ] Create `orgInviteCreate.ts`
-- [ ] Create `orgInviteList.ts`
-- [ ] Create `orgInviteRevoke.ts`
-- [ ] Wire routes in `orgRoutesRegister.ts`
-- [ ] Write tests for invite create (success, duplicate email, already-member, non-owner blocked)
-- [ ] Write tests for invite list (includes expired status, filters correctly)
-- [ ] Write tests for invite revoke (success, already-accepted, already-revoked, non-owner blocked)
-- [ ] Run `yarn typecheck && yarn test` — must pass
+- [x] Create `orgInviteCreate.ts`
+- [x] Create `orgInviteList.ts`
+- [x] Create `orgInviteRevoke.ts`
+- [x] Wire routes in `orgRoutesRegister.ts`
+- [x] Write tests for invite create (success, duplicate email, already-member, non-owner blocked)
+- [x] Write tests for invite list (includes expired status, filters correctly)
+- [x] Write tests for invite revoke (success, already-accepted, already-revoked, non-owner blocked)
+- [x] Run `yarn typecheck && yarn test` — must pass
 
 ### Task 5: Org domain allowlist
 

@@ -6,6 +6,9 @@ import { organizationCreate } from "@/apps/organizations/organizationCreate.js";
 import { organizationJoin } from "@/apps/organizations/organizationJoin.js";
 import { orgMemberDeactivate } from "@/apps/organizations/orgMemberDeactivate.js";
 import { orgMemberReactivate } from "@/apps/organizations/orgMemberReactivate.js";
+import { orgInviteCreate } from "@/apps/organizations/orgInviteCreate.js";
+import { orgInviteList } from "@/apps/organizations/orgInviteList.js";
+import { orgInviteRevoke } from "@/apps/organizations/orgInviteRevoke.js";
 import { userProfileUpdate } from "@/apps/users/userProfileUpdate.js";
 import { accountSessionResolve } from "@/apps/api/lib/accountSessionResolve.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
@@ -292,6 +295,78 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
         user: {
           id: user.id,
           deactivatedAt: user.deactivatedAt ? user.deactivatedAt.getTime() : null
+        }
+      });
+    });
+  });
+
+  // --- Org Invites ---
+
+  app.post("/api/org/:orgid/invites", async (request) => {
+    const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
+    const body = z.object({ email: z.string().trim().email() }).parse(request.body);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const invite = await orgInviteCreate(context, {
+        organizationId: params.orgid,
+        actorUserId: auth.user.id,
+        email: body.email
+      });
+
+      return apiResponseOk({
+        invite: {
+          id: invite.id,
+          organizationId: invite.organizationId,
+          email: invite.email,
+          expiresAt: invite.expiresAt.getTime(),
+          acceptedAt: invite.acceptedAt ? invite.acceptedAt.getTime() : null,
+          revokedAt: invite.revokedAt ? invite.revokedAt.getTime() : null,
+          createdAt: invite.createdAt.getTime()
+        }
+      });
+    });
+  });
+
+  app.get("/api/org/:orgid/invites", async (request) => {
+    const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    const invites = await orgInviteList(context, {
+      organizationId: params.orgid,
+      actorUserId: auth.user.id
+    });
+
+    return apiResponseOk({
+      invites: invites.map((invite) => ({
+        id: invite.id,
+        organizationId: invite.organizationId,
+        invitedByUserId: invite.invitedByUserId,
+        email: invite.email,
+        expired: invite.expired,
+        expiresAt: invite.expiresAt.getTime(),
+        acceptedAt: invite.acceptedAt ? invite.acceptedAt.getTime() : null,
+        revokedAt: invite.revokedAt ? invite.revokedAt.getTime() : null,
+        createdAt: invite.createdAt.getTime()
+      }))
+    });
+  });
+
+  app.post("/api/org/:orgid/invites/:inviteId/revoke", async (request) => {
+    const params = z.object({ orgid: z.string().min(1), inviteId: z.string().min(1) }).parse(request.params);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const invite = await orgInviteRevoke(context, {
+        organizationId: params.orgid,
+        actorUserId: auth.user.id,
+        inviteId: params.inviteId
+      });
+
+      return apiResponseOk({
+        invite: {
+          id: invite.id,
+          revokedAt: invite.revokedAt ? invite.revokedAt.getTime() : null
         }
       });
     });

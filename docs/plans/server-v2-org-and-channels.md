@@ -373,9 +373,9 @@ Allow owners to promote/demote members.
 - [x] Verify SSE events fire for all state changes
 
 ### Task 11: Update CLAUDE.md with new routes and events
-- [ ] Add new org management routes to CLAUDE.md
-- [ ] Add new SSE event types to CLAUDE.md
-- [ ] Add new domain management routes
+- [x] Add new org management routes to CLAUDE.md
+- [x] Add new SSE event types to CLAUDE.md
+- [x] Add new domain management routes
 
 ## Technical Details
 

@@ -33,16 +33,18 @@ export async function orgInviteCreate(
       throw new ApiError(403, "FORBIDDEN", "Only organization owners can create invites");
     }
 
-    // Check if email is already an active member of this org
+    // Check if email belongs to an existing member of this org
     const existingUser = await tx.user.findFirst({
       where: {
         organizationId: input.organizationId,
-        deactivatedAt: null,
         account: { email }
       }
     });
 
     if (existingUser) {
+      if (existingUser.deactivatedAt !== null) {
+        throw new ApiError(409, "CONFLICT", "User with this email has been deactivated. Reactivate them instead.");
+      }
       throw new ApiError(409, "CONFLICT", "User with this email is already a member of this organization");
     }
 

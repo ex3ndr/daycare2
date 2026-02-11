@@ -3,6 +3,7 @@ import { createId } from "@paralleldrive/cuid2";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
 import { ApiError } from "@/apps/api/lib/apiError.js";
 import { organizationRecipientIdsResolve } from "@/apps/api/lib/organizationRecipientIdsResolve.js";
+import { databaseTransactionRun } from "@/modules/database/databaseTransactionRun.js";
 
 type OrgDomainAddInput = {
   organizationId: string;
@@ -21,38 +22,39 @@ export async function orgDomainAdd(
     throw new ApiError(400, "VALIDATION_ERROR", "Invalid domain format");
   }
 
-  // Verify actor is an active OWNER
-  const actor = await context.db.user.findFirst({
-    where: {
-      id: input.actorUserId,
-      organizationId: input.organizationId,
-      deactivatedAt: null
-    }
-  });
-
-  if (!actor || actor.orgRole !== "OWNER") {
-    throw new ApiError(403, "FORBIDDEN", "Only organization owners can add domains");
-  }
-
-  let orgDomain: OrgDomain;
-  try {
-    orgDomain = await context.db.orgDomain.create({
-      data: {
-        id: createId(),
+  const orgDomain = await databaseTransactionRun(context.db, async (tx) => {
+    // Verify actor is an active OWNER
+    const actor = await tx.user.findFirst({
+      where: {
+        id: input.actorUserId,
         organizationId: input.organizationId,
-        createdByUserId: input.actorUserId,
-        domain
+        deactivatedAt: null
       }
     });
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      throw new ApiError(409, "CONFLICT", "Domain is already in the allowlist");
+
+    if (!actor || actor.orgRole !== "OWNER") {
+      throw new ApiError(403, "FORBIDDEN", "Only organization owners can add domains");
     }
-    throw error;
-  }
+
+    try {
+      return await tx.orgDomain.create({
+        data: {
+          id: createId(),
+          organizationId: input.organizationId,
+          createdByUserId: input.actorUserId,
+          domain
+        }
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new ApiError(409, "CONFLICT", "Domain is already in the allowlist");
+      }
+      throw error;
+    }
+  });
 
   const recipients = await organizationRecipientIdsResolve(context, input.organizationId);
   await context.updates.publishToUsers(recipients, "organization.domain.added", {

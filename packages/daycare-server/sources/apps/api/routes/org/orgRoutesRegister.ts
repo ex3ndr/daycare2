@@ -136,6 +136,8 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
           firstName: user.firstName,
           lastName: user.lastName,
           avatarUrl: user.avatarUrl,
+          orgRole: user.orgRole,
+          deactivatedAt: user.deactivatedAt?.getTime() ?? null,
           createdAt: user.createdAt.getTime(),
           updatedAt: user.updatedAt.getTime()
         }

@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: daycare
-        image: daycare-server:{version}
+        image: docker.korshakov.com/daycare-server:{version}
         ports:
         - containerPort: 3005
         env:

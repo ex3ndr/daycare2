@@ -359,10 +359,10 @@ Allow owners to promote/demote members.
 - `PATCH /api/org/:orgid/members/:userId/role` — body: `{ role: "OWNER" | "MEMBER" }`
 
 **Checklist:**
-- [ ] Create `orgMemberRoleSet.ts`
-- [ ] Wire route in `orgRoutesRegister.ts`
-- [ ] Write tests (success, self-demote blocked, non-owner blocked)
-- [ ] Run `yarn typecheck && yarn test` — must pass
+- [x] Create `orgMemberRoleSet.ts`
+- [x] Wire route in `orgRoutesRegister.ts`
+- [x] Write tests (success, self-demote blocked, non-owner blocked)
+- [x] Run `yarn typecheck && yarn test` — must pass
 
 ### Task 10: Verify acceptance criteria
 - [ ] Verify all org management requirements are implemented (create, invite, accept, domain, revoke, expire, kick, reactivate)

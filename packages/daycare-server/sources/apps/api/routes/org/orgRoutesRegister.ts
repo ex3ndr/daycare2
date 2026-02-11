@@ -12,6 +12,7 @@ import { orgInviteRevoke } from "@/apps/organizations/orgInviteRevoke.js";
 import { orgDomainAdd } from "@/apps/organizations/orgDomainAdd.js";
 import { orgDomainList } from "@/apps/organizations/orgDomainList.js";
 import { orgDomainRemove } from "@/apps/organizations/orgDomainRemove.js";
+import { orgMemberRoleSet } from "@/apps/organizations/orgMemberRoleSet.js";
 import { userProfileUpdate } from "@/apps/users/userProfileUpdate.js";
 import { accountSessionResolve } from "@/apps/api/lib/accountSessionResolve.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
@@ -437,6 +438,30 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
       });
 
       return apiResponseOk({ removed: true });
+    });
+  });
+
+  // --- Org Member Role ---
+
+  app.patch("/api/org/:orgid/members/:userId/role", async (request) => {
+    const params = z.object({ orgid: z.string().min(1), userId: z.string().min(1) }).parse(request.params);
+    const body = z.object({ role: z.enum(["OWNER", "MEMBER"]) }).parse(request.body);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const user = await orgMemberRoleSet(context, {
+        organizationId: params.orgid,
+        actorUserId: auth.user.id,
+        targetUserId: params.userId,
+        role: body.role
+      });
+
+      return apiResponseOk({
+        user: {
+          id: user.id,
+          orgRole: user.orgRole
+        }
+      });
     });
   });
 }

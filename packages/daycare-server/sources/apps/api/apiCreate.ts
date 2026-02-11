@@ -5,10 +5,13 @@ import type { ApiContext } from "./lib/apiContext.js";
 import { ApiError } from "./lib/apiError.js";
 import { apiResponseFail } from "./lib/apiResponseFail.js";
 import { routesRegister } from "./routes/_routes.js";
+import { getLogger } from "@/utils/getLogger.js";
+
+const logger = getLogger("server.api");
 
 export async function apiCreate(context: ApiContext): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: true
+    logger: false
   });
 
   await app.register(cors, {
@@ -24,7 +27,7 @@ export async function apiCreate(context: ApiContext): Promise<FastifyInstance> {
       return reply.status(400).send(apiResponseFail("VALIDATION_ERROR", error.message));
     }
 
-    app.log.error(error);
+    logger.error("unhandled api error", error);
     return reply.status(500).send(apiResponseFail("INTERNAL_ERROR", "Unexpected server error"));
   });
 

@@ -430,19 +430,19 @@ When the current user is deactivated while in the workspace, handle it gracefull
 - [x] Run `yarn typecheck` — must pass
 
 ### Task 15: Verify acceptance criteria
-- [ ] Settings page has all four tabs (General editable, Members with search, Invites with search, Domains)
-- [ ] OWNER-only actions are gated in UI
-- [ ] Orgs page shows joinable orgs with inline join form
-- [ ] Profile dropdown works (edit profile, switch org, logout)
-- [ ] Org dropdown works (settings, invite, members links)
-- [ ] Channel settings supports add-member for private channels
-- [ ] Photo viewer opens on image click with zoom and close
-- [ ] Message grouping collapses consecutive same-sender messages
-- [ ] Channel reordering works via drag-and-drop
-- [ ] Private channel creation works with visibility toggle
-- [ ] Deactivation is handled gracefully
-- [ ] Run `yarn typecheck`
-- [ ] Test all flows with agent-browser
+- [x] Settings page has all four tabs (General editable, Members with search, Invites with search, Domains)
+- [x] OWNER-only actions are gated in UI
+- [x] Orgs page shows joinable orgs with inline join form
+- [x] Profile dropdown works (edit profile, switch org, logout)
+- [x] Org dropdown works (settings, invite, members links)
+- [x] Channel settings supports add-member for private channels
+- [x] Photo viewer opens on image click with zoom and close
+- [x] Message grouping collapses consecutive same-sender messages
+- [x] Channel reordering works via drag-and-drop
+- [x] Private channel creation works with visibility toggle
+- [x] Deactivation is handled gracefully
+- [x] Run `yarn typecheck`
+- [x] Test all flows with agent-browser
 
 ---
 

@@ -505,7 +505,7 @@ Following happy-list's `context.ts` pattern — AppContext + useApp + useStorage
 
 #### Task 10: TanStack Router setup
 
-- [ ] Create route tree in `app/routes/`:
+- [x] Create route tree in `app/routes/`:
   - `__root.tsx` — root layout with SyncProvider, error boundary
   - `login.tsx` — `/login`
   - `orgs.tsx` — `/orgs`
@@ -514,13 +514,15 @@ Following happy-list's `context.ts` pattern — AppContext + useApp + useStorage
   - `_workspace.$orgSlug.c.$channelId.tsx` — channel view
   - `_workspace.$orgSlug.c.$channelId.t.$threadId.tsx` — thread panel
   - `_workspace.$orgSlug.dm.$dmId.tsx` — DM view
+  - `_workspace.$orgSlug.dm.$dmId.t.$threadId.tsx` — DM thread panel
   - `_workspace.$orgSlug.search.tsx` — search results
+  - `_workspace.$orgSlug.index.tsx` — org index placeholder
   - `index.tsx` — `/` redirect
-- [ ] Create `app/router.ts` — router instance with route tree
-- [ ] Update `app/main.tsx` — render `<RouterProvider>` instead of placeholder
-- [ ] Implement route guards: redirect `/login` if no token, `/orgs` if no org
-- [ ] Write tests for route guard logic (pure function: auth state → redirect path)
-- [ ] Run tests — must pass before next task
+- [x] Create `app/router.ts` — router instance with route tree
+- [x] Update `app/main.tsx` — render `<RouterProvider>` instead of placeholder
+- [x] Implement route guards: redirect `/login` if no token, `/orgs` if no org
+- [x] Write tests for route guard logic (pure function: auth state → redirect path)
+- [x] Run tests — must pass before next task
 
 #### Task 11: Session persistence
 

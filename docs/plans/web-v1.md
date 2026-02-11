@@ -265,7 +265,7 @@ Build the complete data layer before any views. Fully testable with Vitest.
 
 Define the @slopus/sync schema following the happy-list pattern (`defineSchema` + `type` + `object` + `field` + `localField` + `.withMutations()`).
 
-- [ ] Create `app/sync/schema.ts`:
+- [x] Create `app/sync/schema.ts`:
   ```typescript
   import { defineSchema, field, localField, mutation, object, type, InferSchema } from "@slopus/sync";
 
@@ -366,8 +366,8 @@ Define the @slopus/sync schema following the happy-list pattern (`defineSchema` 
 
   export type Schema = InferSchema<typeof schema>;
   ```
-- [ ] Write tests for each mutation (create engine → mutate → assert engine.state matches expected)
-- [ ] Run tests — must pass before next task
+- [x] Write tests for each mutation (create engine → mutate → assert engine.state matches expected)
+- [x] Run tests — must pass before next task
 
 #### Task 6: Create StorageStore (Zustand wrapper for sync engine)
 

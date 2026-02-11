@@ -6,6 +6,11 @@ export default defineConfig({
     environment: "jsdom",
     include: ["**/*.spec.ts", "**/*.spec.tsx"],
     exclude: ["node_modules", "dist"],
+    server: {
+      deps: {
+        inline: ["@slopus/sync"],
+      },
+    },
   },
   resolve: {
     alias: {

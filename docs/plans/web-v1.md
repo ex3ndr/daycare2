@@ -606,15 +606,15 @@ The main messaging view.
 
 #### Task 17: Message edit and delete UI
 
-- [ ] Add "Edit" / "Delete" to message context menu (DropdownMenu on hover)
-- [ ] Edit: inline edit mode — text becomes editable Textarea, save/cancel buttons
-- [ ] Edit uses `messageEdit` mutation (optimistic: text + editedAt update immediately)
-- [ ] Delete: confirmation Dialog, then `messageDelete` mutation (optimistic: set deletedAt)
-- [ ] Show "(edited)" indicator on edited messages
-- [ ] Show deleted messages as "[This message was deleted]" or hide
-- [ ] Only show edit/delete for own messages
-- [ ] **agent-browser**: hover a message → verify context menu appears → click Edit → verify inline textarea with old text → change text → save → verify "(edited)" label appears instantly (optimistic) → screenshot. Click Delete on another message → confirm dialog → verify message disappears → screenshot.
-- [ ] Run tests for edit/delete mutations — must pass before next task
+- [x] Add "Edit" / "Delete" to message context menu (DropdownMenu on hover)
+- [x] Edit: inline edit mode — text becomes editable Textarea, save/cancel buttons
+- [x] Edit uses `messageEdit` mutation (optimistic: text + editedAt update immediately)
+- [x] Delete: confirmation Dialog, then `messageDelete` mutation (optimistic: set deletedAt)
+- [x] Show "(edited)" indicator on edited messages
+- [x] Show deleted messages as "[This message was deleted]" or hide
+- [x] Only show edit/delete for own messages
+- [x] **agent-browser**: hover a message → verify context menu appears → click Edit → verify inline textarea with old text → change text → save → verify "(edited)" label appears instantly (optimistic) → screenshot. Click Delete on another message → confirm dialog → verify message disappears → screenshot.
+- [x] Run tests for edit/delete mutations — must pass before next task
 
 #### Task 18: Emoji reactions
 

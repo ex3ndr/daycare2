@@ -116,6 +116,22 @@ function ChannelPage() {
     [mutate],
   );
 
+  // Message edit
+  const handleEdit = useCallback(
+    (messageId: string, text: string) => {
+      mutate("messageEdit", { id: messageId, text });
+    },
+    [mutate],
+  );
+
+  // Message delete
+  const handleDelete = useCallback(
+    (messageId: string) => {
+      mutate("messageDelete", { id: messageId });
+    },
+    [mutate],
+  );
+
   // Draft change
   const handleDraftChange = useCallback(
     (text: string) => {
@@ -171,6 +187,8 @@ function ChannelPage() {
                   currentUserId={userId}
                   onThreadOpen={handleThreadOpen}
                   onReactionToggle={handleReactionToggle}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
                 />
               ))
             )}

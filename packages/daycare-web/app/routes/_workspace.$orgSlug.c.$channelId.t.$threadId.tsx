@@ -101,6 +101,22 @@ function ThreadPanel() {
     [threadComposerDraftSet, threadId],
   );
 
+  // Message edit
+  const handleEdit = useCallback(
+    (messageId: string, text: string) => {
+      mutate("messageEdit", { id: messageId, text });
+    },
+    [mutate],
+  );
+
+  // Message delete
+  const handleDelete = useCallback(
+    (messageId: string) => {
+      mutate("messageDelete", { id: messageId });
+    },
+    [mutate],
+  );
+
   // Typing signal for thread
   const emitTyping = useThrottledTyping(app, channelId);
 
@@ -151,6 +167,8 @@ function ThreadPanel() {
               <MessageRow
                 message={rootMessage}
                 currentUserId={userId}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
               />
               {/* Separator between root and replies */}
               <div className="mx-5 my-2 border-t" />
@@ -168,6 +186,8 @@ function ThreadPanel() {
               key={msg.id}
               message={msg}
               currentUserId={userId}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
             />
           ))}
           <div ref={messagesEndRef} />

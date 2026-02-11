@@ -194,21 +194,21 @@ Start clean. Delete all old UI code, install the new stack, set up tooling.
 
 Remove everything that will be rebuilt. Keep only reusable infra.
 
-- [ ] Delete `app/compontnes/` directory entirely (13 custom components with typo in name)
-- [ ] Delete `app/daycare/ui/daycareAppUse.ts` (monolithic state hook)
-- [ ] Delete `app/daycare/sync/syncEngineCreate.ts` (old sync engine)
-- [ ] Delete `app/main.tsx` (old single-component entry point)
-- [ ] Delete `app/styles.css` (custom stylesheet — will be rebuilt)
-- [ ] Verify what remains:
+- [x] Delete `app/compontnes/` directory entirely (13 custom components with typo in name)
+- [x] Delete `app/daycare/ui/daycareAppUse.ts` (monolithic state hook)
+- [x] Delete `app/daycare/sync/syncEngineCreate.ts` (old sync engine)
+- [x] Delete `app/main.tsx` (old single-component entry point)
+- [x] Delete `app/styles.css` (custom stylesheet — will be rebuilt)
+- [x] Verify what remains:
   - `app/daycare/api/apiClientCreate.ts` (keep)
   - `app/daycare/api/apiRequest.ts` (keep)
   - `app/daycare/api/sseSubscribe.ts` (keep)
   - `app/daycare/types.ts` (keep)
   - Config files (keep)
-- [ ] Create minimal `app/main.tsx` placeholder: renders `<div>Daycare</div>` so the app builds
-- [ ] Create minimal `app/styles.css` with only the CSS variable design tokens (`:root` block with `--bg`, `--accent`, `--rail`, `--sidebar`, fonts, radii) and Google Fonts import — no component classes
-- [ ] Verify `yarn typecheck` passes
-- [ ] **agent-browser**: open `http://localhost:7332`, verify placeholder renders, take screenshot
+- [x] Create minimal `app/main.tsx` placeholder: renders `<div>Daycare</div>` so the app builds
+- [x] Create minimal `app/styles.css` with only the CSS variable design tokens (`:root` block with `--bg`, `--accent`, `--rail`, `--sidebar`, fonts, radii) and Google Fonts import — no component classes
+- [x] Verify `yarn typecheck` passes
+- [x] **agent-browser**: open `http://localhost:7332`, verify placeholder renders, take screenshot
 
 #### Task 2: Install dependencies
 

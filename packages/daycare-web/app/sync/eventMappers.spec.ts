@@ -290,6 +290,27 @@ describe("mapEventToRebase", () => {
     });
   });
 
+  describe("organization.member.deactivated", () => {
+    it("returns deactivatedUserId when userId is in payload", () => {
+      const result = mapEventToRebase(
+        makeEnvelope("organization.member.deactivated", {
+          orgId: "org-1",
+          userId: "user-2",
+        }),
+      );
+      expect(result.rebase).toBeNull();
+      expect(result.deactivatedUserId).toBe("user-2");
+    });
+
+    it("returns null rebase when userId is missing", () => {
+      const result = mapEventToRebase(
+        makeEnvelope("organization.member.deactivated", { orgId: "org-1" }),
+      );
+      expect(result.rebase).toBeNull();
+      expect(result.deactivatedUserId).toBeUndefined();
+    });
+  });
+
   describe("unknown event", () => {
     it("returns null rebase for unrecognized event types", () => {
       const result = mapEventToRebase(

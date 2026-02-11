@@ -6,7 +6,7 @@ import { router } from "./router";
 import { sessionGet, sessionClear } from "./lib/sessionStore";
 import { sessionRestore, type SessionRestoreResult } from "./lib/sessionRestore";
 import { apiClientCreate } from "./daycare/api/apiClientCreate";
-import { apiRequestSetUnauthorizedHandler } from "./daycare/api/apiRequest";
+import { apiRequestSetUnauthorizedHandler, apiRequestSetDeactivatedHandler } from "./daycare/api/apiRequest";
 import { ToastContainer } from "./components/ToastContainer";
 
 const api = apiClientCreate("");
@@ -27,6 +27,18 @@ function App() {
     });
     return () => {
       apiRequestSetUnauthorizedHandler(() => {});
+    };
+  }, []);
+
+  // Wire up the global 403 deactivation handler
+  useEffect(() => {
+    apiRequestSetDeactivatedHandler(() => {
+      sessionClear();
+      setAuthState({ token: null, orgSlug: null });
+      window.location.href = "/orgs";
+    });
+    return () => {
+      apiRequestSetDeactivatedHandler(() => {});
     };
   }, []);
 

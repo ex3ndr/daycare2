@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { apiRequest, ApiError, apiRequestSetUnauthorizedHandler } from "./apiRequest";
+import { apiRequest, ApiError, apiRequestSetUnauthorizedHandler, apiRequestSetDeactivatedHandler } from "./apiRequest";
 
 describe("apiRequest", () => {
   const originalFetch = globalThis.fetch;
@@ -7,6 +7,7 @@ describe("apiRequest", () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
     apiRequestSetUnauthorizedHandler(() => {});
+    apiRequestSetDeactivatedHandler(() => {});
   });
 
   it("returns data on successful response", async () => {
@@ -110,5 +111,64 @@ describe("apiRequest", () => {
     const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(opts.headers["Content-Type"]).toBe("application/json");
     expect(opts.body).toBe('{"key":"value"}');
+  });
+
+  it("calls deactivated handler on 403 with deactivated message", async () => {
+    const handler = vi.fn();
+    apiRequestSetDeactivatedHandler(handler);
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      status: 403,
+      json: () =>
+        Promise.resolve({ ok: false, error: { message: "Account has been deactivated", code: "FORBIDDEN" } }),
+    });
+
+    try {
+      await apiRequest({ baseUrl: "http://test", path: "/api/test", token: "tok" });
+      expect.fail("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).httpStatus).toBe(403);
+    }
+
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it("does not call deactivated handler on 403 without deactivated message", async () => {
+    const handler = vi.fn();
+    apiRequestSetDeactivatedHandler(handler);
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      status: 403,
+      json: () =>
+        Promise.resolve({ ok: false, error: { message: "Forbidden", code: "FORBIDDEN" } }),
+    });
+
+    try {
+      await apiRequest({ baseUrl: "http://test", path: "/api/test", token: "tok" });
+    } catch {
+      // expected
+    }
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("does not call deactivated handler on non-403 errors", async () => {
+    const handler = vi.fn();
+    apiRequestSetDeactivatedHandler(handler);
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      status: 500,
+      json: () =>
+        Promise.resolve({ ok: false, error: { message: "Account has been deactivated", code: "INTERNAL" } }),
+    });
+
+    try {
+      await apiRequest({ baseUrl: "http://test", path: "/api/test" });
+    } catch {
+      // expected
+    }
+
+    expect(handler).not.toHaveBeenCalled();
   });
 });

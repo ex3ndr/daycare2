@@ -423,11 +423,11 @@ When the current user is deactivated while in the workspace, handle it gracefull
 - On 403 deactivation response: show error, clear org session, redirect to `/orgs`
 
 **Checklist:**
-- [ ] Add SSE event handler for `organization.member.deactivated` in event mappers
-- [ ] Check if deactivated userId matches current user → toast + redirect
-- [ ] Add global 403 deactivation error handler in API request layer
-- [ ] Show user-friendly message ("You've been removed from this organization")
-- [ ] Run `yarn typecheck` — must pass
+- [x] Add SSE event handler for `organization.member.deactivated` in event mappers
+- [x] Check if deactivated userId matches current user → toast + redirect
+- [x] Add global 403 deactivation error handler in API request layer
+- [x] Show user-friendly message ("You've been removed from this organization")
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 15: Verify acceptance criteria
 - [ ] Settings page has all four tabs (General editable, Members with search, Invites with search, Domains)

@@ -250,6 +250,7 @@ export class AppController {
   private handleBatch(updates: UpdateEnvelope[]): void {
     let needChannelSync = false;
     const channelIdsToResync = new Set<string>();
+    const currentUserId = this.engine.state.context.userId;
 
     for (const update of updates) {
       const result = mapEventToRebase(update);
@@ -258,6 +259,14 @@ export class AppController {
       }
       if (result.resyncChannels) needChannelSync = true;
       if (result.resyncMessages) channelIdsToResync.add(result.resyncMessages);
+
+      // Current user was deactivated from the org — redirect to org picker
+      if (result.deactivatedUserId && result.deactivatedUserId === currentUserId) {
+        toastAdd("You've been removed from this organization", "warning");
+        this.destroy();
+        window.location.href = "/orgs";
+        return;
+      }
     }
 
     // Track latest seqno
@@ -305,6 +314,7 @@ export class AppController {
 
       let needChannelSync = false;
       const channelIdsToResync = new Set<string>();
+      const currentUserId = this.engine.state.context.userId;
 
       for (const update of result.updates) {
         const mapped = mapEventToRebase(update);
@@ -313,6 +323,14 @@ export class AppController {
         }
         if (mapped.resyncChannels) needChannelSync = true;
         if (mapped.resyncMessages) channelIdsToResync.add(mapped.resyncMessages);
+
+        // Current user was deactivated from the org — redirect to org picker
+        if (mapped.deactivatedUserId && mapped.deactivatedUserId === currentUserId) {
+          toastAdd("You've been removed from this organization", "warning");
+          this.destroy();
+          window.location.href = "/orgs";
+          return;
+        }
       }
 
       if (result.updates.length > 0) {

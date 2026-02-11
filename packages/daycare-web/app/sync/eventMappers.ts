@@ -111,6 +111,7 @@ export type EventMapResult = {
   rebase: RebaseShape | null;
   resyncChannels?: boolean;
   resyncMessages?: string; // channelId to resync messages for
+  deactivatedUserId?: string; // userId deactivated from the org
 };
 
 function messageToRebase(msg: Message): MessageRebaseItem {
@@ -264,6 +265,12 @@ export function mapEventToRebase(update: UpdateEnvelope): EventMapResult {
           ],
         },
       };
+    }
+
+    case "organization.member.deactivated": {
+      const userId = payload.userId as string | undefined;
+      if (!userId) return { rebase: null };
+      return { rebase: null, deactivatedUserId: userId };
     }
 
     default:

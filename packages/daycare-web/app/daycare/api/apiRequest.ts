@@ -21,6 +21,7 @@ type ApiRequestArgs = {
 };
 
 let onUnauthorized: (() => void) | null = null;
+let onDeactivated: (() => void) | null = null;
 
 export function apiRequestSetUnauthorizedHandler(handler: () => void) {
   onUnauthorized = handler;
@@ -28,6 +29,14 @@ export function apiRequestSetUnauthorizedHandler(handler: () => void) {
 
 export function apiRequestFireUnauthorized() {
   onUnauthorized?.();
+}
+
+export function apiRequestSetDeactivatedHandler(handler: () => void) {
+  onDeactivated = handler;
+}
+
+export function apiRequestFireDeactivated() {
+  onDeactivated?.();
 }
 
 export async function apiRequest<T>({ baseUrl, path, method = "GET", token, body }: ApiRequestArgs): Promise<T> {
@@ -58,6 +67,10 @@ export async function apiRequest<T>({ baseUrl, path, method = "GET", token, body
   }
 
   if (!payload.ok) {
+    // Detect deactivation: 403 with message containing "deactivated"
+    if (response.status === 403 && payload.error.message.toLowerCase().includes("deactivated")) {
+      onDeactivated?.();
+    }
     throw new ApiError(payload.error.message, payload.error.code, response.status);
   }
 

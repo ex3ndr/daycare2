@@ -12,6 +12,8 @@
     "infra:up": "docker compose up -d db redis s3",
     "infra:down": "docker compose down",
     "infra:logs": "docker compose logs -f db redis s3",
+    "test:docker:live": "docker compose -p daycare-devtest -f docker-compose.devtest.yml up --build --abort-on-container-exit --exit-code-from test-runner test-runner",
+    "test:docker:live:down": "docker compose -p daycare-devtest -f docker-compose.devtest.yml down -v",
     "test": "yarn workspaces run test",
     "test:coverage": "yarn workspace daycare-server run test:coverage",
     "test:watch": "yarn workspaces run test:watch",

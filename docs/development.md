@@ -67,8 +67,25 @@ INTEGRATION=1 DATABASE_URL="postgresql://daycare:daycare@localhost:5432/daycare?
 REDIS_URL="redis://localhost:6379" yarn test
 ```
 
+Run tests inside Docker with live API checks:
+
+```bash
+yarn test:docker:live
+```
+
+This command starts:
+- `db`, `redis`, `s3`, `api`, and `test-runner` from `docker-compose.devtest.yml`
+
+The `test-runner` executes migrations, runs the full `daycare-server` test suite (including integration tests), and then runs HTTP smoke checks against the live `api` container.
+
 ## Cleanup
 
 ```bash
 yarn infra:down
+```
+
+To stop Dockerized test services:
+
+```bash
+yarn test:docker:live:down
 ```

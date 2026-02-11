@@ -1,0 +1,18 @@
+FROM node:22-alpine
+
+RUN corepack enable && apk add --no-cache curl
+
+WORKDIR /workspace
+
+COPY package.json yarn.lock ./
+COPY packages/daycare-server/package.json packages/daycare-server/
+COPY packages/daycare-server/prisma packages/daycare-server/prisma
+COPY packages/daycare-web/package.json packages/daycare-web/
+
+RUN yarn install --frozen-lockfile
+
+COPY . .
+
+ENV CI=true
+
+CMD ["sh", "-lc", "./packages/daycare-server/scripts/dockerTestRun.sh"]

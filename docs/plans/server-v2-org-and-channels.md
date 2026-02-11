@@ -337,10 +337,10 @@ Ensure all new operations emit proper SSE events and member data is consistent.
 - `GET /org/:orgid/profile` response now includes `orgRole` and `deactivatedAt`
 
 **Checklist:**
-- [ ] Verify all new service functions publish appropriate SSE events (should already be done in tasks 3-7)
-- [ ] Update `GET /org/:orgid/profile` to include `orgRole` and `deactivatedAt`
-- [ ] Document all new SSE event types in CLAUDE.md
-- [ ] Run `yarn typecheck && yarn test` — must pass
+- [x] Verify all new service functions publish appropriate SSE events (should already be done in tasks 3-7)
+- [x] Update `GET /org/:orgid/profile` to include `orgRole` and `deactivatedAt`
+- [x] Document all new SSE event types in CLAUDE.md
+- [x] Run `yarn typecheck && yarn test` — must pass
 
 ### Task 9: Org role management
 

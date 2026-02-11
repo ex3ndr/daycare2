@@ -222,6 +222,8 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
         timezone: auth.user.timezone,
         avatarUrl: auth.user.avatarUrl,
         systemPrompt: auth.user.systemPrompt,
+        orgRole: auth.user.orgRole,
+        deactivatedAt: auth.user.deactivatedAt?.getTime() ?? null,
         createdAt: auth.user.createdAt.getTime(),
         updatedAt: auth.user.updatedAt.getTime()
       }
@@ -256,6 +258,8 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
           timezone: updated.timezone,
           avatarUrl: updated.avatarUrl,
           systemPrompt: updated.systemPrompt,
+          orgRole: updated.orgRole,
+          deactivatedAt: updated.deactivatedAt?.getTime() ?? null,
           createdAt: updated.createdAt.getTime(),
           updatedAt: updated.updatedAt.getTime()
         }

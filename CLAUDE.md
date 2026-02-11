@@ -72,6 +72,10 @@
 - Notifications: `PATCH /api/org/:orgid/channels/:channelId/notifications`
 - Search: `GET /api/org/:orgid/search/messages`, `GET /api/org/:orgid/search/channels`
 - AI bots: `POST /api/org/:orgid/bots`, `GET /api/org/:orgid/bots`, `PATCH /api/org/:orgid/bots/:userId`
+- Org member management: `POST /api/org/:orgid/members/:userId/deactivate`, `POST /api/org/:orgid/members/:userId/reactivate`
+- Org invites: `POST /api/org/:orgid/invites`, `GET /api/org/:orgid/invites`, `POST /api/org/:orgid/invites/:inviteId/revoke`
+- Org domains: `POST /api/org/:orgid/domains`, `GET /api/org/:orgid/domains`, `DELETE /api/org/:orgid/domains/:domainId`
+- Channel member invite: `POST /api/org/:orgid/channels/:channelId/members`
 
 ### Added/used SSE event types
 - `message.created`
@@ -80,8 +84,15 @@
 - `member.joined`
 - `member.left`
 - `member.updated`
+- `channel.member.joined`
 - `user.presence`
 - `user.typing`
+- `organization.member.deactivated`
+- `organization.member.reactivated`
+- `organization.invite.created`
+- `organization.invite.revoked`
+- `organization.domain.added`
+- `organization.domain.removed`
 
 ## Environment
 - Core:

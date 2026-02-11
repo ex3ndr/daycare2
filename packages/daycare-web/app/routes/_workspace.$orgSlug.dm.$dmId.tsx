@@ -9,6 +9,7 @@ import { MessageRow } from "@/app/components/messages/MessageRow";
 import { Composer } from "@/app/components/messages/Composer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import { ArrowDown, Loader2 } from "lucide-react";
+import { MessageListSkeleton } from "@/app/components/skeletons/MessageListSkeleton";
 import { useThrottledTyping } from "@/app/lib/useThrottledTyping";
 import { typingTextFormat } from "@/app/lib/typingTextFormat";
 import { useFileUpload } from "@/app/lib/useFileUpload";
@@ -45,6 +46,9 @@ function DmPage() {
   // File upload
   const fileUpload = useFileUpload(app.api, app.token, app.orgId);
 
+  // Initial message loading state
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
+
   // Edit last own message (Up Arrow shortcut)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
 
@@ -65,7 +69,11 @@ function DmPage() {
 
   // Fetch messages when DM changes
   useEffect(() => {
-    app.syncMessages(dmId);
+    setMessagesLoaded(false);
+    app.syncMessages(dmId).then(
+      () => setMessagesLoaded(true),
+      () => setMessagesLoaded(true),
+    );
   }, [app, dmId]);
 
   // Sync presence for DM users
@@ -267,7 +275,9 @@ function DmPage() {
                 </div>
               )}
 
-              {messages.length === 0 ? (
+              {messages.length === 0 && !messagesLoaded ? (
+                <MessageListSkeleton />
+              ) : messages.length === 0 ? (
                 <div className="flex items-center justify-center py-12">
                   <p className="text-sm text-muted-foreground">
                     No messages yet. Start the conversation!

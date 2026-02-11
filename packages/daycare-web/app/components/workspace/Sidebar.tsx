@@ -19,6 +19,7 @@ import {
 } from "@/app/components/ui/dialog";
 import { Hash, Lock, Plus, MessageSquare, ChevronDown, ChevronRight } from "lucide-react";
 import type { ApiClient } from "@/app/daycare/api/apiClientCreate";
+import { ChannelListSkeleton } from "@/app/components/skeletons/ChannelListSkeleton";
 
 const EMPTY_CHANNEL_MAP: Record<string, never> = {};
 const EMPTY_DIRECT_MAP: Record<string, never> = {};
@@ -94,7 +95,10 @@ export function Sidebar() {
             Channels
           </button>
 
-          {channelsOpen && (
+          {channelsOpen && sortedChannels.length === 0 && (
+            <ChannelListSkeleton />
+          )}
+          {channelsOpen && sortedChannels.length > 0 && (
             <div className="mt-0.5">
               {sortedChannels.map((channel) => {
                 const unread = unreadCountForChannel(

@@ -3,9 +3,11 @@ import { createRoot } from "react-dom/client";
 import { RouterProvider } from "@tanstack/react-router";
 import "./styles.css";
 import { router } from "./router";
-import { sessionGet } from "./lib/sessionStore";
+import { sessionGet, sessionClear } from "./lib/sessionStore";
 import { sessionRestore, type SessionRestoreResult } from "./lib/sessionRestore";
 import { apiClientCreate } from "./daycare/api/apiClientCreate";
+import { apiRequestSetUnauthorizedHandler } from "./daycare/api/apiRequest";
+import { ToastContainer } from "./components/ToastContainer";
 
 const api = apiClientCreate("");
 
@@ -16,6 +18,17 @@ function App() {
     return { token: session?.token ?? null, orgSlug: session?.orgSlug ?? null };
   });
   const [ready, setReady] = useState(false);
+
+  // Wire up the global 401 handler
+  useEffect(() => {
+    apiRequestSetUnauthorizedHandler(() => {
+      sessionClear();
+      setAuthState({ token: null, orgSlug: null });
+    });
+    return () => {
+      apiRequestSetUnauthorizedHandler(() => {});
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,10 +50,13 @@ function App() {
   }
 
   return (
-    <RouterProvider
-      router={router}
-      context={{ auth: authState }}
-    />
+    <>
+      <RouterProvider
+        router={router}
+        context={{ auth: authState }}
+      />
+      <ToastContainer />
+    </>
   );
 }
 

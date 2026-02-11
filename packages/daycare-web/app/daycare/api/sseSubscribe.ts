@@ -9,13 +9,14 @@ type SseSubscribeArgs = {
   headers?: Record<string, string>;
   onEvent: (event: SseEvent) => void;
   onError?: (error: unknown) => void;
+  onEnd?: () => void;
 };
 
 type SseSubscription = {
   close: () => void;
 };
 
-export function sseSubscribe({ url, headers, onEvent, onError }: SseSubscribeArgs): SseSubscription {
+export function sseSubscribe({ url, headers, onEvent, onError, onEnd }: SseSubscribeArgs): SseSubscription {
   const controller = new AbortController();
 
   const run = async (): Promise<void> => {
@@ -53,6 +54,9 @@ export function sseSubscribe({ url, headers, onEvent, onError }: SseSubscribeArg
       while (true) {
         const { value, done } = await reader.read();
         if (done) {
+          if (!controller.signal.aborted) {
+            onEnd?.();
+          }
           break;
         }
         buffer += decoder.decode(value, { stream: true });

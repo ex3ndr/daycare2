@@ -713,12 +713,12 @@ Depends on backend presence system.
 
 #### Task 26: Error handling and loading states
 
-- [ ] Error boundary at route level (catch errors, show retry UI)
-- [ ] Loading skeletons for channel list, message list, thread panel
-- [ ] Toast notifications for send failed, connection lost, reconnected
-- [ ] SSE disconnect: "Reconnecting..." banner, auto-retry
-- [ ] 401 responses: clear session, redirect to login
-- [ ] **agent-browser**: stop the API server → verify "Reconnecting..." banner appears → restart server → verify banner disappears and messages reload → screenshot reconnection state. Navigate to a channel → verify loading skeletons show briefly before messages appear → screenshot skeleton state.
+- [x] Error boundary at route level (catch errors, show retry UI)
+- [x] Loading skeletons for channel list, message list, thread panel
+- [x] Toast notifications for send failed, connection lost, reconnected
+- [x] SSE disconnect: "Reconnecting..." banner, auto-retry
+- [x] 401 responses: clear session, redirect to login
+- [x] **agent-browser**: stop the API server → verify "Reconnecting..." banner appears → restart server → verify banner disappears and messages reload → screenshot reconnection state. Navigate to a channel → verify loading skeletons show briefly before messages appear → screenshot skeleton state.
 
 #### Task 27: Verify acceptance criteria
 

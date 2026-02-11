@@ -7,9 +7,13 @@ import { storageStoreCreate, type StorageStore } from "./storageStoreCreate";
 import { UpdateSequencer } from "./UpdateSequencer";
 import { mapEventToRebase } from "./eventMappers";
 import { mutationApply } from "./mutationApply";
+import { connectionStatusSet } from "../stores/connectionStoreContext";
+import { toastAdd } from "../stores/toastStoreContext";
 
 const STORAGE_KEY = "daycare:engine";
 const HEARTBEAT_INTERVAL_MS = 60_000;
+const SSE_RECONNECT_BASE_MS = 1_000;
+const SSE_RECONNECT_MAX_MS = 30_000;
 
 export class AppController {
   readonly engine: SyncEngine<Schema>;
@@ -23,6 +27,8 @@ export class AppController {
   private processingMutations = false;
   private destroyed = false;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private sseReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private sseReconnectAttempts = 0;
 
   private constructor(
     engine: SyncEngine<Schema>,
@@ -185,9 +191,50 @@ export class AppController {
       },
       () => {
         // SSE stream is ready — catch up from current seqno
+        if (this.sseReconnectAttempts > 0) {
+          toastAdd("Reconnected", "success");
+        }
+        this.sseReconnectAttempts = 0;
+        connectionStatusSet("connected");
         this.catchUp();
       },
+      () => {
+        // SSE disconnected — schedule reconnect
+        this.handleSSEDisconnect();
+      },
     );
+  }
+
+  private scheduleSSEReconnect(): void {
+    if (this.destroyed || this.sseReconnectTimer) return;
+
+    this.sseReconnectAttempts++;
+    const delay = Math.min(
+      SSE_RECONNECT_BASE_MS * Math.pow(2, this.sseReconnectAttempts - 1),
+      SSE_RECONNECT_MAX_MS,
+    );
+
+    connectionStatusSet("reconnecting");
+
+    this.sseReconnectTimer = setTimeout(() => {
+      this.sseReconnectTimer = null;
+      if (this.destroyed) return;
+
+      // Close old subscription
+      this.sseSubscription?.close();
+      this.sseSubscription = null;
+
+      // Restart SSE
+      this.startSSE();
+    }, delay);
+  }
+
+  /** Called externally (from sseSubscribe onError) or internally when SSE stream ends. */
+  handleSSEDisconnect(): void {
+    if (this.destroyed) return;
+    this.sseSubscription?.close();
+    this.sseSubscription = null;
+    this.scheduleSSEReconnect();
   }
 
   private handleBatch(updates: UpdateEnvelope[]): void {
@@ -437,6 +484,10 @@ export class AppController {
           );
           this.engine.commit(mutation.id);
           this.storage.getState().updateObjects();
+          toastAdd(
+            `Failed to send: ${error instanceof Error ? error.message : "unknown error"}`,
+            "error",
+          );
           break;
         }
       }
@@ -499,6 +550,10 @@ export class AppController {
     this.stopPresence();
     this.sseSubscription?.close();
     this.sseSubscription = null;
+    if (this.sseReconnectTimer) {
+      clearTimeout(this.sseReconnectTimer);
+      this.sseReconnectTimer = null;
+    }
     this.sequencer.destroy();
   }
 }

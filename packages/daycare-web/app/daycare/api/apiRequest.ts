@@ -1,5 +1,16 @@
 import type { ApiResponse } from "../types";
 
+export class ApiError extends Error {
+  code?: string;
+  httpStatus?: number;
+
+  constructor(message: string, code?: string, httpStatus?: number) {
+    super(message);
+    this.code = code;
+    this.httpStatus = httpStatus;
+  }
+}
+
 type ApiRequestArgs = {
   baseUrl: string;
   path: string;
@@ -7,6 +18,12 @@ type ApiRequestArgs = {
   token?: string | null;
   body?: unknown;
 };
+
+let onUnauthorized: (() => void) | null = null;
+
+export function apiRequestSetUnauthorizedHandler(handler: () => void) {
+  onUnauthorized = handler;
+}
 
 export async function apiRequest<T>({ baseUrl, path, method = "GET", token, body }: ApiRequestArgs): Promise<T> {
   const headers: Record<string, string> = {
@@ -23,12 +40,15 @@ export async function apiRequest<T>({ baseUrl, path, method = "GET", token, body
     body: hasBody ? JSON.stringify(body) : undefined
   });
 
+  if (response.status === 401) {
+    onUnauthorized?.();
+    throw new ApiError("Session expired", "UNAUTHORIZED", 401);
+  }
+
   const payload = (await response.json()) as ApiResponse<T>;
 
   if (!payload.ok) {
-    const error = new Error(payload.error.message);
-    (error as Error & { code?: string }).code = payload.error.code;
-    throw error;
+    throw new ApiError(payload.error.message, payload.error.code, response.status);
   }
 
   return payload.data;

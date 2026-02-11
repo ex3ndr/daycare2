@@ -8,6 +8,7 @@ import { useUiStore } from "@/app/stores/uiStoreContext";
 import { MessageRow } from "@/app/components/messages/MessageRow";
 import { Composer } from "@/app/components/messages/Composer";
 import { Hash, Lock, ArrowDown, Loader2, Settings } from "lucide-react";
+import { MessageListSkeleton } from "@/app/components/skeletons/MessageListSkeleton";
 import { Button } from "@/app/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { ChannelSettings } from "@/app/components/workspace/ChannelSettings";
@@ -50,6 +51,9 @@ function ChannelPage() {
   // Settings dialog
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // Initial message loading state
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
+
   // Edit last own message (Up Arrow shortcut)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
 
@@ -70,7 +74,11 @@ function ChannelPage() {
 
   // Fetch messages when channel changes
   useEffect(() => {
-    app.syncMessages(channelId);
+    setMessagesLoaded(false);
+    app.syncMessages(channelId).then(
+      () => setMessagesLoaded(true),
+      () => setMessagesLoaded(true),
+    );
   }, [app, channelId]);
 
   // Sync presence for message senders
@@ -287,7 +295,9 @@ function ChannelPage() {
                 </div>
               )}
 
-              {messages.length === 0 ? (
+              {messages.length === 0 && !messagesLoaded ? (
+                <MessageListSkeleton />
+              ) : messages.length === 0 ? (
                 <div className="flex items-center justify-center py-12">
                   <p className="text-sm text-muted-foreground">
                     No messages yet. Start the conversation!

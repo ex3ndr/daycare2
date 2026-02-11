@@ -159,7 +159,8 @@ export type ApiClient = {
     token: string,
     orgId: string,
     onUpdate: (update: UpdateEnvelope) => void,
-    onReady?: () => void
+    onReady?: () => void,
+    onDisconnect?: () => void,
   ) => { close: () => void };
 };
 
@@ -274,7 +275,7 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
       return request(`/api/org/${orgId}/presence?${params.toString()}`, { token });
     },
     updatesDiff: (token, orgId, input) => request(`/api/org/${orgId}/updates/diff`, { method: "POST", token, body: input }),
-    updatesStreamSubscribe: (token, orgId, onUpdate, onReady) => {
+    updatesStreamSubscribe: (token, orgId, onUpdate, onReady, onDisconnect) => {
       const subscription = sseSubscribe({
         url: `${baseUrl}/api/org/${orgId}/updates/stream`,
         headers: {
@@ -297,7 +298,13 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
           } catch {
             // Ignore malformed update payloads.
           }
-        }
+        },
+        onError: () => {
+          onDisconnect?.();
+        },
+        onEnd: () => {
+          onDisconnect?.();
+        },
       });
       return subscription;
     }

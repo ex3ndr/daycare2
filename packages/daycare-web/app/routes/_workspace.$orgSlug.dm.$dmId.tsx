@@ -117,7 +117,7 @@ function DmPage() {
       mutate("messageSend", {
         id,
         chatId: dmId,
-        text: text || " ",
+        text,
         ...(attachments.length > 0 ? { attachments } : {}),
       });
       fileUpload.clear();
@@ -241,7 +241,7 @@ function DmPage() {
 
         {/* DM header */}
         <div className="flex h-14 shrink-0 items-center gap-3 border-b bg-background px-5">
-          <Avatar size="sm" presence={otherUser ? presenceForUser({ presence: presenceState } as Parameters<typeof presenceForUser>[0], otherUser.id) : undefined}>
+          <Avatar size="sm" presence={otherUser ? presenceForUser(presenceState, otherUser.id) : undefined}>
             {otherUser?.avatarUrl && (
               <AvatarImage src={otherUser.avatarUrl} alt={displayName} />
             )}
@@ -289,7 +289,7 @@ function DmPage() {
                     key={msg.id}
                     message={msg}
                     currentUserId={userId}
-                    presence={presenceForUser({ presence: presenceState } as Parameters<typeof presenceForUser>[0], msg.senderUserId)}
+                    presence={presenceForUser(presenceState, msg.senderUserId)}
                     startInEditMode={editingMessageId === msg.id}
                     onThreadOpen={handleThreadOpen}
                     onReactionToggle={handleReactionToggle}

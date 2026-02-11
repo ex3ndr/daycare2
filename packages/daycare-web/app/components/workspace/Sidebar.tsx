@@ -161,10 +161,7 @@ export function Sidebar() {
                   : user.firstName;
                 const initials = (user.firstName[0] ?? "") + (user.lastName?.[0] ?? "");
 
-                const userPresence = presenceForUser(
-                  { presence: presenceMap } as Parameters<typeof presenceForUser>[0],
-                  user.id,
-                );
+                const userPresence = presenceForUser(presenceMap, user.id);
 
                 return (
                   <button

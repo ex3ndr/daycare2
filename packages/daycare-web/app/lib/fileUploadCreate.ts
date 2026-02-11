@@ -66,10 +66,10 @@ export function isPreviewableImage(mimeType: string | null): boolean {
 
 // Format file size for display
 export function fileSizeFormat(bytes: number | null): string {
-  if (bytes === null || bytes === 0) return "0 B";
+  if (bytes === null || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
   const k = 1024;
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), units.length - 1);
   const size = bytes / Math.pow(k, i);
   return `${size.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
@@ -118,8 +118,11 @@ export function fileUploadCreate(
       updateEntry(entry.id, { progress: 70 });
       await api.fileUpload(token, orgId, initResult.file.id, { payloadBase64 });
 
-      // Step 4: Build the file URL for the attachment
-      const fileUrl = `/api/org/${orgId}/files/${initResult.file.id}`;
+      // Step 4: Build an absolute file URL for API validation compatibility
+      const fileUrl = new URL(
+        `/api/org/${orgId}/files/${initResult.file.id}`,
+        window.location.origin,
+      ).toString();
 
       updateEntry(entry.id, {
         status: "ready",

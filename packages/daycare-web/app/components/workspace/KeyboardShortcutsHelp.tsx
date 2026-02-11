@@ -10,7 +10,7 @@ const isMac =
   typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent);
 const mod = isMac ? "\u2318" : "Ctrl";
 
-const shortcuts = [
+export const shortcuts = [
   { keys: ["Enter"], description: "Send message" },
   { keys: ["Shift", "Enter"], description: "New line" },
   { keys: [mod, "K"], description: "Open search" },

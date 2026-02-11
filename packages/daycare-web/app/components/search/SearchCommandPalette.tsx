@@ -23,6 +23,7 @@ export function SearchCommandPalette() {
   const orgSlug = useStorage((s) => s.objects.context.orgSlug);
   const searchOpen = useUiStore((s) => s.searchOpen);
   const searchToggle = useUiStore((s) => s.searchToggle);
+  const searchClose = useUiStore((s) => s.searchClose);
   const searchQuerySet = useUiStore((s) => s.searchQuerySet);
   const searchQuery = useUiStore((s) => s.searchQuery);
 
@@ -81,12 +82,12 @@ export function SearchCommandPalette() {
   const handleOpenChange = useCallback(
     (open: boolean) => {
       if (!open) {
-        searchToggle();
+        searchClose();
         setMessageResults([]);
         setChannelResults([]);
       }
     },
-    [searchToggle],
+    [searchClose],
   );
 
   const handleChannelSelect = useCallback(

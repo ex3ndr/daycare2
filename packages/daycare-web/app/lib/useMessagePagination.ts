@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AppController } from "@/app/sync/AppController";
 
-const PAGE_SIZE = 50;
-const SCROLL_TOP_THRESHOLD = 200;
-const SCROLL_BOTTOM_THRESHOLD = 100;
+export const PAGE_SIZE = 50;
+export const SCROLL_TOP_THRESHOLD = 200;
+export const SCROLL_BOTTOM_THRESHOLD = 100;
 
 export function useMessagePagination(
   app: AppController,

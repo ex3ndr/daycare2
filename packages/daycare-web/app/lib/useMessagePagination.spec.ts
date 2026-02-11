@@ -1,13 +1,5 @@
 import { describe, it, expect } from "vitest";
-
-// The useMessagePagination hook contains React hooks so we test
-// the pure logic constants and the inferred "has more" behavior.
-// The hook itself is verified via agent-browser.
-
-// These constants match what the hook uses internally.
-const PAGE_SIZE = 50;
-const SCROLL_TOP_THRESHOLD = 200;
-const SCROLL_BOTTOM_THRESHOLD = 100;
+import { PAGE_SIZE, SCROLL_TOP_THRESHOLD, SCROLL_BOTTOM_THRESHOLD } from "./useMessagePagination";
 
 describe("useMessagePagination constants", () => {
   it("PAGE_SIZE is 50", () => {
@@ -15,23 +7,17 @@ describe("useMessagePagination constants", () => {
   });
 
   it("SCROLL_TOP_THRESHOLD triggers load before reaching the top", () => {
-    // Should trigger when within 200px of top
     expect(SCROLL_TOP_THRESHOLD).toBeGreaterThan(0);
     expect(SCROLL_TOP_THRESHOLD).toBeLessThanOrEqual(300);
   });
 
   it("SCROLL_BOTTOM_THRESHOLD detects when user is near bottom", () => {
-    // Should detect when within 100px of bottom
     expect(SCROLL_BOTTOM_THRESHOLD).toBeGreaterThan(0);
     expect(SCROLL_BOTTOM_THRESHOLD).toBeLessThanOrEqual(200);
   });
 });
 
 describe("hasMore inference logic", () => {
-  // The hook infers hasMore based on fetchedCount vs PAGE_SIZE:
-  // - fetchedCount < PAGE_SIZE means no more messages
-  // - fetchedCount >= PAGE_SIZE means there might be more
-
   it("detects no more messages when fewer than PAGE_SIZE returned", () => {
     const fetchedCount = 30;
     const hasMore = fetchedCount >= PAGE_SIZE;
@@ -40,12 +26,6 @@ describe("hasMore inference logic", () => {
 
   it("detects more messages exist when PAGE_SIZE returned", () => {
     const fetchedCount = 50;
-    const hasMore = fetchedCount >= PAGE_SIZE;
-    expect(hasMore).toBe(true);
-  });
-
-  it("detects more messages when exactly PAGE_SIZE returned", () => {
-    const fetchedCount = PAGE_SIZE;
     const hasMore = fetchedCount >= PAGE_SIZE;
     expect(hasMore).toBe(true);
   });
@@ -106,7 +86,6 @@ describe("scroll position helpers", () => {
     const prevScrollHeight = 2000;
     const newScrollHeight = 3500;
     const prevScrollTop = 200;
-    // After prepending, the existing content shifts down by the delta
     const expectedScrollTop = prevScrollTop + (newScrollHeight - prevScrollHeight);
     expect(expectedScrollTop).toBe(1700);
   });

@@ -461,16 +461,11 @@ describe("selectors", () => {
 
   describe("presenceForUser", () => {
     it("returns 'offline' when no presence data exists for user", () => {
-      expect(presenceForUser(engine.state, "user-1")).toBe("offline");
+      expect(presenceForUser(engine.state.presence, "user-1")).toBe("offline");
     });
 
-    it("returns 'offline' when presence map is missing", () => {
-      const stateWithoutPresence = {
-        ...engine.state,
-        presence: undefined,
-      } as unknown as Parameters<typeof presenceForUser>[0];
-
-      expect(presenceForUser(stateWithoutPresence, "user-1")).toBe("offline");
+    it("returns 'offline' when presence map is undefined", () => {
+      expect(presenceForUser(undefined, "user-1")).toBe("offline");
     });
 
     it("returns 'online' when user is online", () => {
@@ -485,7 +480,7 @@ describe("selectors", () => {
         ],
       });
 
-      expect(presenceForUser(engine.state, "user-2")).toBe("online");
+      expect(presenceForUser(engine.state.presence, "user-2")).toBe("online");
     });
 
     it("returns 'away' when user is away", () => {
@@ -500,7 +495,7 @@ describe("selectors", () => {
         ],
       });
 
-      expect(presenceForUser(engine.state, "user-2")).toBe("away");
+      expect(presenceForUser(engine.state.presence, "user-2")).toBe("away");
     });
 
     it("returns 'offline' when user is offline", () => {
@@ -515,7 +510,7 @@ describe("selectors", () => {
         ],
       });
 
-      expect(presenceForUser(engine.state, "user-2")).toBe("offline");
+      expect(presenceForUser(engine.state.presence, "user-2")).toBe("offline");
     });
 
     it("returns correct status for different users", () => {
@@ -536,9 +531,9 @@ describe("selectors", () => {
         ],
       });
 
-      expect(presenceForUser(engine.state, "user-2")).toBe("online");
-      expect(presenceForUser(engine.state, "user-3")).toBe("away");
-      expect(presenceForUser(engine.state, "user-unknown")).toBe("offline");
+      expect(presenceForUser(engine.state.presence, "user-2")).toBe("online");
+      expect(presenceForUser(engine.state.presence, "user-3")).toBe("away");
+      expect(presenceForUser(engine.state.presence, "user-unknown")).toBe("offline");
     });
   });
 });

@@ -15,10 +15,9 @@ export type ToastStore = {
   toastDismiss: (id: string) => void;
 };
 
-let nextId = 0;
-
-export const toastStoreCreate = () =>
-  create<ToastStore>((set) => ({
+export const toastStoreCreate = () => {
+  let nextId = 0;
+  return create<ToastStore>((set) => ({
     toasts: [],
 
     toastAdd: (message, variant = "default") => {
@@ -35,3 +34,4 @@ export const toastStoreCreate = () =>
     toastDismiss: (id) =>
       set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   }));
+};

@@ -43,9 +43,9 @@ export function typingUsersForChannel(
 }
 
 export function presenceForUser(
-  state: State,
+  presenceMap: Record<string, { status: "online" | "away" | "offline" }> | undefined,
   userId: string,
 ): "online" | "away" | "offline" {
-  const p = state.presence?.[userId];
+  const p = presenceMap?.[userId];
   return p ? p.status : "offline";
 }

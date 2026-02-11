@@ -119,7 +119,7 @@ function ChannelPage() {
       mutate("messageSend", {
         id,
         chatId: channelId,
-        text: text || " ",
+        text,
         ...(attachments.length > 0 ? { attachments } : {}),
       });
       fileUpload.clear();
@@ -309,7 +309,7 @@ function ChannelPage() {
                     key={msg.id}
                     message={msg}
                     currentUserId={userId}
-                    presence={presenceForUser({ presence: presenceState } as Parameters<typeof presenceForUser>[0], msg.senderUserId)}
+                    presence={presenceForUser(presenceState, msg.senderUserId)}
                     startInEditMode={editingMessageId === msg.id}
                     onThreadOpen={handleThreadOpen}
                     onReactionToggle={handleReactionToggle}

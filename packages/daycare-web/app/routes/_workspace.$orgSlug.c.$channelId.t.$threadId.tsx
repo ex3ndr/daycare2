@@ -109,7 +109,7 @@ function ThreadPanel() {
       mutate("messageSend", {
         id,
         chatId: channelId,
-        text: text || " ",
+        text,
         threadId,
         ...(attachments.length > 0 ? { attachments } : {}),
       });
@@ -200,7 +200,7 @@ function ThreadPanel() {
               <MessageRow
                 message={rootMessage}
                 currentUserId={userId}
-                presence={presenceForUser({ presence: presenceState } as Parameters<typeof presenceForUser>[0], rootMessage.senderUserId)}
+                presence={presenceForUser(presenceState, rootMessage.senderUserId)}
                 onReactionToggle={handleReactionToggle}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
@@ -221,7 +221,7 @@ function ThreadPanel() {
               key={msg.id}
               message={msg}
               currentUserId={userId}
-              presence={presenceForUser({ presence: presenceState } as Parameters<typeof presenceForUser>[0], msg.senderUserId)}
+              presence={presenceForUser(presenceState, msg.senderUserId)}
               onReactionToggle={handleReactionToggle}
               onEdit={handleEdit}
               onDelete={handleDelete}

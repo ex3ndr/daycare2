@@ -23,6 +23,7 @@ import { Hash, Lock, Archive, ArchiveRestore, Bell, UserMinus, Shield, ChevronDo
 import type { ApiClient } from "@/app/daycare/api/apiClientCreate";
 import type { User, ChannelMember } from "@/app/daycare/types";
 import { cn } from "@/app/lib/utils";
+import { toastAdd } from "@/app/stores/toastStoreContext";
 
 type Tab = "overview" | "members";
 
@@ -148,7 +149,7 @@ export function ChannelSettings({
       onChannelUpdated?.();
       onOpenChange(false);
     } catch {
-      // Non-critical, silently ignore
+      toastAdd("Failed to archive channel", "error");
     } finally {
       setArchiveLoading(false);
     }
@@ -160,7 +161,7 @@ export function ChannelSettings({
       await api.channelUnarchive(token, orgId, channelId);
       onChannelUpdated?.();
     } catch {
-      // Non-critical
+      toastAdd("Failed to unarchive channel", "error");
     } finally {
       setArchiveLoading(false);
     }
@@ -174,7 +175,7 @@ export function ChannelSettings({
         await api.channelNotificationsUpdate(token, orgId, channelId, { setting });
         setNotifSetting(setting);
       } catch {
-        // Non-critical
+        toastAdd("Failed to update notification setting", "error");
       } finally {
         setNotifSaving(false);
       }
@@ -189,7 +190,7 @@ export function ChannelSettings({
         await api.channelMemberKick(token, orgId, channelId, userId);
         setMembers((prev) => prev.filter((m) => m.userId !== userId));
       } catch {
-        // Non-critical
+        toastAdd("Failed to remove member", "error");
       }
     },
     [api, token, orgId, channelId],
@@ -204,7 +205,7 @@ export function ChannelSettings({
           prev.map((m) => (m.userId === userId ? { ...m, role } : m)),
         );
       } catch {
-        // Non-critical
+        toastAdd("Failed to update member role", "error");
       }
     },
     [api, token, orgId, channelId],

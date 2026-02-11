@@ -21,6 +21,7 @@ export type UiStore = {
   modalOpen: (modal: ModalType) => void;
   modalClose: () => void;
   searchToggle: () => void;
+  searchClose: () => void;
   searchQuerySet: (query: string) => void;
 };
 
@@ -56,6 +57,9 @@ export const uiStoreCreate = () =>
         searchOpen: !s.searchOpen,
         searchQuery: s.searchOpen ? "" : s.searchQuery,
       })),
+
+    searchClose: () =>
+      set({ searchOpen: false, searchQuery: "" }),
 
     searchQuerySet: (query) => set({ searchQuery: query }),
   }));

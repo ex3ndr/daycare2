@@ -106,7 +106,7 @@ function DmThreadPanel() {
       mutate("messageSend", {
         id,
         chatId: dmId,
-        text: text || " ",
+        text,
         threadId,
         ...(attachments.length > 0 ? { attachments } : {}),
       });
@@ -197,7 +197,7 @@ function DmThreadPanel() {
               <MessageRow
                 message={rootMessage}
                 currentUserId={userId}
-                presence={presenceForUser({ presence: presenceState } as Parameters<typeof presenceForUser>[0], rootMessage.senderUserId)}
+                presence={presenceForUser(presenceState, rootMessage.senderUserId)}
                 onReactionToggle={handleReactionToggle}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
@@ -218,7 +218,7 @@ function DmThreadPanel() {
               key={msg.id}
               message={msg}
               currentUserId={userId}
-              presence={presenceForUser({ presence: presenceState } as Parameters<typeof presenceForUser>[0], msg.senderUserId)}
+              presence={presenceForUser(presenceState, msg.senderUserId)}
               onReactionToggle={handleReactionToggle}
               onEdit={handleEdit}
               onDelete={handleDelete}

@@ -6,6 +6,7 @@ export class ApiError extends Error {
 
   constructor(message: string, code?: string, httpStatus?: number) {
     super(message);
+    this.name = "ApiError";
     this.code = code;
     this.httpStatus = httpStatus;
   }
@@ -45,7 +46,12 @@ export async function apiRequest<T>({ baseUrl, path, method = "GET", token, body
     throw new ApiError("Session expired", "UNAUTHORIZED", 401);
   }
 
-  const payload = (await response.json()) as ApiResponse<T>;
+  let payload: ApiResponse<T>;
+  try {
+    payload = (await response.json()) as ApiResponse<T>;
+  } catch {
+    throw new ApiError(`HTTP ${response.status}`, "HTTP_ERROR", response.status);
+  }
 
   if (!payload.ok) {
     throw new ApiError(payload.error.message, payload.error.code, response.status);

@@ -10,19 +10,55 @@ export async function organizationAvailableResolve(
   context: ApiContext,
   input: OrganizationAvailableResolveInput
 ): Promise<Organization[]> {
-  const where: Prisma.OrganizationWhereInput = {
-    OR: [
-      {
-        users: {
+  // Look up account email for invite/domain matching
+  const account = await context.db.account.findUnique({
+    where: { id: input.accountId },
+    select: { email: true }
+  });
+
+  const orConditions: Prisma.OrganizationWhereInput[] = [
+    {
+      users: {
+        some: {
+          accountId: input.accountId
+        }
+      }
+    },
+    {
+      public: true
+    }
+  ];
+
+  if (account) {
+    const email = account.email.toLowerCase();
+    const emailDomain = email.split("@")[1];
+
+    // Orgs with a pending, non-expired, non-revoked invite for this email
+    orConditions.push({
+      invites: {
+        some: {
+          email,
+          acceptedAt: null,
+          revokedAt: null,
+          expiresAt: { gt: new Date() }
+        }
+      }
+    });
+
+    // Orgs with a domain allowlist entry matching this email's domain
+    if (emailDomain) {
+      orConditions.push({
+        domains: {
           some: {
-            accountId: input.accountId
+            domain: emailDomain
           }
         }
-      },
-      {
-        public: true
-      }
-    ]
+      });
+    }
+  }
+
+  const where: Prisma.OrganizationWhereInput = {
+    OR: orConditions
   };
 
   if (input.organizationId) {

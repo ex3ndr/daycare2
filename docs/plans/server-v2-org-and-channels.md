@@ -282,14 +282,14 @@ Before creating the User record:
 Also check: if user was previously deactivated (`deactivatedAt !== null`), block rejoin with 403 "Account has been deactivated, contact an admin"
 
 **Checklist:**
-- [ ] Update `organizationAvailableResolve` to include invite-matched and domain-matched orgs
-- [ ] Update `organizationJoin` to check invites, domains, and deactivation status
-- [ ] Mark accepted invites during join
-- [ ] Write tests for join via invite (success, expired invite blocked, revoked invite blocked)
-- [ ] Write tests for join via domain (success, domain not listed blocked)
-- [ ] Write tests for join blocked by deactivation
-- [ ] Write tests for `organizationAvailableResolve` with invites and domains
-- [ ] Run `yarn typecheck && yarn test` — must pass
+- [x] Update `organizationAvailableResolve` to include invite-matched and domain-matched orgs
+- [x] Update `organizationJoin` to check invites, domains, and deactivation status
+- [x] Mark accepted invites during join
+- [x] Write tests for join via invite (success, expired invite blocked, revoked invite blocked)
+- [x] Write tests for join via domain (success, domain not listed blocked)
+- [x] Write tests for join blocked by deactivation
+- [x] Write tests for `organizationAvailableResolve` with invites and domains
+- [x] Run `yarn typecheck && yarn test` — must pass
 
 ### Task 7: Channel enhancements — private channel invites
 

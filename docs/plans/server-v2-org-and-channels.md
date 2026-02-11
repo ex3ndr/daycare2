@@ -254,14 +254,14 @@ Simple domain allowlist — any authenticated user with a matching email domain 
 - `DELETE /api/org/:orgid/domains/:domainId` — remove domain
 
 **Checklist:**
-- [ ] Create `orgDomainAdd.ts`
-- [ ] Create `orgDomainList.ts`
-- [ ] Create `orgDomainRemove.ts`
-- [ ] Wire routes in `orgRoutesRegister.ts`
-- [ ] Write tests for domain add (success, duplicate, invalid format, non-owner blocked)
-- [ ] Write tests for domain list
-- [ ] Write tests for domain remove (success, not-found, non-owner blocked)
-- [ ] Run `yarn typecheck && yarn test` — must pass
+- [x] Create `orgDomainAdd.ts`
+- [x] Create `orgDomainList.ts`
+- [x] Create `orgDomainRemove.ts`
+- [x] Wire routes in `orgRoutesRegister.ts`
+- [x] Write tests for domain add (success, duplicate, invalid format, non-owner blocked)
+- [x] Write tests for domain list
+- [x] Write tests for domain remove (success, not-found, non-owner blocked)
+- [x] Run `yarn typecheck && yarn test` — must pass
 
 ### Task 6: Update org join flow — invites and domain matching
 

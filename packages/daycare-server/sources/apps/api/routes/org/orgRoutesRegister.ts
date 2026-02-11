@@ -9,6 +9,9 @@ import { orgMemberReactivate } from "@/apps/organizations/orgMemberReactivate.js
 import { orgInviteCreate } from "@/apps/organizations/orgInviteCreate.js";
 import { orgInviteList } from "@/apps/organizations/orgInviteList.js";
 import { orgInviteRevoke } from "@/apps/organizations/orgInviteRevoke.js";
+import { orgDomainAdd } from "@/apps/organizations/orgDomainAdd.js";
+import { orgDomainList } from "@/apps/organizations/orgDomainList.js";
+import { orgDomainRemove } from "@/apps/organizations/orgDomainRemove.js";
 import { userProfileUpdate } from "@/apps/users/userProfileUpdate.js";
 import { accountSessionResolve } from "@/apps/api/lib/accountSessionResolve.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
@@ -369,6 +372,67 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
           revokedAt: invite.revokedAt ? invite.revokedAt.getTime() : null
         }
       });
+    });
+  });
+
+  // --- Org Domains ---
+
+  app.post("/api/org/:orgid/domains", async (request) => {
+    const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
+    const body = z.object({ domain: z.string().trim().min(1) }).parse(request.body);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const domain = await orgDomainAdd(context, {
+        organizationId: params.orgid,
+        actorUserId: auth.user.id,
+        domain: body.domain
+      });
+
+      return apiResponseOk({
+        domain: {
+          id: domain.id,
+          organizationId: domain.organizationId,
+          domain: domain.domain,
+          createdByUserId: domain.createdByUserId,
+          createdAt: domain.createdAt.getTime()
+        }
+      });
+    });
+  });
+
+  app.get("/api/org/:orgid/domains", async (request) => {
+    const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    const domains = await orgDomainList(context, {
+      organizationId: params.orgid,
+      actorUserId: auth.user.id
+    });
+
+    return apiResponseOk({
+      domains: domains.map((domain) => ({
+        id: domain.id,
+        organizationId: domain.organizationId,
+        domain: domain.domain,
+        createdByUserId: domain.createdByUserId,
+        createdAt: domain.createdAt.getTime()
+      }))
+    });
+  });
+
+  app.delete("/api/org/:orgid/domains/:domainId", async (request) => {
+    const params = z.object({ orgid: z.string().min(1), domainId: z.string().min(1) }).parse(request.params);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      await orgDomainRemove(context, {
+        organizationId: params.orgid,
+        actorUserId: auth.user.id,
+        domainId: params.domainId
+      });
+
+      return apiResponseOk({ removed: true });
     });
   });
 }

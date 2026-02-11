@@ -73,4 +73,21 @@ describe("sessionStore", () => {
     sessionSet({ token: "new", accountId: "new_id" });
     expect(sessionGet()).toEqual({ token: "new", accountId: "new_id" });
   });
+
+  it("stores and retrieves session with orgSlug", () => {
+    sessionSet({ token: "tok_abc", accountId: "acc_123", orgSlug: "my-org" });
+    const session = sessionGet();
+    expect(session).toEqual({ token: "tok_abc", accountId: "acc_123", orgSlug: "my-org" });
+  });
+
+  it("retrieves session without orgSlug (backward compat)", () => {
+    localStorage.setItem(
+      "daycare:session",
+      JSON.stringify({ token: "tok_abc", accountId: "acc_123" }),
+    );
+    const session = sessionGet();
+    expect(session).not.toBeNull();
+    expect(session!.token).toBe("tok_abc");
+    expect(session!.orgSlug).toBeUndefined();
+  });
 });

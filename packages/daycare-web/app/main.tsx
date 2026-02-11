@@ -13,7 +13,7 @@ function App() {
   // Start with synchronous read for instant render (avoids flash)
   const [authState, setAuthState] = useState(() => {
     const session = sessionGet();
-    return { token: session?.token ?? null, orgSlug: null as string | null };
+    return { token: session?.token ?? null, orgSlug: session?.orgSlug ?? null };
   });
   const [ready, setReady] = useState(false);
 
@@ -22,7 +22,7 @@ function App() {
     sessionRestore(api).then((result: SessionRestoreResult) => {
       if (cancelled) return;
       if (result.status === "restored") {
-        setAuthState({ token: result.session.token, orgSlug: null });
+        setAuthState({ token: result.session.token, orgSlug: result.session.orgSlug ?? null });
       } else {
         // No session or expired — clear auth state
         setAuthState({ token: null, orgSlug: null });

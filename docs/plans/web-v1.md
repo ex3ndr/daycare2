@@ -551,12 +551,12 @@ Build every screen. After this milestone the app is fully functional for core me
 
 #### Task 13: Organization picker (`/orgs`)
 
-- [ ] Build `app/routes/orgs.tsx` — list orgs from `GET /api/me`, click to enter workspace
-- [ ] "Create Organization" Dialog with form fields (name, slug, firstName, username)
-- [ ] On org click: load org → start sync engine → redirect to `/:orgSlug`
-- [ ] On create: create org → start sync → redirect
-- [ ] **agent-browser**: login → arrive at `/orgs` → screenshot org list → create new org → verify redirect to workspace → screenshot
-- [ ] Run tests — must pass before next task
+- [x] Build `app/routes/orgs.tsx` — list orgs from `GET /api/me`, click to enter workspace
+- [x] "Create Organization" Dialog with form fields (name, slug, firstName, username)
+- [x] On org click: load org → start sync engine → redirect to `/:orgSlug`
+- [x] On create: create org → start sync → redirect
+- [x] **agent-browser**: login → arrive at `/orgs` → screenshot org list → create new org → verify redirect to workspace → screenshot
+- [x] Run tests — must pass before next task
 
 #### Task 14: Workspace layout (`_workspace` route)
 

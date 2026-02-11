@@ -82,14 +82,25 @@ export function ProfileEditor({
     setLoading(true);
     setError(null);
     try {
-      await app.api.profilePatch(app.token, orgId, {
+      const patchData = {
         firstName: fields.firstName.trim(),
         lastName: fields.lastName.trim() || null,
         username: fields.username.trim(),
         bio: fields.bio.trim() || null,
         timezone: fields.timezone.trim() || null,
         avatarUrl: fields.avatarUrl.trim() || null,
+      };
+      await app.api.profilePatch(app.token, orgId, patchData);
+      // Update sync context so messages/rail reflect new profile immediately
+      app.engine.rebase({
+        context: {
+          username: patchData.username,
+          firstName: patchData.firstName,
+          lastName: patchData.lastName,
+          avatarUrl: patchData.avatarUrl,
+        },
       });
+      app.storage.getState().updateObjects();
       onOpenChange(false);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to save profile";

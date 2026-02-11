@@ -4,6 +4,7 @@ import { useApp, useStorage } from "@/app/sync/AppContext";
 import { ArrowLeft, Settings, Users, Mail, Globe } from "lucide-react";
 import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { cn } from "@/app/lib/utils";
+import { toastAdd } from "@/app/stores/toastStoreContext";
 import { SettingsGeneral } from "./SettingsGeneral";
 import { SettingsMembers } from "./SettingsMembers";
 import { SettingsInvites } from "./SettingsInvites";
@@ -39,7 +40,9 @@ export function SettingsLayout({ initialTab }: { initialTab?: SettingsTab }) {
       .then(({ profile }) => {
         setOrgRole(profile.orgRole ?? "member");
       })
-      .catch(() => {})
+      .catch(() => {
+        toastAdd("Failed to load settings. Some tabs may be hidden.", "error");
+      })
       .finally(() => setLoading(false));
   }, [app]);
 

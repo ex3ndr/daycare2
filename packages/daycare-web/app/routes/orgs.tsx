@@ -247,6 +247,7 @@ function JoinableOrgCard({
       } else {
         setError(err instanceof Error ? err.message : "Failed to join organization");
       }
+    } finally {
       setLoading(false);
     }
   }

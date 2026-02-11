@@ -272,6 +272,11 @@ function RemoveConfirmDialog({
 }) {
   const [loading, setLoading] = useState(false);
 
+  // Reset loading when dialog target changes
+  useEffect(() => {
+    setLoading(false);
+  }, [domain]);
+
   async function handleConfirm() {
     if (!domain) return;
     setLoading(true);

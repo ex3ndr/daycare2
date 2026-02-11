@@ -52,6 +52,9 @@ export function SettingsGeneral({ isOwner }: SettingsGeneralProps) {
         avatarUrl: avatarUrl.trim() || null,
       });
       setOrg(organization);
+      // Update sync context so sidebar/rail reflect the new name immediately
+      app.engine.rebase({ context: { orgName: organization.name } });
+      app.storage.getState().updateObjects();
       toastAdd("Organization updated", "success");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to update organization";

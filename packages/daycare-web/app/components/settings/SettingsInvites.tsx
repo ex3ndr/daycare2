@@ -319,6 +319,11 @@ function RevokeConfirmDialog({
 }) {
   const [loading, setLoading] = useState(false);
 
+  // Reset loading when dialog target changes
+  useEffect(() => {
+    setLoading(false);
+  }, [invite]);
+
   async function handleConfirm() {
     if (!invite) return;
     setLoading(true);

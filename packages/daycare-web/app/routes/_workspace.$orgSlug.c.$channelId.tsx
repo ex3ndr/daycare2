@@ -16,6 +16,7 @@ import { typingTextFormat } from "@/app/lib/typingTextFormat";
 import { useFileUpload } from "@/app/lib/useFileUpload";
 import { useMessagePagination } from "@/app/lib/useMessagePagination";
 import { cn } from "@/app/lib/utils";
+import { lastEditableMessageFind } from "@/app/lib/lastEditableMessageFind";
 
 export const channelRoute = createRoute({
   getParentRoute: () => orgSlugRoute,
@@ -48,6 +49,20 @@ function ChannelPage() {
 
   // Settings dialog
   const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Edit last own message (Up Arrow shortcut)
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+
+  const handleEditLastMessage = useCallback(() => {
+    const id = lastEditableMessageFind(messages, userId);
+    if (id) setEditingMessageId(id);
+  }, [messages, userId]);
+
+  const handleEditModeChange = useCallback((_messageId: string, editing: boolean) => {
+    if (!editing) {
+      setEditingMessageId(null);
+    }
+  }, []);
 
   // Drag-and-drop state
   const [isDragOver, setIsDragOver] = useState(false);
@@ -285,10 +300,12 @@ function ChannelPage() {
                     message={msg}
                     currentUserId={userId}
                     presence={presenceForUser({ presence: presenceState } as Parameters<typeof presenceForUser>[0], msg.senderUserId)}
+                    startInEditMode={editingMessageId === msg.id}
                     onThreadOpen={handleThreadOpen}
                     onReactionToggle={handleReactionToggle}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
+                    onEditModeChange={handleEditModeChange}
                   />
                 ))
               )}
@@ -323,6 +340,7 @@ function ChannelPage() {
           onChange={handleDraftChange}
           onSend={handleSend}
           onTyping={emitTyping}
+          onEditLastMessage={handleEditLastMessage}
           placeholder={
             channel ? `Message #${channel.name}` : "Type a message..."
           }

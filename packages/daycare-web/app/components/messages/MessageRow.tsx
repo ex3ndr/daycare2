@@ -62,10 +62,12 @@ type MessageRowProps = {
   message: MessageData;
   currentUserId: string;
   presence?: "online" | "away" | "offline" | null;
+  startInEditMode?: boolean;
   onThreadOpen?: (messageId: string) => void;
   onReactionToggle?: (messageId: string, shortcode: string) => void;
   onEdit?: (messageId: string, text: string) => void;
   onDelete?: (messageId: string) => void;
+  onEditModeChange?: (messageId: string, editing: boolean) => void;
 };
 
 function initialsFromSender(sender: MessageData["sender"]): string {
@@ -84,10 +86,12 @@ export function MessageRow({
   message,
   currentUserId,
   presence,
+  startInEditMode,
   onThreadOpen,
   onReactionToggle,
   onEdit,
   onDelete,
+  onEditModeChange,
 }: MessageRowProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState("");
@@ -95,6 +99,13 @@ export function MessageRow({
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const isOwnMessage = message.sender.id === currentUserId;
+
+  // Trigger edit mode externally (e.g., Up Arrow shortcut)
+  useEffect(() => {
+    if (startInEditMode && !isEditing && isOwnMessage && !message.deletedAt) {
+      handleEditStart();
+    }
+  }, [startInEditMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Focus textarea when entering edit mode
   useEffect(() => {
@@ -112,7 +123,8 @@ export function MessageRow({
   const handleEditCancel = useCallback(() => {
     setIsEditing(false);
     setEditText("");
-  }, []);
+    onEditModeChange?.(message.id, false);
+  }, [onEditModeChange, message.id]);
 
   const handleEditSave = useCallback(() => {
     const trimmed = editText.trim();
@@ -121,7 +133,8 @@ export function MessageRow({
     }
     setIsEditing(false);
     setEditText("");
-  }, [editText, message.id, message.text, onEdit]);
+    onEditModeChange?.(message.id, false);
+  }, [editText, message.id, message.text, onEdit, onEditModeChange]);
 
   const handleEditKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

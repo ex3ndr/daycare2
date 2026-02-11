@@ -10,6 +10,7 @@ type ComposerProps = {
   onChange: (value: string) => void;
   onSend: (text: string) => void;
   onTyping?: () => void;
+  onEditLastMessage?: () => void;
   placeholder?: string;
   disabled?: boolean;
   // File upload props
@@ -25,6 +26,7 @@ export function Composer({
   onChange,
   onSend,
   onTyping,
+  onEditLastMessage,
   placeholder = "Type a message...",
   disabled,
   uploadEntries,
@@ -54,9 +56,12 @@ export function Composer({
       if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
+      } else if (e.key === "ArrowUp" && !value && onEditLastMessage) {
+        e.preventDefault();
+        onEditLastMessage();
       }
     },
-    [handleSend],
+    [handleSend, value, onEditLastMessage],
   );
 
   const handleChange = useCallback(

@@ -703,13 +703,13 @@ Depends on backend presence system.
 
 #### Task 25: Keyboard shortcuts
 
-- [ ] `Enter` — send message
-- [ ] `Shift+Enter` — newline
-- [ ] `Cmd+K` / `Ctrl+K` — open search
-- [ ] `Escape` — close thread/modal/search
-- [ ] `Up Arrow` (empty composer) — edit last own message
-- [ ] `Cmd+/` — keyboard shortcut help overlay
-- [ ] **agent-browser**: press Cmd+K → verify search opens → press Escape → verify it closes → press Up in empty composer → verify edit mode on last message → press Cmd+/ → verify help overlay → screenshot each
+- [x] `Enter` — send message
+- [x] `Shift+Enter` — newline
+- [x] `Cmd+K` / `Ctrl+K` — open search
+- [x] `Escape` — close thread/modal/search
+- [x] `Up Arrow` (empty composer) — edit last own message
+- [x] `Cmd+/` — keyboard shortcut help overlay
+- [x] **agent-browser**: press Cmd+K → verify search opens → press Escape → verify it closes → press Up in empty composer → verify edit mode on last message → press Cmd+/ → verify help overlay → screenshot each
 
 #### Task 26: Error handling and loading states
 

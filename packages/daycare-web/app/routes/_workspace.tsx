@@ -8,6 +8,7 @@ import { apiClientCreate } from "@/app/daycare/api/apiClientCreate";
 import { sessionGet } from "@/app/lib/sessionStore";
 import { TooltipProvider } from "@/app/components/ui/tooltip";
 import { SearchCommandPalette } from "@/app/components/search/SearchCommandPalette";
+import { KeyboardShortcutsHelp } from "@/app/components/workspace/KeyboardShortcutsHelp";
 import { Loader2 } from "lucide-react";
 
 const api = apiClientCreate("");
@@ -88,6 +89,7 @@ function WorkspaceLayout() {
           <Outlet />
         </div>
         <SearchCommandPalette />
+        <KeyboardShortcutsHelp />
       </TooltipProvider>
     </AppContext.Provider>
   );

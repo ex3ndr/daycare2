@@ -464,6 +464,15 @@ describe("selectors", () => {
       expect(presenceForUser(engine.state, "user-1")).toBe("offline");
     });
 
+    it("returns 'offline' when presence map is missing", () => {
+      const stateWithoutPresence = {
+        ...engine.state,
+        presence: undefined,
+      } as unknown as Parameters<typeof presenceForUser>[0];
+
+      expect(presenceForUser(stateWithoutPresence, "user-1")).toBe("offline");
+    });
+
     it("returns 'online' when user is online", () => {
       engine.rebase({
         presence: [

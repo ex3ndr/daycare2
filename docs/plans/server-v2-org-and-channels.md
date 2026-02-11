@@ -365,12 +365,12 @@ Allow owners to promote/demote members.
 - [x] Run `yarn typecheck && yarn test` — must pass
 
 ### Task 10: Verify acceptance criteria
-- [ ] Verify all org management requirements are implemented (create, invite, accept, domain, revoke, expire, kick, reactivate)
-- [ ] Verify channel enhancements work (private channel invite/add member)
-- [ ] Run full test suite: `yarn typecheck && yarn test`
-- [ ] Verify all new routes are registered
-- [ ] Verify deactivated users are blocked from all org API calls
-- [ ] Verify SSE events fire for all state changes
+- [x] Verify all org management requirements are implemented (create, invite, accept, domain, revoke, expire, kick, reactivate)
+- [x] Verify channel enhancements work (private channel invite/add member)
+- [x] Run full test suite: `yarn typecheck && yarn test`
+- [x] Verify all new routes are registered
+- [x] Verify deactivated users are blocked from all org API calls
+- [x] Verify SSE events fire for all state changes
 
 ### Task 11: Update CLAUDE.md with new routes and events
 - [ ] Add new org management routes to CLAUDE.md

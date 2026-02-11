@@ -229,12 +229,12 @@ Manage allowed email domains for self-join.
 - Show who added each domain
 
 **Checklist:**
-- [ ] Create `SettingsDomains.tsx`
-- [ ] Add domain form with client-side validation
-- [ ] Fetch and display domain list
-- [ ] Add remove action with confirmation (OWNER only)
-- [ ] Wire into SettingsLayout
-- [ ] Run `yarn typecheck` — must pass
+- [x] Create `SettingsDomains.tsx`
+- [x] Add domain form with client-side validation
+- [x] Fetch and display domain list
+- [x] Add remove action with confirmation (OWNER only)
+- [x] Wire into SettingsLayout
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 7: Profile dropdown menu and profile editor
 

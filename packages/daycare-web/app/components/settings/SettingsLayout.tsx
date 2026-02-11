@@ -7,6 +7,7 @@ import { cn } from "@/app/lib/utils";
 import { SettingsGeneral } from "./SettingsGeneral";
 import { SettingsMembers } from "./SettingsMembers";
 import { SettingsInvites } from "./SettingsInvites";
+import { SettingsDomains } from "./SettingsDomains";
 
 export type SettingsTab = "general" | "members" | "invites" | "domains";
 
@@ -89,20 +90,11 @@ export function SettingsLayout() {
               {tab === "general" && <SettingsGeneral isOwner={isOwner} />}
               {tab === "members" && <SettingsMembers isOwner={isOwner} />}
               {tab === "invites" && <SettingsInvites isOwner={isOwner} />}
-              {tab === "domains" && <SettingsDomainsPlaceholder />}
+              {tab === "domains" && <SettingsDomains isOwner={isOwner} />}
             </>
           )}
         </div>
       </ScrollArea>
-    </div>
-  );
-}
-
-function SettingsDomainsPlaceholder() {
-  return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">Domains</h2>
-      <p className="text-muted-foreground text-sm">Domain management coming soon.</p>
     </div>
   );
 }

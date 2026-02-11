@@ -373,7 +373,7 @@ Define the @slopus/sync schema following the happy-list pattern (`defineSchema` 
 
 Following happy-list's `storage.ts` pattern — wrap sync engine in Zustand for React reactivity.
 
-- [ ] Create `app/sync/storageStoreCreate.ts`:
+- [x] Create `app/sync/storageStoreCreate.ts`:
   ```typescript
   import { create } from 'zustand';
   import type { InferMutations, InferMutationInput, PartialLocalUpdate, SyncEngine } from '@slopus/sync';
@@ -404,8 +404,8 @@ Following happy-list's `storage.ts` pattern — wrap sync engine in Zustand for 
       },
     }));
   ```
-- [ ] Write tests for storageStoreCreate (mutate updates objects, rebaseLocal updates local fields only)
-- [ ] Run tests — must pass before next task
+- [x] Write tests for storageStoreCreate (mutate updates objects, rebaseLocal updates local fields only)
+- [x] Run tests — must pass before next task
 
 #### Task 7: Create AppController (sync orchestration)
 

@@ -58,6 +58,157 @@ function appCreate(context: ApiContext) {
 }
 
 describe("channelRoutesRegister", () => {
+  it("creates or opens a direct chat", async () => {
+    vi.mocked(authContextResolve).mockResolvedValue({
+      session: {} as any,
+      user: { id: "user-1", organizationId: "org-1" } as any
+    });
+
+    const context = {
+      db: {
+        user: {
+          findFirst: vi.fn().mockResolvedValue({ id: "user-2" })
+        },
+        chat: {
+          findUnique: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue({
+            id: "dm-1",
+            organizationId: "org-1",
+            createdByUserId: "user-1",
+            kind: "DIRECT",
+            visibility: "PRIVATE",
+            directKey: "user-1:user-2",
+            name: null,
+            topic: null,
+            createdAt: new Date("2026-02-11T00:00:00.000Z"),
+            updatedAt: new Date("2026-02-11T00:00:00.000Z"),
+            archivedAt: null
+          })
+        },
+        chatMember: {
+          findUnique: vi.fn()
+            .mockResolvedValueOnce(null)
+            .mockResolvedValueOnce(null),
+          create: vi.fn().mockResolvedValue({ id: "member-1" }),
+          update: vi.fn().mockResolvedValue({ id: "member-1" })
+        }
+      },
+      updates: {
+        publishToUsers: vi.fn().mockResolvedValue(undefined)
+      }
+    } as unknown as ApiContext;
+
+    const app = appCreate(context);
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/org/org-1/directs",
+      headers: {
+        authorization: "Bearer token"
+      },
+      payload: {
+        userId: "user-2"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as any;
+    expect(payload.data.channel.id).toBe("dm-1");
+    expect(payload.data.channel.kind).toBe("direct");
+    expect(context.updates.publishToUsers).toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it("rejects self direct chat creation", async () => {
+    vi.mocked(authContextResolve).mockResolvedValue({
+      session: {} as any,
+      user: { id: "user-1", organizationId: "org-1" } as any
+    });
+
+    const context = {
+      db: {
+        user: { findFirst: vi.fn() },
+        chat: { findUnique: vi.fn(), create: vi.fn() },
+        chatMember: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() }
+      },
+      updates: {
+        publishToUsers: vi.fn().mockResolvedValue(undefined)
+      }
+    } as unknown as ApiContext;
+
+    const app = appCreate(context);
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/org/org-1/directs",
+      headers: {
+        authorization: "Bearer token"
+      },
+      payload: {
+        userId: "user-1"
+      }
+    });
+
+    expect(response.statusCode).toBe(400);
+
+    await app.close();
+  });
+
+  it("lists direct chats for current user", async () => {
+    vi.mocked(authContextResolve).mockResolvedValue({
+      session: {} as any,
+      user: { id: "user-1", organizationId: "org-1" } as any
+    });
+
+    const context = {
+      db: {
+        chatMember: {
+          findMany: vi.fn().mockResolvedValue([{
+            chat: {
+              id: "dm-1",
+              organizationId: "org-1",
+              createdByUserId: "user-1",
+              kind: "DIRECT",
+              visibility: "PRIVATE",
+              directKey: "user-1:user-2",
+              name: null,
+              topic: null,
+              createdAt: new Date("2026-02-11T00:00:00.000Z"),
+              updatedAt: new Date("2026-02-11T00:00:00.000Z"),
+              archivedAt: null,
+              members: [{
+                user: {
+                  id: "user-2",
+                  kind: "HUMAN",
+                  username: "bob",
+                  firstName: "Bob",
+                  lastName: null,
+                  avatarUrl: null
+                }
+              }]
+            }
+          }])
+        }
+      }
+    } as unknown as ApiContext;
+
+    const app = appCreate(context);
+    const response = await app.inject({
+      method: "GET",
+      url: "/api/org/org-1/directs",
+      headers: {
+        authorization: "Bearer token"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as any;
+    expect(payload.data.directs).toHaveLength(1);
+    expect(payload.data.directs[0]?.channel.id).toBe("dm-1");
+    expect(payload.data.directs[0]?.otherUser.username).toBe("bob");
+
+    await app.close();
+  });
+
   it("lists channels", async () => {
     vi.mocked(authContextResolve).mockResolvedValue({
       session: {} as any,

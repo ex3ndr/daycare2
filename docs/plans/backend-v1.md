@@ -68,16 +68,16 @@ Complete all remaining backend features to reach a production-ready v1 of the Da
 
 DM support already has schema backing (`Chat` with `kind: DIRECT`, `directKey` field) but no API routes.
 
-- [ ] Create `sources/apps/channels/directCreate.ts` — find-or-create a DM chat between two users using `directKey` (sorted user ID pair), add both as members, emit `channel.created` update to both users
-- [ ] Create `sources/apps/channels/directList.ts` — list all DM chats for the current user (joined ChatMembers where `kind=DIRECT` and `leftAt` is null), include the other user's profile info
-- [ ] Add routes in `sources/apps/api/routes/channelRoutesRegister.ts`:
+- [x] Create `sources/apps/channels/directCreate.ts` — find-or-create a DM chat between two users using `directKey` (sorted user ID pair), add both as members, emit `channel.created` update to both users
+- [x] Create `sources/apps/channels/directList.ts` — list all DM chats for the current user (joined ChatMembers where `kind=DIRECT` and `leftAt` is null), include the other user's profile info
+- [x] Add routes in `sources/apps/api/routes/channelRoutesRegister.ts`:
   - `POST /api/org/:orgid/directs` — create/open DM (body: `{ userId: string }`)
   - `GET /api/org/:orgid/directs` — list user's DMs
-- [ ] Ensure existing message routes work for DM chats (messages are already chat-agnostic, verify thread/reaction/typing/read work for DM chats)
-- [ ] Write tests for `directCreate` (success, idempotent re-creation, self-DM rejection)
-- [ ] Write tests for `directList` (empty list, multiple DMs, excludes left DMs)
-- [ ] Write route-level tests for both DM endpoints
-- [ ] Run tests — must pass before next task
+- [x] Ensure existing message routes work for DM chats (messages are already chat-agnostic, verify thread/reaction/typing/read work for DM chats)
+- [x] Write tests for `directCreate` (success, idempotent re-creation, self-DM rejection)
+- [x] Write tests for `directList` (empty list, multiple DMs, excludes left DMs)
+- [x] Write route-level tests for both DM endpoints
+- [x] Run tests — must pass before next task
 
 ### Task 2: S3 file storage integration
 

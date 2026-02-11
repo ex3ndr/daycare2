@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
 import { channelCreate } from "@/apps/channels/channelCreate.js";
+import { directCreate } from "@/apps/channels/directCreate.js";
+import { directList } from "@/apps/channels/directList.js";
 import { channelJoin } from "@/apps/channels/channelJoin.js";
 import { channelLeave } from "@/apps/channels/channelLeave.js";
 import { channelUpdate } from "@/apps/channels/channelUpdate.js";
@@ -21,7 +23,71 @@ const channelPatchSchema = z.object({
   topic: z.string().trim().max(1024).nullable().optional()
 });
 
+const directCreateSchema = z.object({
+  userId: z.string().min(1)
+});
+
 export async function channelRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
+  app.post("/api/org/:orgid/directs", async (request) => {
+    const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
+    const body = directCreateSchema.parse(request.body);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
+      const direct = await directCreate(context, {
+        organizationId: params.orgid,
+        userId: auth.user.id,
+        peerUserId: body.userId
+      });
+
+      return apiResponseOk({
+        channel: {
+          id: direct.id,
+          organizationId: direct.organizationId,
+          kind: "direct",
+          name: direct.name,
+          topic: direct.topic,
+          visibility: direct.visibility?.toLowerCase() ?? "private",
+          createdAt: direct.createdAt.getTime(),
+          updatedAt: direct.updatedAt.getTime()
+        }
+      });
+    });
+  });
+
+  app.get("/api/org/:orgid/directs", async (request) => {
+    const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
+    const auth = await authContextResolve(request, context, params.orgid);
+
+    const directs = await directList(context, {
+      organizationId: params.orgid,
+      userId: auth.user.id
+    });
+
+    return apiResponseOk({
+      directs: directs.map((direct) => ({
+        channel: {
+          id: direct.chat.id,
+          organizationId: direct.chat.organizationId,
+          kind: "direct",
+          name: direct.chat.name,
+          topic: direct.chat.topic,
+          visibility: direct.chat.visibility?.toLowerCase() ?? "private",
+          createdAt: direct.chat.createdAt.getTime(),
+          updatedAt: direct.chat.updatedAt.getTime()
+        },
+        otherUser: {
+          id: direct.otherUser.id,
+          kind: direct.otherUser.kind.toLowerCase(),
+          username: direct.otherUser.username,
+          firstName: direct.otherUser.firstName,
+          lastName: direct.otherUser.lastName,
+          avatarUrl: direct.otherUser.avatarUrl
+        }
+      }))
+    });
+  });
+
   app.get("/api/org/:orgid/channels", async (request) => {
     const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
     const auth = await authContextResolve(request, context, params.orgid);

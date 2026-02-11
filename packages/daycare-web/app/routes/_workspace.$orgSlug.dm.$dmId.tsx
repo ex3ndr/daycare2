@@ -35,7 +35,7 @@ function DmPage() {
   );
   const mutate = useStorage((s) => s.mutate);
   const userId = useStorage((s) => s.objects.context.userId);
-  const presenceState = useStorage((s) => s.objects.presence);
+  const presenceState = useStorage(useShallow((s) => s.objects.presence));
   const typingUsers = useStorage(
     useShallow((s) => typingUsersForChannel(s.objects, dmId, userId)),
   );

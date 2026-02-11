@@ -19,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 import { ScrollArea } from "@/app/components/ui/scroll-area";
-import { Hash, Lock, Archive, ArchiveRestore, Bell, UserMinus, Shield, ChevronDown } from "lucide-react";
+import { Hash, Lock, Archive, Bell, UserMinus, Shield, ChevronDown } from "lucide-react";
 import type { ApiClient } from "@/app/daycare/api/apiClientCreate";
 import type { User, ChannelMember } from "@/app/daycare/types";
 import { cn } from "@/app/lib/utils";
@@ -154,18 +154,6 @@ export function ChannelSettings({
       setArchiveLoading(false);
     }
   }, [api, token, orgId, channelId, onChannelUpdated, onOpenChange]);
-
-  const handleUnarchive = useCallback(async () => {
-    setArchiveLoading(true);
-    try {
-      await api.channelUnarchive(token, orgId, channelId);
-      onChannelUpdated?.();
-    } catch {
-      toastAdd("Failed to unarchive channel", "error");
-    } finally {
-      setArchiveLoading(false);
-    }
-  }, [api, token, orgId, channelId, onChannelUpdated]);
 
   // Notification setting change
   const handleNotifChange = useCallback(

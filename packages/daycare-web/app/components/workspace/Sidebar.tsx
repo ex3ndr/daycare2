@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useShallow } from "zustand/react/shallow";
 import { useApp, useStorage } from "@/app/sync/AppContext";
@@ -26,14 +26,64 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
-import { Hash, Lock, Plus, MessageSquare, ChevronDown, ChevronRight, Settings, Users, Mail } from "lucide-react";
+import { Hash, Lock, Plus, MessageSquare, ChevronDown, ChevronRight, Settings, Users, Mail, GripVertical } from "lucide-react";
 import type { ApiClient } from "@/app/daycare/api/apiClientCreate";
 import { ChannelListSkeleton } from "@/app/components/skeletons/ChannelListSkeleton";
+import { channelOrderSort } from "@/app/lib/channelOrderSort";
 
 const EMPTY_CHANNEL_MAP: Record<string, never> = {};
 const EMPTY_DIRECT_MAP: Record<string, never> = {};
 const EMPTY_READ_STATE_MAP: Record<string, never> = {};
 const EMPTY_PRESENCE_MAP: Record<string, never> = {};
+
+function channelOrderKey(orgId: string): string {
+  return `daycare:channelOrder:${orgId}`;
+}
+
+function channelOrderRead(orgId: string): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(channelOrderKey(orgId)) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+
+function channelOrderWrite(orgId: string, order: string[]): void {
+  localStorage.setItem(channelOrderKey(orgId), JSON.stringify(order));
+}
+
+function useChannelOrder<T extends { id: string; name: string }>(orgId: string, channels: T[]) {
+  const [order, setOrder] = useState<string[]>(() => channelOrderRead(orgId));
+
+  // Re-read order when orgId changes
+  useEffect(() => {
+    setOrder(channelOrderRead(orgId));
+  }, [orgId]);
+
+  const sorted = useMemo(
+    () => channelOrderSort(channels, order),
+    [channels, order],
+  );
+
+  const reorder = useCallback(
+    (fromId: string, toId: string) => {
+      const currentIds = sorted.map((ch) => ch.id);
+      const fromIdx = currentIds.indexOf(fromId);
+      const toIdx = currentIds.indexOf(toId);
+      if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+
+      const next = [...currentIds];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+
+      setOrder(next);
+      channelOrderWrite(orgId, next);
+    },
+    [orgId, sorted],
+  );
+
+  return { sorted, reorder };
+}
 
 export function Sidebar() {
   const navigate = useNavigate();
@@ -77,7 +127,9 @@ export function Sidebar() {
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
   const [dmDialogOpen, setDmDialogOpen] = useState(false);
 
-  const sortedChannels = [...channels].sort((a, b) => a.name.localeCompare(b.name));
+  const { sorted: sortedChannels, reorder } = useChannelOrder(orgId, channels);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const dragItemId = useRef<string | null>(null);
 
   // Fetch presence for DM users
   const presenceSyncedRef = useRef<string>("");
@@ -177,10 +229,36 @@ export function Sidebar() {
                 return (
                   <ChannelRow
                     key={channel.id}
+                    channelId={channel.id}
                     name={channel.name}
                     visibility={channel.visibility}
                     unreadCount={unread}
                     active={activeId === channel.id}
+                    isDragOver={dragOverId === channel.id}
+                    onDragStart={() => {
+                      dragItemId.current = channel.id;
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (dragItemId.current && dragItemId.current !== channel.id) {
+                        setDragOverId(channel.id);
+                      }
+                    }}
+                    onDragLeave={() => {
+                      setDragOverId((prev) => (prev === channel.id ? null : prev));
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragItemId.current && dragItemId.current !== channel.id) {
+                        reorder(dragItemId.current, channel.id);
+                      }
+                      dragItemId.current = null;
+                      setDragOverId(null);
+                    }}
+                    onDragEnd={() => {
+                      dragItemId.current = null;
+                      setDragOverId(null);
+                    }}
                     onClick={() =>
                       navigate({
                         to: "/$orgSlug/c/$channelId",
@@ -310,39 +388,70 @@ export function Sidebar() {
 }
 
 function ChannelRow({
+  channelId,
   name,
   visibility,
   unreadCount,
   active,
+  isDragOver,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
   onClick,
 }: {
+  channelId: string;
   name: string;
   visibility: "public" | "private";
   unreadCount: number;
   active: boolean;
+  isDragOver: boolean;
+  onDragStart: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
   onClick: () => void;
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={`group flex w-full items-center gap-2 px-4 py-1.5 text-sm transition-colors ${active ? "bg-sidebar-accent text-sidebar-foreground" : "hover:bg-sidebar-accent"}`}
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", channelId);
+        onDragStart();
+      }}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      className={`group flex w-full items-center text-sm transition-colors cursor-grab active:cursor-grabbing ${active ? "bg-sidebar-accent text-sidebar-foreground" : "hover:bg-sidebar-accent"} ${isDragOver ? "border-t-2 border-sidebar-foreground/40" : "border-t-2 border-transparent"}`}
     >
-      {visibility === "private" ? (
-        <Lock className={`h-4 w-4 shrink-0 ${active ? "text-sidebar-foreground" : "text-sidebar-muted-foreground"}`} />
-      ) : (
-        <Hash className={`h-4 w-4 shrink-0 ${active ? "text-sidebar-foreground" : "text-sidebar-muted-foreground"}`} />
-      )}
-      <span
-        className={`truncate ${unreadCount > 0 || active ? "font-semibold text-sidebar-foreground" : "text-sidebar-muted-foreground group-hover:text-sidebar-foreground"}`}
+      <div className="flex items-center justify-center w-6 shrink-0 pl-1 opacity-0 group-hover:opacity-60 transition-opacity">
+        <GripVertical className="h-3 w-3 text-sidebar-muted-foreground" />
+      </div>
+      <button
+        onClick={onClick}
+        className="flex flex-1 items-center gap-2 py-1.5 pr-4 min-w-0"
       >
-        {name}
-      </span>
-      {unreadCount > 0 && (
-        <Badge variant="accent" size="sm" className="ml-auto shrink-0">
-          {unreadCount}
-        </Badge>
-      )}
-    </button>
+        {visibility === "private" ? (
+          <Lock className={`h-4 w-4 shrink-0 ${active ? "text-sidebar-foreground" : "text-sidebar-muted-foreground"}`} />
+        ) : (
+          <Hash className={`h-4 w-4 shrink-0 ${active ? "text-sidebar-foreground" : "text-sidebar-muted-foreground"}`} />
+        )}
+        <span
+          className={`truncate ${unreadCount > 0 || active ? "font-semibold text-sidebar-foreground" : "text-sidebar-muted-foreground group-hover:text-sidebar-foreground"}`}
+        >
+          {name}
+        </span>
+        {unreadCount > 0 && (
+          <Badge variant="accent" size="sm" className="ml-auto shrink-0">
+            {unreadCount}
+          </Badge>
+        )}
+      </button>
+    </div>
   );
 }
 

@@ -387,12 +387,12 @@ Allow users to reorder channels in the sidebar via drag-and-drop.
 - Or simpler: just in localStorage, read on mount
 
 **Checklist:**
-- [ ] Add drag-and-drop handlers to channel rows in Sidebar
-- [ ] Add visual drag handle + drop target indicator
-- [ ] Persist channel order to localStorage per org
-- [ ] Apply custom order when rendering (fall back to alphabetical for unordered)
-- [ ] Handle new channels appearing (append to end of custom order)
-- [ ] Run `yarn typecheck` — must pass
+- [x] Add drag-and-drop handlers to channel rows in Sidebar
+- [x] Add visual drag handle + drop target indicator
+- [x] Persist channel order to localStorage per org
+- [x] Apply custom order when rendering (fall back to alphabetical for unordered)
+- [x] Handle new channels appearing (append to end of custom order)
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 13: Create channel — visibility toggle
 

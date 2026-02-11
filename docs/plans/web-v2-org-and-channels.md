@@ -259,12 +259,12 @@ Add a user profile dropdown in the Rail and a profile editing dialog.
 - Save → `profilePatch` API call
 
 **Checklist:**
-- [ ] Create profile dropdown menu in Rail.tsx (avatar + dropdown)
-- [ ] Show user info (name, username, role) in dropdown header
-- [ ] Move "Switch org" and "Log out" into dropdown as menu items
-- [ ] Create `ProfileEditor.tsx` dialog with editable fields
-- [ ] Wire save to `profilePatch` API
-- [ ] Run `yarn typecheck` — must pass
+- [x] Create profile dropdown menu in Rail.tsx (avatar + dropdown)
+- [x] Show user info (name, username, role) in dropdown header
+- [x] Move "Switch org" and "Log out" into dropdown as menu items
+- [x] Create `ProfileEditor.tsx` dialog with editable fields
+- [x] Wire save to `profilePatch` API
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 8: Org dropdown menu in Sidebar header
 

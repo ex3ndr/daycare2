@@ -18,6 +18,7 @@ import { useFileUpload } from "@/app/lib/useFileUpload";
 import { useMessagePagination } from "@/app/lib/useMessagePagination";
 import { cn } from "@/app/lib/utils";
 import { lastEditableMessageFind } from "@/app/lib/lastEditableMessageFind";
+import { messageGroupCheck } from "@/app/lib/messageGroupCheck";
 
 export const channelRoute = createRoute({
   getParentRoute: () => orgSlugRoute,
@@ -304,13 +305,14 @@ function ChannelPage() {
                   </p>
                 </div>
               ) : (
-                messages.map((msg) => (
+                messages.map((msg, i) => (
                   <MessageRow
                     key={msg.id}
                     message={msg}
                     currentUserId={userId}
                     presence={presenceForUser(presenceState, msg.senderUserId)}
                     startInEditMode={editingMessageId === msg.id}
+                    isGroupContinuation={messageGroupCheck(messages[i - 1], msg)}
                     onThreadOpen={handleThreadOpen}
                     onReactionToggle={handleReactionToggle}
                     onEdit={handleEdit}

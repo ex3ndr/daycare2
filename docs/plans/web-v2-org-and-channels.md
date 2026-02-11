@@ -358,12 +358,12 @@ Collapse consecutive messages from the same sender within a time window.
 - In `MessageRow`: if grouped, render compact layout (indented text, no avatar, show timestamp on hover)
 
 **Checklist:**
-- [ ] Add grouping logic in channel page message loop
-- [ ] Add `isGroupContinuation` prop to `MessageRow`
-- [ ] Create compact message layout variant (no avatar/name, hover timestamp)
-- [ ] Ensure grouping resets on: different sender, >5min gap, deleted message, thread indicator
-- [ ] Apply same grouping in thread panel
-- [ ] Run `yarn typecheck` — must pass
+- [x] Add grouping logic in channel page message loop
+- [x] Add `isGroupContinuation` prop to `MessageRow`
+- [x] Create compact message layout variant (no avatar/name, hover timestamp)
+- [x] Ensure grouping resets on: different sender, >5min gap, deleted message, thread indicator
+- [x] Apply same grouping in thread panel
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 12: Channel reordering in sidebar
 

@@ -63,6 +63,7 @@ type MessageRowProps = {
   currentUserId: string;
   presence?: "online" | "away" | "offline" | null;
   startInEditMode?: boolean;
+  isGroupContinuation?: boolean;
   onThreadOpen?: (messageId: string) => void;
   onReactionToggle?: (messageId: string, shortcode: string) => void;
   onEdit?: (messageId: string, text: string) => void;
@@ -87,6 +88,7 @@ export function MessageRow({
   currentUserId,
   presence,
   startInEditMode,
+  isGroupContinuation,
   onThreadOpen,
   onReactionToggle,
   onEdit,
@@ -165,7 +167,7 @@ export function MessageRow({
 
   if (message.deletedAt) {
     return (
-      <div className="flex gap-3 px-5 py-1.5 opacity-50">
+      <div className={cn("flex gap-3 px-5 opacity-50", isGroupContinuation ? "py-0.5" : "py-1.5")}>
         <div className="w-9 shrink-0" />
         <p className="text-sm italic text-muted-foreground">
           This message was deleted
@@ -184,170 +186,207 @@ export function MessageRow({
     [onReactionToggle, message.id],
   );
 
-  return (
+  const messageContent = (
     <>
-      <div
-        className={cn(
-          "group flex gap-3 px-5 py-1.5 hover:bg-accent/30 transition-colors",
-          message.pending && "opacity-70",
-          isEditing && "bg-accent/20",
-        )}
-      >
-        <Avatar size="sm" className="mt-0.5 shrink-0" presence={presence}>
-          {sender.avatarUrl && <AvatarImage src={sender.avatarUrl} alt={displayName(sender)} />}
-          <AvatarFallback>{initialsFromSender(sender)}</AvatarFallback>
-        </Avatar>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-semibold truncate">
-              {displayName(sender)}
+      {isEditing ? (
+        <div className="mt-1">
+          <textarea
+            ref={editTextareaRef}
+            value={editText}
+            onChange={handleEditTextChange}
+            onKeyDown={handleEditKeyDown}
+            className="w-full resize-none overflow-hidden rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            rows={1}
+          />
+          <div className="mt-1 flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={handleEditCancel}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={handleEditSave}
+              disabled={!editText.trim() || editText.trim() === message.text}
+            >
+              Save
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Enter to save, Esc to cancel
             </span>
-            {sender.username && (
-              <span className="text-xs text-muted-foreground truncate">
-                @{sender.username}
-              </span>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="text-xs text-muted-foreground shrink-0 cursor-default">
-                  {timeFormat(message.createdAt)}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>
-                {new Date(message.createdAt).toLocaleString()}
-              </TooltipContent>
-            </Tooltip>
-            {message.editedAt && (
-              <span className="text-xs text-muted-foreground">(edited)</span>
-            )}
-            {message.pending && (
-              <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
-            )}
           </div>
+        </div>
+      ) : (
+        <p className="text-sm whitespace-pre-wrap break-words mt-0.5">
+          {message.text}
+        </p>
+      )}
 
-          {isEditing ? (
-            <div className="mt-1">
-              <textarea
-                ref={editTextareaRef}
-                value={editText}
-                onChange={handleEditTextChange}
-                onKeyDown={handleEditKeyDown}
-                className="w-full resize-none overflow-hidden rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                rows={1}
-              />
-              <div className="mt-1 flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={handleEditCancel}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={handleEditSave}
-                  disabled={!editText.trim() || editText.trim() === message.text}
-                >
-                  Save
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  Enter to save, Esc to cancel
-                </span>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm whitespace-pre-wrap break-words mt-0.5">
-              {message.text}
-            </p>
+      {/* Attachments */}
+      <AttachmentList attachments={message.attachments} />
+
+      {/* Reactions */}
+      {onReactionToggle && (
+        <ReactionBar
+          reactions={message.reactions}
+          currentUserId={currentUserId}
+          onToggle={handleReaction}
+        />
+      )}
+
+      {/* Thread indicator */}
+      {message.threadReplyCount > 0 && (
+        <button
+          onClick={() => onThreadOpen?.(message.id)}
+          className="mt-1 flex items-center gap-1.5 text-xs text-primary hover:underline"
+        >
+          <MessageSquare className="h-3.5 w-3.5" />
+          <span>
+            {message.threadReplyCount}{" "}
+            {message.threadReplyCount === 1 ? "reply" : "replies"}
+          </span>
+          {message.threadLastReplyAt && (
+            <span className="text-muted-foreground">
+              — last {timeFormat(message.threadLastReplyAt)}
+            </span>
           )}
+        </button>
+      )}
+    </>
+  );
 
-          {/* Attachments */}
-          <AttachmentList attachments={message.attachments} />
+  const hoverActions = (
+    <div className="flex items-start gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+      {onReactionToggle && !message.pending && (
+        <EmojiPicker onSelect={handleReaction} variant="icon" />
+      )}
 
-          {/* Reactions */}
-          {onReactionToggle && (
-            <ReactionBar
-              reactions={message.reactions}
-              currentUserId={currentUserId}
-              onToggle={handleReaction}
-            />
-          )}
-
-          {/* Thread indicator */}
-          {message.threadReplyCount > 0 && (
-            <button
-              onClick={() => onThreadOpen?.(message.id)}
-              className="mt-1 flex items-center gap-1.5 text-xs text-primary hover:underline"
+      {onThreadOpen && message.threadReplyCount === 0 && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => onThreadOpen(message.id)}
             >
               <MessageSquare className="h-3.5 w-3.5" />
-              <span>
-                {message.threadReplyCount}{" "}
-                {message.threadReplyCount === 1 ? "reply" : "replies"}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Reply in thread</TooltipContent>
+        </Tooltip>
+      )}
+
+      {showContextMenu && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-7 w-7">
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            {onEdit && (
+              <DropdownMenuItem onClick={handleEditStart}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </DropdownMenuItem>
+            )}
+            {onEdit && onDelete && <DropdownMenuSeparator />}
+            {onDelete && (
+              <DropdownMenuItem
+                onClick={() => setShowDeleteDialog(true)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      {isGroupContinuation ? (
+        <div
+          className={cn(
+            "group flex gap-3 px-5 py-0.5 hover:bg-accent/30 transition-colors",
+            message.pending && "opacity-70",
+            isEditing && "bg-accent/20",
+          )}
+        >
+          {/* Timestamp on hover, aligned with avatar column */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="w-9 shrink-0 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-default text-right leading-5 pt-0.5">
+                {new Date(message.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
               </span>
-              {message.threadLastReplyAt && (
-                <span className="text-muted-foreground">
-                  — last {timeFormat(message.threadLastReplyAt)}
+            </TooltipTrigger>
+            <TooltipContent>
+              {new Date(message.createdAt).toLocaleString()}
+            </TooltipContent>
+          </Tooltip>
+
+          <div className="min-w-0 flex-1">
+            {messageContent}
+          </div>
+
+          {hoverActions}
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "group flex gap-3 px-5 py-1.5 hover:bg-accent/30 transition-colors",
+            message.pending && "opacity-70",
+            isEditing && "bg-accent/20",
+          )}
+        >
+          <Avatar size="sm" className="mt-0.5 shrink-0" presence={presence}>
+            {sender.avatarUrl && <AvatarImage src={sender.avatarUrl} alt={displayName(sender)} />}
+            <AvatarFallback>{initialsFromSender(sender)}</AvatarFallback>
+          </Avatar>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm font-semibold truncate">
+                {displayName(sender)}
+              </span>
+              {sender.username && (
+                <span className="text-xs text-muted-foreground truncate">
+                  @{sender.username}
                 </span>
               )}
-            </button>
-          )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-xs text-muted-foreground shrink-0 cursor-default">
+                    {timeFormat(message.createdAt)}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {new Date(message.createdAt).toLocaleString()}
+                </TooltipContent>
+              </Tooltip>
+              {message.editedAt && (
+                <span className="text-xs text-muted-foreground">(edited)</span>
+              )}
+              {message.pending && (
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+              )}
+            </div>
+
+            {messageContent}
+          </div>
+
+          {hoverActions}
         </div>
-
-        {/* Hover actions */}
-        <div className="flex items-start gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          {onReactionToggle && !message.pending && (
-            <EmojiPicker onSelect={handleReaction} variant="icon" />
-          )}
-
-          {onThreadOpen && message.threadReplyCount === 0 && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => onThreadOpen(message.id)}
-                >
-                  <MessageSquare className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Reply in thread</TooltipContent>
-            </Tooltip>
-          )}
-
-          {showContextMenu && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
-                  <MoreHorizontal className="h-3.5 w-3.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                {onEdit && (
-                  <DropdownMenuItem onClick={handleEditStart}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                )}
-                {onEdit && onDelete && <DropdownMenuSeparator />}
-                {onDelete && (
-                  <DropdownMenuItem
-                    onClick={() => setShowDeleteDialog(true)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Delete confirmation dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

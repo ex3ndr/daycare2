@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/app/components/ui/too
 import { useThrottledTyping } from "@/app/lib/useThrottledTyping";
 import { typingTextFormat } from "@/app/lib/typingTextFormat";
 import { useFileUpload } from "@/app/lib/useFileUpload";
+import { messageGroupCheck } from "@/app/lib/messageGroupCheck";
 
 export const threadRoute = createRoute({
   getParentRoute: () => channelRoute,
@@ -216,12 +217,13 @@ function ThreadPanel() {
           )}
 
           {/* Thread replies */}
-          {threadMessages.map((msg) => (
+          {threadMessages.map((msg, i) => (
             <MessageRow
               key={msg.id}
               message={msg}
               currentUserId={userId}
               presence={presenceForUser(presenceState, msg.senderUserId)}
+              isGroupContinuation={messageGroupCheck(threadMessages[i - 1], msg)}
               onReactionToggle={handleReactionToggle}
               onEdit={handleEdit}
               onDelete={handleDelete}

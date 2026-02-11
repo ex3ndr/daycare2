@@ -12,7 +12,7 @@ export async function apiCreate(context: ApiContext): Promise<FastifyInstance> {
   });
 
   await app.register(cors, {
-    origin: true
+    origin: "*"
   });
 
   app.setErrorHandler((error, _request, reply) => {

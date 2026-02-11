@@ -282,6 +282,7 @@ export async function channelRoutesRegister(app: FastifyInstance, context: ApiCo
         userId: member.userId,
         role: member.role.toLowerCase(),
         joinedAt: member.joinedAt.getTime(),
+        notificationLevel: (member.notificationLevel ?? "ALL").toLowerCase(),
         user: {
           id: member.user.id,
           kind: member.user.kind.toLowerCase(),

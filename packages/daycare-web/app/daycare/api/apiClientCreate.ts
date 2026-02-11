@@ -15,7 +15,7 @@ import type {
   UpdatesDiffResult,
   User
 } from "../types";
-import { apiRequest } from "./apiRequest";
+import { apiRequest, apiRequestFireUnauthorized } from "./apiRequest";
 import { sseSubscribe } from "./sseSubscribe";
 
 export type FileAsset = {
@@ -304,6 +304,9 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
         },
         onEnd: () => {
           onDisconnect?.();
+        },
+        onUnauthorized: () => {
+          apiRequestFireUnauthorized();
         },
       });
       return subscription;

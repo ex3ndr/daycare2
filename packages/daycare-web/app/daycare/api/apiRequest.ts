@@ -26,6 +26,10 @@ export function apiRequestSetUnauthorizedHandler(handler: () => void) {
   onUnauthorized = handler;
 }
 
+export function apiRequestFireUnauthorized() {
+  onUnauthorized?.();
+}
+
 export async function apiRequest<T>({ baseUrl, path, method = "GET", token, body }: ApiRequestArgs): Promise<T> {
   const headers: Record<string, string> = {
     ...(token ? { Authorization: `Bearer ${token}` } : {})

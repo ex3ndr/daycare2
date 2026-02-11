@@ -10,13 +10,14 @@ type SseSubscribeArgs = {
   onEvent: (event: SseEvent) => void;
   onError?: (error: unknown) => void;
   onEnd?: () => void;
+  onUnauthorized?: () => void;
 };
 
 type SseSubscription = {
   close: () => void;
 };
 
-export function sseSubscribe({ url, headers, onEvent, onError, onEnd }: SseSubscribeArgs): SseSubscription {
+export function sseSubscribe({ url, headers, onEvent, onError, onEnd, onUnauthorized }: SseSubscribeArgs): SseSubscription {
   const controller = new AbortController();
 
   const run = async (): Promise<void> => {
@@ -29,6 +30,11 @@ export function sseSubscribe({ url, headers, onEvent, onError, onEnd }: SseSubsc
         },
         signal: controller.signal
       });
+
+      if (response.status === 401) {
+        onUnauthorized?.();
+        return;
+      }
 
       if (!response.ok || !response.body) {
         throw new Error(`Failed to connect to stream (${response.status})`);

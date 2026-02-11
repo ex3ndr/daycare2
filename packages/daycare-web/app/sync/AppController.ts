@@ -56,6 +56,20 @@ export class AppController {
       throw new Error("No organizations available");
     }
 
+    // Fetch user profile for display info (username, name, avatar)
+    const { profile: userProfile } = await api.profileGet(token, org.id);
+
+    const contextData = {
+      userId: profile.account.id,
+      orgId: org.id,
+      orgSlug: org.slug,
+      orgName: org.name,
+      username: userProfile.username,
+      firstName: userProfile.firstName,
+      lastName: userProfile.lastName,
+      avatarUrl: userProfile.avatarUrl,
+    };
+
     let engine: SyncEngine<Schema>;
 
     // Try restoring from localStorage
@@ -71,41 +85,25 @@ export class AppController {
           // User/org mismatch — start fresh
           engine = syncEngine(schema, {
             from: "new",
-            objects: {
-              context: {
-                userId: profile.account.id,
-                orgId: org.id,
-                orgSlug: org.slug,
-                orgName: org.name,
-              },
-            },
+            objects: { context: contextData },
           });
+        } else {
+          // Update display info in case it changed since last save
+          engine.rebase(
+            { context: { username: contextData.username, firstName: contextData.firstName, lastName: contextData.lastName, avatarUrl: contextData.avatarUrl } },
+          );
         }
       } catch {
         // Corrupt data — start fresh
         engine = syncEngine(schema, {
           from: "new",
-          objects: {
-            context: {
-              userId: profile.account.id,
-              orgId: org.id,
-              orgSlug: org.slug,
-              orgName: org.name,
-            },
-          },
+          objects: { context: contextData },
         });
       }
     } else {
       engine = syncEngine(schema, {
         from: "new",
-        objects: {
-          context: {
-            userId: profile.account.id,
-            orgId: org.id,
-            orgSlug: org.slug,
-            orgName: org.name,
-          },
-        },
+        objects: { context: contextData },
       });
     }
 
@@ -135,7 +133,19 @@ export class AppController {
     orgId: string,
     orgSlug: string,
     orgName: string,
+    userDisplay?: { username: string; firstName: string; lastName: string | null; avatarUrl: string | null },
   ): AppController {
+    const contextData = {
+      userId,
+      orgId,
+      orgSlug,
+      orgName,
+      username: userDisplay?.username ?? "",
+      firstName: userDisplay?.firstName ?? "",
+      lastName: userDisplay?.lastName ?? null,
+      avatarUrl: userDisplay?.avatarUrl ?? null,
+    };
+
     let engine: SyncEngine<Schema>;
 
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -148,19 +158,19 @@ export class AppController {
         ) {
           engine = syncEngine(schema, {
             from: "new",
-            objects: { context: { userId, orgId, orgSlug, orgName } },
+            objects: { context: contextData },
           });
         }
       } catch {
         engine = syncEngine(schema, {
           from: "new",
-          objects: { context: { userId, orgId, orgSlug, orgName } },
+          objects: { context: contextData },
         });
       }
     } else {
       engine = syncEngine(schema, {
         from: "new",
-        objects: { context: { userId, orgId, orgSlug, orgName } },
+        objects: { context: contextData },
       });
     }
 

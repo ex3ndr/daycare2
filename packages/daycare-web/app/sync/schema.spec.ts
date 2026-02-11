@@ -11,6 +11,10 @@ function createEngine() {
         orgId: "org-1",
         orgSlug: "test-org",
         orgName: "Test Org",
+        username: "testuser",
+        firstName: "Test",
+        lastName: "User",
+        avatarUrl: null,
       },
     },
   });

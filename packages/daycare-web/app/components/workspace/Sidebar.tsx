@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useShallow } from "zustand/react/shallow";
 import { useApp, useStorage } from "@/app/sync/AppContext";
 import { unreadCountForChannel, presenceForUser } from "@/app/sync/selectors";
@@ -39,6 +39,17 @@ export function Sidebar() {
   const presenceMap = useStorage(useShallow((s) => s.objects.presence ?? EMPTY_PRESENCE_MAP));
   const mutate = useStorage((s) => s.mutate);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
+
+  // Extract active channel/DM from current route
+  const location = useRouterState({ select: (s) => s.location });
+  const activeId = useMemo(() => {
+    const path = location.pathname;
+    const channelMatch = path.match(/\/c\/([^/]+)/);
+    if (channelMatch) return channelMatch[1];
+    const dmMatch = path.match(/\/dm\/([^/]+)/);
+    if (dmMatch) return dmMatch[1];
+    return null;
+  }, [location.pathname]);
 
   const channels = useMemo(
     () => Object.values(channelMap).filter((ch) => ch.organizationId === orgId),
@@ -113,6 +124,7 @@ export function Sidebar() {
                     name={channel.name}
                     visibility={channel.visibility}
                     unreadCount={unread}
+                    active={activeId === channel.id}
                     onClick={() =>
                       navigate({
                         to: "/$orgSlug/c/$channelId",
@@ -164,6 +176,7 @@ export function Sidebar() {
 
                 const userPresence = presenceForUser(presenceMap, user.id);
 
+                const isActive = activeId === dm.id;
                 return (
                   <button
                     key={dm.id}
@@ -173,14 +186,14 @@ export function Sidebar() {
                         params: { orgSlug, dmId: dm.id },
                       })
                     }
-                    className="group flex w-full items-center gap-2 px-4 py-1.5 text-sm hover:bg-sidebar-accent transition-colors"
+                    className={`group flex w-full items-center gap-2 px-4 py-1.5 text-sm transition-colors ${isActive ? "bg-sidebar-accent text-sidebar-foreground" : "hover:bg-sidebar-accent"}`}
                   >
                     <Avatar size="xs" presence={userPresence}>
                       {user.avatarUrl && <AvatarImage src={user.avatarUrl} alt={displayName} />}
                       <AvatarFallback className="text-[8px]">{initials}</AvatarFallback>
                     </Avatar>
                     <span
-                      className={`truncate ${unread > 0 ? "font-semibold text-sidebar-foreground" : "text-sidebar-muted-foreground group-hover:text-sidebar-foreground"}`}
+                      className={`truncate ${unread > 0 || isActive ? "font-semibold text-sidebar-foreground" : "text-sidebar-muted-foreground group-hover:text-sidebar-foreground"}`}
                     >
                       {displayName}
                     </span>
@@ -244,25 +257,27 @@ function ChannelRow({
   name,
   visibility,
   unreadCount,
+  active,
   onClick,
 }: {
   name: string;
   visibility: "public" | "private";
   unreadCount: number;
+  active: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
-      className="group flex w-full items-center gap-2 px-4 py-1.5 text-sm hover:bg-sidebar-accent transition-colors"
+      className={`group flex w-full items-center gap-2 px-4 py-1.5 text-sm transition-colors ${active ? "bg-sidebar-accent text-sidebar-foreground" : "hover:bg-sidebar-accent"}`}
     >
       {visibility === "private" ? (
-        <Lock className="h-4 w-4 shrink-0 text-sidebar-muted-foreground" />
+        <Lock className={`h-4 w-4 shrink-0 ${active ? "text-sidebar-foreground" : "text-sidebar-muted-foreground"}`} />
       ) : (
-        <Hash className="h-4 w-4 shrink-0 text-sidebar-muted-foreground" />
+        <Hash className={`h-4 w-4 shrink-0 ${active ? "text-sidebar-foreground" : "text-sidebar-muted-foreground"}`} />
       )}
       <span
-        className={`truncate ${unreadCount > 0 ? "font-semibold text-sidebar-foreground" : "text-sidebar-muted-foreground group-hover:text-sidebar-foreground"}`}
+        className={`truncate ${unreadCount > 0 || active ? "font-semibold text-sidebar-foreground" : "text-sidebar-muted-foreground group-hover:text-sidebar-foreground"}`}
       >
         {name}
       </span>

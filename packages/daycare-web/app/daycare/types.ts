@@ -69,6 +69,7 @@ export type ChannelMember = {
   role: "owner" | "member";
   joinedAt: UnixMs;
   leftAt: UnixMs | null;
+  notificationLevel?: "all" | "mentions_only" | "muted";
 };
 
 export type MessageAttachment = {

@@ -112,6 +112,12 @@ export function ChannelSettings({
       .channelMembers(token, orgId, channelId)
       .then((result) => {
         setMembers(result.members);
+        // Initialize notification setting from current user's membership
+        const myMembership = result.members.find((m: ChannelMember & { user: User }) => m.userId === currentUserId);
+        if (myMembership?.notificationLevel) {
+          const level = myMembership.notificationLevel.toUpperCase() as NotificationSetting;
+          setNotifSetting(level);
+        }
       })
       .catch((err) => {
         setMembersError(err instanceof Error ? err.message : "Failed to load members");

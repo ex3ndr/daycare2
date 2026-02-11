@@ -120,11 +120,8 @@ export function fileUploadCreate(
       updateEntry(entry.id, { progress: 70 });
       await api.fileUpload(token, orgId, initResult.file.id, { payloadBase64 });
 
-      // Step 4: Build an absolute file URL for API validation compatibility
-      const fileUrl = new URL(
-        `/api/org/${orgId}/files/${initResult.file.id}`,
-        window.location.origin,
-      ).toString();
+      // Step 4: Build a relative file URL (works across proxy/prod domains)
+      const fileUrl = `/api/org/${orgId}/files/${initResult.file.id}`;
 
       updateEntry(entry.id, {
         status: "ready",

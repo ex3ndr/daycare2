@@ -243,26 +243,26 @@ Add rate limiting on key endpoints to prevent abuse.
 
 ### Task 12: Verify acceptance criteria
 
-- [ ] Verify all 11 feature tasks are implemented and marked complete
-- [ ] Verify DMs: create, list, send messages, receive SSE updates
-- [ ] Verify files: upload to S3, download/serve, cleanup deletes from S3
-- [ ] Verify search: message search with filters, channel search
-- [ ] Verify presence: set/get/heartbeat, SSE presence events
-- [ ] Verify member management: kick, role changes, authorization checks
-- [ ] Verify archiving: archive/unarchive, message send blocked on archived
-- [ ] Verify notifications: muted users don't receive, mentions-only works
-- [ ] Verify AI bots: create, list, webhook delivery on mention/DM
-- [ ] Verify SSE scaling: Redis pub/sub works across simulated instances
-- [ ] Verify rate limiting: 429 responses with correct headers
-- [ ] Run full test suite — all tests must pass
-- [ ] Run `yarn typecheck` — no type errors
-- [ ] Run linter if configured — all clean
+- [x] Verify all 11 feature tasks are implemented and marked complete
+- [x] Verify DMs: create, list, send messages, receive SSE updates
+- [x] Verify files: upload to S3, download/serve, cleanup deletes from S3
+- [x] Verify search: message search with filters, channel search
+- [x] Verify presence: set/get/heartbeat, SSE presence events
+- [x] Verify member management: kick, role changes, authorization checks
+- [x] Verify archiving: archive/unarchive, message send blocked on archived
+- [x] Verify notifications: muted users don't receive, mentions-only works
+- [x] Verify AI bots: create, list, webhook delivery on mention/DM
+- [x] Verify SSE scaling: Redis pub/sub works across simulated instances
+- [x] Verify rate limiting: 429 responses with correct headers
+- [x] Run full test suite — all tests must pass
+- [x] Run `yarn typecheck` — no type errors
+- [x] Run linter if configured — all clean (no linter script configured)
 
 ### Task 13: [Final] Update documentation
 
-- [ ] Update CLAUDE.md with new API endpoints and event types
-- [ ] Add environment variable documentation for S3 and new config
-- [ ] Update `sources/types.ts` with any new shared types added during implementation
+- [x] Update CLAUDE.md with new API endpoints and event types
+- [x] Add environment variable documentation for S3 and new config
+- [x] Update `sources/types.ts` with any new shared types added during implementation (no shared type additions were required)
 
 ## Technical Details
 

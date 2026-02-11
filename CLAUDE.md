@@ -63,6 +63,45 @@
 - Client commands are REST calls (for example `POST /api/messages/send`), not socket commands.
 - Auth: session-based bearer token in `Authorization` header for REST and SSE requests.
 
+### Added v1 routes
+- Direct messages: `POST /api/org/:orgid/directs`, `GET /api/org/:orgid/directs`
+- Files: `GET /api/org/:orgid/files/:fileId`
+- Presence: `POST /api/org/:orgid/presence`, `POST /api/org/:orgid/presence/heartbeat`, `GET /api/org/:orgid/presence`
+- Member management: `POST /api/org/:orgid/channels/:channelId/members/:userId/kick`, `PATCH /api/org/:orgid/channels/:channelId/members/:userId/role`
+- Archiving: `POST /api/org/:orgid/channels/:channelId/archive`, `POST /api/org/:orgid/channels/:channelId/unarchive`
+- Notifications: `PATCH /api/org/:orgid/channels/:channelId/notifications`
+- Search: `GET /api/org/:orgid/search/messages`, `GET /api/org/:orgid/search/channels`
+- AI bots: `POST /api/org/:orgid/bots`, `GET /api/org/:orgid/bots`, `PATCH /api/org/:orgid/bots/:userId`
+
+### Added/used SSE event types
+- `message.created`
+- `channel.created`
+- `channel.updated`
+- `member.joined`
+- `member.left`
+- `member.updated`
+- `user.presence`
+- `user.typing`
+
+## Environment
+- Core:
+  - `DATABASE_URL`
+  - `REDIS_URL`
+- S3 / MinIO:
+  - `S3_ENDPOINT`
+  - `S3_ACCESS_KEY`
+  - `S3_SECRET_KEY`
+  - `S3_BUCKET`
+  - `S3_FORCE_PATH_STYLE`
+- OTP:
+  - `OTP_TTL_SECONDS`
+  - `OTP_COOLDOWN_SECONDS`
+  - `OTP_MAX_ATTEMPTS`
+  - `OTP_SALT`
+  - `OTP_STATIC_ENABLED`
+  - `OTP_STATIC_EMAIL`
+  - `OTP_STATIC_CODE`
+
 ## Central Types (`@/types`)
 - Cross-cutting types (User, Channel, Message, Session) go in `sources/types.ts`.
 - Domain-internal types stay in their local modules.

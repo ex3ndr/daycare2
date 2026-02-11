@@ -6,6 +6,7 @@ This repo includes Kubernetes manifests aligned with the Happy deployment layout
 
 - `packages/daycare-server/deploy/daycare.yaml` — API server Deployment, Service, PDB, and ExternalSecret.
 - `packages/daycare-server/deploy/daycare-redis.yaml` — Redis StatefulSet + Service.
+- `packages/daycare-web/deploy/daycare-web.yaml` — Web app Deployment + Service.
 
 ## Required Secrets
 
@@ -30,6 +31,7 @@ The server expects the following environment variables, provided via `daycare-se
 ```bash
 kubectl apply -f packages/daycare-server/deploy/daycare-redis.yaml
 kubectl apply -f packages/daycare-server/deploy/daycare.yaml
+kubectl apply -f packages/daycare-web/deploy/daycare-web.yaml
 ```
 
 ## Notes

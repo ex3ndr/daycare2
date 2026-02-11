@@ -665,14 +665,14 @@ Depends on backend S3 integration.
 
 Depends on backend full-text search.
 
-- [ ] Build `app/routes/_workspace.$orgSlug.search.tsx` — search results page
-- [ ] Cmd+K → Command palette, search messages + channels
-- [ ] Message results: text with highlight, channel, author, timestamp
-- [ ] Channel results: name + topic
-- [ ] Click message → navigate to channel at that message (`around` pagination)
-- [ ] Click channel → navigate to channel
-- [ ] **agent-browser**: press Cmd+K → verify command palette opens → type search term → verify results appear with highlights → click a message result → verify navigation to correct channel and message is visible → screenshot palette and result navigation
-- [ ] Run tests — must pass before next task
+- [x] Build `app/routes/_workspace.$orgSlug.search.tsx` — search results page
+- [x] Cmd+K → Command palette, search messages + channels
+- [x] Message results: text with highlight, channel, author, timestamp
+- [x] Channel results: name + topic
+- [x] Click message → navigate to channel at that message (`around` pagination)
+- [x] Click channel → navigate to channel
+- [x] **agent-browser**: press Cmd+K → verify command palette opens → type search term → verify results appear with highlights → click a message result → verify navigation to correct channel and message is visible → screenshot palette and result navigation
+- [x] Run tests — must pass before next task
 
 #### Task 23: User presence indicators
 

@@ -7,6 +7,7 @@ import { AppController } from "@/app/sync/AppController";
 import { apiClientCreate } from "@/app/daycare/api/apiClientCreate";
 import { sessionGet } from "@/app/lib/sessionStore";
 import { TooltipProvider } from "@/app/components/ui/tooltip";
+import { SearchCommandPalette } from "@/app/components/search/SearchCommandPalette";
 import { Loader2 } from "lucide-react";
 
 const api = apiClientCreate("");
@@ -85,6 +86,7 @@ function WorkspaceLayout() {
         <div className="flex h-screen overflow-hidden">
           <Outlet />
         </div>
+        <SearchCommandPalette />
       </TooltipProvider>
     </AppContext.Provider>
   );

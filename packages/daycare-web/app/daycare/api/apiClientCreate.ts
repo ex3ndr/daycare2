@@ -2,9 +2,11 @@ import type {
   Account,
   Channel,
   ChannelMember,
+  ChannelSearchResult,
   Direct,
   Message,
   MessageListResponse,
+  MessageSearchResult,
   Organization,
   ReadState,
   Session,
@@ -112,6 +114,16 @@ export type ApiClient = {
   ) => Promise<UploadInitResult>;
   fileUpload: (token: string, orgId: string, fileId: string, input: { payloadBase64: string }) => Promise<{ file: FileAsset }>;
   fileGet: (token: string, orgId: string, fileId: string) => Promise<Response>;
+  searchMessages: (
+    token: string,
+    orgId: string,
+    query: { q: string; channelId?: string; before?: number; limit?: number }
+  ) => Promise<{ messages: MessageSearchResult[] }>;
+  searchChannels: (
+    token: string,
+    orgId: string,
+    query: { q: string; limit?: number }
+  ) => Promise<{ channels: ChannelSearchResult[] }>;
   updatesDiff: (token: string, orgId: string, input: { offset: number; limit?: number }) => Promise<UpdatesDiffResult>;
   updatesStreamSubscribe: (
     token: string,
@@ -196,6 +208,20 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
         headers: { Authorization: `Bearer ${token}` },
         redirect: "follow",
       }),
+    searchMessages: (token, orgId, query) => {
+      const params = new URLSearchParams();
+      params.set("q", query.q);
+      if (query.channelId) params.set("channelId", query.channelId);
+      if (query.before !== undefined) params.set("before", String(query.before));
+      if (query.limit !== undefined) params.set("limit", String(query.limit));
+      return request(`/api/org/${orgId}/search/messages?${params.toString()}`, { token });
+    },
+    searchChannels: (token, orgId, query) => {
+      const params = new URLSearchParams();
+      params.set("q", query.q);
+      if (query.limit !== undefined) params.set("limit", String(query.limit));
+      return request(`/api/org/${orgId}/search/channels?${params.toString()}`, { token });
+    },
     updatesDiff: (token, orgId, input) => request(`/api/org/${orgId}/updates/diff`, { method: "POST", token, body: input }),
     updatesStreamSubscribe: (token, orgId, onUpdate, onReady) => {
       const subscription = sseSubscribe({

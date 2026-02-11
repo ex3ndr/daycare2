@@ -50,6 +50,8 @@ function createMockApi(): ApiClient {
     fileUploadInit: vi.fn(),
     fileUpload: vi.fn(),
     fileGet: vi.fn(),
+    searchMessages: vi.fn(),
+    searchChannels: vi.fn(),
     updatesDiff: vi.fn(),
     updatesStreamSubscribe: vi.fn(),
   };

@@ -140,3 +140,22 @@ export type UpdatesDiffResult = {
   headOffset: number;
   resetRequired: boolean;
 };
+
+export type MessageSearchResult = {
+  id: Id;
+  chatId: Id;
+  senderUserId: Id;
+  text: string;
+  highlight: string;
+  createdAt: UnixMs;
+};
+
+export type ChannelSearchResult = {
+  id: Id;
+  organizationId: Id;
+  name: string | null;
+  topic: string | null;
+  visibility: "public" | "private";
+  createdAt: UnixMs;
+  updatedAt: UnixMs;
+};

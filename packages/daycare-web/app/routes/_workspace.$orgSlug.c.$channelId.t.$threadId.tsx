@@ -45,6 +45,28 @@ function ThreadPanel() {
   // File upload
   const fileUpload = useFileUpload(app.api, app.token, app.orgId);
 
+  // Close thread panel → navigate back to channel
+  const handleClose = useCallback(() => {
+    navigate({
+      to: "/$orgSlug/c/$channelId",
+      params: { orgSlug, channelId },
+    });
+  }, [navigate, orgSlug, channelId]);
+
+  // Escape to close thread panel
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        // Don't close thread if focus is in an input/textarea (edit mode handles its own Escape)
+        const active = document.activeElement;
+        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+        handleClose();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleClose]);
+
   // Fetch thread messages on mount/change
   useEffect(() => {
     app.syncThreadMessages(channelId, threadId);
@@ -78,14 +100,6 @@ function ThreadPanel() {
     isAtBottomRef.current =
       el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
   }, []);
-
-  // Close thread panel → navigate back to channel
-  const handleClose = useCallback(() => {
-    navigate({
-      to: "/$orgSlug/c/$channelId",
-      params: { orgSlug, channelId },
-    });
-  }, [navigate, orgSlug, channelId]);
 
   // Send thread reply with attachments
   const handleSend = useCallback(

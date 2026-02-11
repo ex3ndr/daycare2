@@ -45,6 +45,27 @@ function DmThreadPanel() {
   // File upload
   const fileUpload = useFileUpload(app.api, app.token, app.orgId);
 
+  // Close thread panel -> navigate back to DM
+  const handleClose = useCallback(() => {
+    navigate({
+      to: "/$orgSlug/dm/$dmId",
+      params: { orgSlug, dmId },
+    });
+  }, [navigate, orgSlug, dmId]);
+
+  // Escape to close thread panel
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && !e.defaultPrevented) {
+        const active = document.activeElement;
+        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+        handleClose();
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleClose]);
+
   // Fetch thread messages on mount/change
   useEffect(() => {
     app.syncThreadMessages(dmId, threadId);
@@ -76,14 +97,6 @@ function DmThreadPanel() {
     isAtBottomRef.current =
       el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
   }, []);
-
-  // Close thread panel -> navigate back to DM
-  const handleClose = useCallback(() => {
-    navigate({
-      to: "/$orgSlug/dm/$dmId",
-      params: { orgSlug, dmId },
-    });
-  }, [navigate, orgSlug, dmId]);
 
   // Send thread reply with attachments
   const handleSend = useCallback(

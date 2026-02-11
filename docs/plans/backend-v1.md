@@ -174,20 +174,20 @@ The `archivedAt` field exists on Chat but has no endpoints.
 
 Add search for messages and channels using Postgres tsvector.
 
-- [ ] Create Prisma migration adding:
+- [x] Create Prisma migration adding:
   - `search_vector tsvector` column on `Message` table (generated from `text`)
   - GIN index on `Message.search_vector`
   - Trigger to auto-update `search_vector` on INSERT/UPDATE of `text`
   - GIN index on `Chat.name` for channel name search (using `to_tsvector`)
-- [ ] Create `sources/apps/messages/messageSearch.ts` — full-text search on messages within an org, with optional `channelId` filter, pagination (limit/offset), returns messages with highlights (`ts_headline`)
-- [ ] Create `sources/apps/channels/channelSearch.ts` — search channels by name/topic within an org
-- [ ] Add routes:
+- [x] Create `sources/apps/messages/messageSearch.ts` — full-text search on messages within an org, with optional `channelId` filter, pagination (limit/offset), returns messages with highlights (`ts_headline`)
+- [x] Create `sources/apps/channels/channelSearch.ts` — search channels by name/topic within an org
+- [x] Add routes:
   - `GET /api/org/:orgid/search/messages` — search messages (query: `q`, `channelId?`, `before?`, `limit?`)
   - `GET /api/org/:orgid/search/channels` — search channels (query: `q`, `limit?`)
-- [ ] Write tests for `messageSearch` (basic search, channel filter, pagination, no results, special characters)
-- [ ] Write tests for `channelSearch` (name match, topic match, no results)
-- [ ] Write route-level tests for both search endpoints
-- [ ] Run tests — must pass before next task
+- [x] Write tests for `messageSearch` (basic search, channel filter, pagination, no results, special characters)
+- [x] Write tests for `channelSearch` (name match, topic match, no results)
+- [x] Write route-level tests for both search endpoints
+- [x] Run tests — must pass before next task
 
 ### Task 9: Basic AI bot support
 

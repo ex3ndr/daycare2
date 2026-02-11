@@ -27,58 +27,86 @@ Complete rebuild of the Daycare web frontend on a modern stack: shadcn/ui + Tail
 
 ## Architecture
 
-### State Layer
+### State Layer (following happy-list pattern)
 ```
-┌─────────────────────────────────────────────────┐
-│  @slopus/sync (primary state)                   │
-│  ┌───────────┐ ┌──────────┐ ┌────────────────┐  │
-│  │ channels  │ │ messages │ │ members        │  │
-│  │ (type)    │ │ (type)   │ │ (type)         │  │
-│  └───────────┘ └──────────┘ └────────────────┘  │
-│  ┌───────────┐ ┌──────────┐ ┌────────────────┐  │
-│  │ readState │ │ typing   │ │ session        │  │
-│  │ (type)    │ │ (type)   │ │ (object)       │  │
-│  └───────────┘ └──────────┘ └────────────────┘  │
-│  mutations: messageSend, channelCreate, ...     │
-│  rebase(): called when SSE/diff brings server   │
-│            state → replays pending mutations     │
-│  commit(): called when server confirms mutation  │
-└─────────────────────────────────────────────────┘
-          ↕ reads/writes
-┌─────────────────────────────────────────────────┐
-│  Zustand (UI-only state)                        │
-│  composerDrafts, sidebarCollapsed,              │
-│  modalState, searchQuery                        │
-└─────────────────────────────────────────────────┘
-          ↕ subscriptions
-┌─────────────────────────────────────────────────┐
-│  React hooks                                    │
-│  useSyncState() — reads from sync engine        │
-│  useUiStore()   — reads from Zustand            │
-│  useMutation()  — wraps sync engine mutate()    │
-└─────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│  SyncEngine (@slopus/sync)                                 │
+│  ┌───────────┐ ┌──────────┐ ┌────────────────┐             │
+│  │ channel   │ │ message  │ │ member         │  type()     │
+│  └───────────┘ └──────────┘ └────────────────┘  collections│
+│  ┌───────────┐ ┌──────────┐                                │
+│  │ readState │ │ typing   │                                │
+│  └───────────┘ └──────────┘                                │
+│  ┌──────────────────────────────────┐                      │
+│  │ context (object singleton)       │  userId, orgId,      │
+│  │                                  │  seqno (localField)  │
+│  └──────────────────────────────────┘                      │
+│  mutations: messageSend, channelCreate, ...                │
+│  engine.mutate() → optimistic via Immer draft              │
+│  engine.rebase() → merge server state, replay pending      │
+│  engine.commit() → confirm mutation, remove from pending   │
+│  engine.persist() → serialize to localStorage              │
+└────────────────────────────────────────────────────────────┘
+          ↕ wrapped by
+┌────────────────────────────────────────────────────────────┐
+│  Zustand StorageStore (wraps engine for React reactivity)  │
+│  objects: engine.state          ← reactive snapshot        │
+│  mutate(name, input)            ← engine.mutate + set()    │
+│  updateObjects()                ← engine.state → set()     │
+│  rebaseLocal(snapshot)          ← localField updates       │
+└────────────────────────────────────────────────────────────┘
+          ↕ owned by
+┌────────────────────────────────────────────────────────────┐
+│  AppController (orchestrates everything)                   │
+│  engine: SyncEngine                                        │
+│  storage: StorageStore (Zustand)                           │
+│  api: ApiClient                                            │
+│  sse: SSE client                                           │
+│  sequencer: UpdateSequencer (batch + hole detection)       │
+│                                                            │
+│  static create(client, token) → factory                    │
+│  startSSE() → connect to update stream                     │
+│  syncChannels() → fetch + rebase channels                  │
+│  applyServerMutation(mutation) → REST + rebase + commit    │
+└────────────────────────────────────────────────────────────┘
+          ↕ provided via
+┌────────────────────────────────────────────────────────────┐
+│  React layer                                               │
+│  AppContext.Provider value={controller}                     │
+│  useApp()             → AppController                      │
+│  useStorage(selector) → reactive state from StorageStore   │
+│  Separate uiStore     → modals, drafts, sidebar (Zustand)  │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ### Transport Layer
 ```
-┌──────────────────────────────────────┐
-│  syncBridge (new)                    │
-│  SSE stream ← server pushes updates │
-│  diff endpoint ← catch-up on gaps   │
-│  REST calls → mutations to server   │
-│                                      │
-│  On SSE event:                       │
-│    1. Update sync engine via rebase  │
-│    2. Sync engine replays pending    │
-│    3. React re-renders from state    │
-│                                      │
-│  On mutation:                        │
-│    1. Sync engine applies optimistic │
-│    2. React re-renders immediately   │
-│    3. REST call to server            │
-│    4. On success: commit()           │
-│    5. On failure: rollback           │
-└──────────────────────────────────────┘
+┌───────────────────────────────────────────────────┐
+│  SSE + UpdateSequencer                            │
+│                                                    │
+│  SSE stream ← server pushes UpdateEnvelope        │
+│  sequencer.push(update) ← batch + hole detection  │
+│    • 100ms debounce for batching                   │
+│    • 5s timeout for missing seqno (hole)           │
+│    • on hole timeout → session restart (re-fetch)  │
+│  diff endpoint ← catch-up after reconnect         │
+│                                                    │
+│  On SSE events (batched):                          │
+│    1. Map event type → engine.rebase() partial     │
+│    2. Engine replays pending mutations on new base  │
+│    3. storage.updateObjects() → React re-renders   │
+│                                                    │
+│  On mutation dispatch:                             │
+│    1. storage.mutate(name, input)                   │
+│       → engine.mutate() optimistic                  │
+│       → Zustand set() → React re-renders instantly  │
+│    2. Invalidate sync → process pending mutations   │
+│    3. applyServerMutation(pending):                 │
+│       → REST call to server                         │
+│       → engine.rebase(serverSnapshot)               │
+│       → engine.commit(mutationId)                   │
+│       → storage.updateObjects()                     │
+└───────────────────────────────────────────────────┘
 ```
 
 ### Route Structure (TanStack Router)
@@ -235,56 +263,189 @@ Build the complete data layer before any views. Fully testable with Vitest.
 
 #### Task 5: Define sync schema
 
-Define the @slopus/sync schema that models all server-synced state.
+Define the @slopus/sync schema following the happy-list pattern (`defineSchema` + `type` + `object` + `field` + `localField` + `.withMutations()`).
 
-- [ ] Create `app/sync/schema.ts` — define schema using `defineSchema()`:
-  - **Collections** (type, ID-indexed):
-    - `channels` — `{ id, name, topic, visibility, createdAt, updatedAt }` + localField `isJoined`
-    - `messages` — `{ id, channelId, senderUserId, threadId, text, createdAt, editedAt, deletedAt, threadReplyCount, threadLastReplyAt, sender, attachments, reactions }` + localField `pending`
-    - `members` — `{ id, kind, username, firstName, lastName, avatarUrl }`
-    - `readStates` — `{ chatId, lastReadAt, unreadCount }`
-    - `typingStates` — `{ key, userId, username, firstName, expiresAt }`
-  - **Singletons** (object):
-    - `session` — `{ token, accountId, orgId, userId }` + localField `phase`
-    - `activeOrg` — `{ id, slug, name, avatarUrl }`
-    - `activeUser` — `{ id, kind, username, firstName, lastName, avatarUrl }`
-  - **Mutations** (defined via `.withMutations()`):
-    - `messageSend` — optimistically add message with `pending: true`
-    - `messageEdit` — optimistically update message text + editedAt
-    - `messageDelete` — optimistically set deletedAt
-    - `reactionToggle` — optimistically add/remove reaction
-    - `channelCreate` — optimistically add channel
-    - `readMark` — optimistically set lastReadAt and zero unreadCount
-    - `typingAdd` / `typingRemove` — manage typing indicators
-- [ ] Write tests for schema (verify collections, singletons, mutations produce correct initial state)
+- [ ] Create `app/sync/schema.ts`:
+  ```typescript
+  import { defineSchema, field, localField, mutation, object, type, InferSchema } from "@slopus/sync";
+
+  export const schema = defineSchema({
+    // Collections (type = ID-indexed, like happy-list's list/task/user)
+    channel: type({
+      fields: {
+        organizationId: field<string>(),
+        name: field<string>(),
+        topic: field<string | null>(),
+        visibility: field<'public' | 'private'>(),
+        createdAt: field<number>(),
+        updatedAt: field<number>(),
+        // Local-only fields (never synced to server)
+        isJoined: localField<boolean>(false),
+      }
+    }),
+    message: type({
+      fields: {
+        chatId: field<string>(),
+        senderUserId: field<string>(),
+        threadId: field<string | null>(),
+        text: field<string>(),
+        createdAt: field<number>(),
+        editedAt: field<number | null>(),
+        deletedAt: field<number | null>(),
+        threadReplyCount: field<number>(),
+        threadLastReplyAt: field<number | null>(),
+        sender: field<{ id: string; kind: string; username: string; firstName: string; lastName: string | null; avatarUrl: string | null }>(),
+        attachments: field<Array<{ id: string; kind: string; url: string; mimeType: string | null; fileName: string | null; sizeBytes: number | null; sortOrder: number }>>(),
+        reactions: field<Array<{ id: string; userId: string; shortcode: string; createdAt: number }>>(),
+        // Local-only
+        pending: localField<boolean>(false),
+      }
+    }),
+    member: type({
+      fields: {
+        kind: field<'human' | 'ai'>(),
+        username: field<string>(),
+        firstName: field<string>(),
+        lastName: field<string | null>(),
+        avatarUrl: field<string | null>(),
+      }
+    }),
+    readState: type({
+      fields: {
+        chatId: field<string>(),
+        lastReadAt: field<number | null>(),
+        unreadCount: field<number>(),
+      }
+    }),
+    typing: type({
+      fields: {
+        userId: field<string>(),
+        username: field<string>(),
+        firstName: field<string>(),
+        expiresAt: field<number>(),
+      }
+    }),
+
+    // Singletons (object = single instance, like happy-list's context)
+    context: object({
+      fields: {
+        userId: field<string>(),
+        orgId: field<string>(),
+        orgSlug: field<string>(),
+        orgName: field<string>(),
+        // Local-only
+        seqno: localField<number>(0),
+      }
+    }),
+  }).withMutations({
+    messageSend: mutation((draft, input: { id: string; chatId: string; text: string; threadId?: string | null }) => {
+      // Optimistic: add message with pending=true, sender from context
+      draft.message[input.id] = {
+        id: input.id,
+        chatId: input.chatId,
+        senderUserId: draft.context.userId,
+        threadId: input.threadId ?? null,
+        text: input.text,
+        createdAt: Date.now(),
+        editedAt: null,
+        deletedAt: null,
+        threadReplyCount: 0,
+        threadLastReplyAt: null,
+        sender: { id: draft.context.userId, kind: 'human', username: '', firstName: '', lastName: null, avatarUrl: null },
+        attachments: [],
+        reactions: [],
+        pending: true,
+      };
+    }),
+    messageEdit: mutation((draft, input: { id: string; text: string }) => { ... }),
+    messageDelete: mutation((draft, input: { id: string }) => { ... }),
+    reactionToggle: mutation((draft, input: { messageId: string; shortcode: string }) => { ... }),
+    channelCreate: mutation((draft, input: { id: string; name: string; topic?: string | null; visibility?: 'public' | 'private' }) => { ... }),
+    readMark: mutation((draft, input: { chatId: string }) => { ... }),
+  });
+
+  export type Schema = InferSchema<typeof schema>;
+  ```
+- [ ] Write tests for each mutation (create engine → mutate → assert engine.state matches expected)
 - [ ] Run tests — must pass before next task
 
-#### Task 6: Create sync bridge (transport ↔ sync engine)
+#### Task 6: Create StorageStore (Zustand wrapper for sync engine)
 
-Bridge SSE/diff transport with @slopus/sync. Server events trigger `rebase()`, mutations trigger REST calls.
+Following happy-list's `storage.ts` pattern — wrap sync engine in Zustand for React reactivity.
 
-- [ ] Create `app/sync/syncBridge.ts`:
-  - Initialize @slopus/sync engine from schema
-  - On SSE event: map payload to `rebase()` call
-    - `message.created` → rebase messages collection
-    - `message.updated` / `message.deleted` / `message.reaction` → rebase message
-    - `channel.created` / `channel.updated` → rebase channels
-    - `member.joined` / `member.left` → rebase members
-    - `user.typing` → rebase typing states
-  - On mutation (e.g. `messageSend`):
-    - `engine.mutate('messageSend', input)` → optimistic update
-    - Call REST API
-    - On success: `engine.commit(mutationId)`
-    - On failure: rollback on next rebase
-  - Expose `engine.state` and `engine.pendingMutations`
-- [ ] Create `app/sync/eventMappers.ts` — pure functions mapping `UpdateEnvelope` payloads to rebase data
-- [ ] Write tests for `eventMappers` (each event type → correct rebase shape)
-- [ ] Write tests for mutation flow (mutate → optimistic state → commit → confirmed state)
+- [ ] Create `app/sync/storageStoreCreate.ts`:
+  ```typescript
+  import { create } from 'zustand';
+  import type { InferMutations, InferMutationInput, PartialLocalUpdate, SyncEngine } from '@slopus/sync';
+  import { schema, Schema } from './schema';
+
+  export type StorageStore = {
+    objects: SyncEngine<Schema>['state'];
+    updateObjects: () => void;
+    mutate: <M extends InferMutations<typeof schema>>(
+      name: M,
+      input: InferMutationInput<typeof schema, M>
+    ) => void;
+    rebaseLocal: (snapshot: PartialLocalUpdate<Schema>) => void;
+  };
+
+  export const storageStoreCreate = (engine: SyncEngine<Schema>, onMutate?: () => void) =>
+    create<StorageStore>((set) => ({
+      objects: engine.state,
+      updateObjects: () => set((s) => ({ ...s, objects: engine.state })),
+      mutate: (name, input) => {
+        engine.mutate(name, input);
+        set((s) => ({ ...s, objects: engine.state }));
+        onMutate?.();
+      },
+      rebaseLocal: (snapshot) => {
+        engine.rebase(snapshot, { allowLocalFields: true, allowServerFields: false });
+        set((s) => ({ ...s, objects: engine.state }));
+      },
+    }));
+  ```
+- [ ] Write tests for storageStoreCreate (mutate updates objects, rebaseLocal updates local fields only)
 - [ ] Run tests — must pass before next task
 
-#### Task 7: Create Zustand UI store
+#### Task 7: Create AppController (sync orchestration)
 
-Thin store for client-only UI state.
+Following happy-list's `AppController` pattern — class that owns engine + store + SSE + mutation dispatch.
+
+- [ ] Create `app/sync/AppController.ts`:
+  - `static async create(api, token)` factory:
+    - Fetch profile via `api.meGet(token)`
+    - Try restoring from `localStorage` via `syncEngine(schema, { from: 'restore', data })`, fall back to `syncEngine(schema, { from: 'new', objects: { context: { userId, orgId, ... } } })`
+    - Create `StorageStore` via `storageStoreCreate(engine, onMutate)`
+    - Start SSE stream, wire up sequencer
+  - `startSSE()`:
+    - Subscribe via `api.updatesStreamSubscribe()`
+    - Feed updates to `UpdateSequencer.push()`
+    - On batched updates: map event types → `engine.rebase()` → `storage.updateObjects()`
+  - `processPendingMutations()` (called on `onMutate` callback):
+    - Loop through `engine.pendingMutations`
+    - Call `applyServerMutation(api, mutation)` → get server snapshot
+    - `engine.rebase(snapshot)` → `engine.commit(mutation.id)` → `storage.updateObjects()`
+  - `syncChannels()`, `syncMessages(channelId)` — fetch + rebase
+  - `persist()` — `engine.persist()` → `localStorage.setItem('daycare:engine', data)`
+  - `destroy()` — close SSE, cleanup
+- [ ] Create `app/sync/mutationApply.ts` — `applyServerMutation(api, mutation)` function:
+  - Maps each mutation name to the correct REST API call (like happy-list's `applyServerMutation`)
+  - Returns `{ snapshot }` with server-authoritative data for `engine.rebase()`
+  - Example: `messageSend` → `api.messageSend()` → return `{ message: [serverMessage] }`
+- [ ] Create `app/sync/UpdateSequencer.ts` — batching + hole detection:
+  - 100ms debounce for batching consecutive updates
+  - 5s timeout for missing seqno (hole detection)
+  - On hole timeout → trigger session restart (re-fetch all state)
+  - Track `currentSeqno` via `engine.rebase({ context: { seqno } }, { allowLocalFields: true })`
+- [ ] Create `app/sync/eventMappers.ts` — pure functions mapping `UpdateEnvelope` payloads to `PartialServerUpdate` shapes for `engine.rebase()`
+- [ ] Write tests for `eventMappers` (each SSE event type → correct rebase shape)
+- [ ] Write tests for `applyServerMutation` (each mutation → correct API call + snapshot shape)
+- [ ] Write tests for `UpdateSequencer` (sequential delivery, hole detection, batch flush)
+- [ ] Run tests — must pass before next task
+
+#### Task 8: Create Zustand UI store
+
+Separate thin Zustand store for purely client-side UI state (not synced to server at all).
 
 - [ ] Create `app/stores/uiStore.ts`:
   - `sidebarCollapsed: boolean`
@@ -294,23 +455,47 @@ Thin store for client-only UI state.
   - `searchOpen: boolean`
   - `searchQuery: string`
   - Actions: `sidebarToggle`, `composerDraftSet`, `modalOpen`, `modalClose`, `searchToggle`
-- [ ] Create `app/stores/uiStoreUse.ts` — typed selector hooks
 - [ ] Write tests for uiStore (set/get/clear for each field)
 - [ ] Run tests — must pass before next task
 
-#### Task 8: Create React hooks for sync engine
+#### Task 9: Create React context and hooks
 
-Hooks that connect React to the sync engine + Zustand.
+Following happy-list's `context.ts` pattern — AppContext + useApp + useStorage.
 
-- [ ] Create `app/sync/SyncProvider.tsx` — React context holding sync engine + bridge instance
-- [ ] Create `app/sync/syncStateUse.ts` — `useSyncState(selector)` hook (uses `useSyncExternalStore`)
-- [ ] Create `app/sync/syncMutationUse.ts` — `useMutation(name)` hook wrapping mutate + API call + commit/rollback
-- [ ] Create derived selectors:
-  - `channelsForCurrentOrg()` — channels filtered by active org
-  - `messagesForChannel(channelId)` — sorted by createdAt
-  - `threadMessagesForRoot(threadId)` — thread replies sorted
-  - `unreadCountForChannel(channelId)` — from readStates
-  - `typingUsersForChannel(channelId)` — filtered, exclude self, exclude expired
+- [ ] Create `app/sync/AppContext.ts`:
+  ```typescript
+  import * as React from 'react';
+  import { AppController } from './AppController';
+  import { StorageStore } from './storageStoreCreate';
+  import type { ExtractState, StoreApi } from 'zustand';
+
+  export const AppContext = React.createContext<AppController | null>(null);
+
+  export function useApp() {
+    const app = React.useContext(AppContext);
+    if (!app) throw new Error('useApp must be used within AppContext');
+    return app;
+  }
+
+  export function useStorage<U>(selector: (state: ExtractState<StoreApi<StorageStore>>) => U) {
+    return useApp().storage(selector);
+  }
+  ```
+- [ ] Create derived selectors in `app/sync/selectors.ts`:
+  - `channelsForCurrentOrg(state)` — channels filtered by context.orgId
+  - `messagesForChannel(state, channelId)` — sorted by createdAt
+  - `threadMessagesForRoot(state, threadId)` — thread replies sorted
+  - `unreadCountForChannel(state, chatId)` — from readState collection
+  - `typingUsersForChannel(state, chatId, selfUserId)` — filtered, exclude self, exclude expired
+- [ ] Usage in components:
+  ```typescript
+  // Read reactive state
+  const channels = useStorage((s) => Object.values(s.objects.channel));
+  const mutate = useStorage((s) => s.mutate);
+
+  // Dispatch optimistic mutation
+  mutate('messageSend', { id: cuid(), chatId, text });
+  ```
 - [ ] Write tests for derived selectors (given mock state → expected output)
 - [ ] Run tests — must pass before next task
 
@@ -318,7 +503,7 @@ Hooks that connect React to the sync engine + Zustand.
 
 ### Milestone 4: Routing + Session
 
-#### Task 9: TanStack Router setup
+#### Task 10: TanStack Router setup
 
 - [ ] Create route tree in `app/routes/`:
   - `__root.tsx` — root layout with SyncProvider, error boundary
@@ -337,7 +522,7 @@ Hooks that connect React to the sync engine + Zustand.
 - [ ] Write tests for route guard logic (pure function: auth state → redirect path)
 - [ ] Run tests — must pass before next task
 
-#### Task 10: Session persistence
+#### Task 11: Session persistence
 
 - [ ] Create `app/lib/sessionStore.ts` — read/write `{ token, accountId }` to localStorage key `daycare:session`
 - [ ] Create `app/lib/sessionRestore.ts` — on load, read session, validate via `GET /api/me`, restore or clear
@@ -352,7 +537,7 @@ Hooks that connect React to the sync engine + Zustand.
 
 Build every screen. After this milestone the app is fully functional for core messaging.
 
-#### Task 11: Auth screen (`/login`)
+#### Task 12: Auth screen (`/login`)
 
 - [ ] Build `app/routes/login.tsx` using shadcn Card, Input, Button, Badge
 - [ ] Login flow: email input → `POST /api/auth/login` → store token → redirect to `/orgs`
@@ -362,7 +547,7 @@ Build every screen. After this milestone the app is fully functional for core me
 - [ ] **agent-browser**: navigate to `/login`, enter integration test email, submit, verify redirect to `/orgs`, screenshot login card and loading state
 - [ ] Run tests — must pass before next task
 
-#### Task 12: Organization picker (`/orgs`)
+#### Task 13: Organization picker (`/orgs`)
 
 - [ ] Build `app/routes/orgs.tsx` — list orgs from `GET /api/me`, click to enter workspace
 - [ ] "Create Organization" Dialog with form fields (name, slug, firstName, username)
@@ -371,7 +556,7 @@ Build every screen. After this milestone the app is fully functional for core me
 - [ ] **agent-browser**: login → arrive at `/orgs` → screenshot org list → create new org → verify redirect to workspace → screenshot
 - [ ] Run tests — must pass before next task
 
-#### Task 13: Workspace layout (`_workspace` route)
+#### Task 14: Workspace layout (`_workspace` route)
 
 The workspace chrome: rail, sidebar, content area, thread panel.
 
@@ -384,7 +569,7 @@ The workspace chrome: rail, sidebar, content area, thread panel.
 - [ ] **agent-browser**: verify 4-column layout (dark rail, dark sidebar, light chat, light thread), click channels and verify URL changes, screenshot full workspace, verify unread badges show on non-selected channels
 - [ ] Run tests — must pass before next task
 
-#### Task 14: Channel view (messages + composer)
+#### Task 15: Channel view (messages + composer)
 
 The main messaging view.
 
@@ -401,7 +586,7 @@ The main messaging view.
 - [ ] **agent-browser**: type a message → hit Enter → verify message appears instantly with "sending" badge → wait for badge to disappear (SSE confirm) → screenshot. Open second tab, send message there, verify it appears in first tab via SSE.
 - [ ] Run tests — must pass before next task
 
-#### Task 15: Thread panel
+#### Task 16: Thread panel
 
 - [ ] Build `app/routes/_workspace.$orgSlug.c.$channelId.t.$threadId.tsx`:
   - Thread root message at top
@@ -417,7 +602,7 @@ The main messaging view.
 
 ### Milestone 6: Feature Completion
 
-#### Task 16: Message edit and delete UI
+#### Task 17: Message edit and delete UI
 
 - [ ] Add "Edit" / "Delete" to message context menu (DropdownMenu on hover)
 - [ ] Edit: inline edit mode — text becomes editable Textarea, save/cancel buttons
@@ -429,7 +614,7 @@ The main messaging view.
 - [ ] **agent-browser**: hover a message → verify context menu appears → click Edit → verify inline textarea with old text → change text → save → verify "(edited)" label appears instantly (optimistic) → screenshot. Click Delete on another message → confirm dialog → verify message disappears → screenshot.
 - [ ] Run tests for edit/delete mutations — must pass before next task
 
-#### Task 17: Emoji reactions
+#### Task 18: Emoji reactions
 
 - [ ] Build `app/components/messages/ReactionBar.tsx` — existing reactions as clickable Badges with count, highlighted if user reacted
 - [ ] Build `app/components/messages/EmojiPicker.tsx` — Popover with grid of common shortcodes (`:thumbsup:`, `:fire:`, `:heart:`, `:laugh:`, `:eyes:`, `:check:`, `:clap:`, `:rocket:`, `:thinking:`, `:100:`)
@@ -439,7 +624,7 @@ The main messaging view.
 - [ ] **agent-browser**: click "+" on a message → verify emoji picker popover → click `:fire:` → verify reaction badge appears with count 1 and highlighted → click it again → verify it disappears → screenshot picker open and reaction states
 - [ ] Run tests for reaction toggle logic — must pass before next task
 
-#### Task 18: Direct messages UI
+#### Task 19: Direct messages UI
 
 Depends on backend DM API routes.
 
@@ -451,7 +636,7 @@ Depends on backend DM API routes.
 - [ ] **agent-browser**: click "New Message" in sidebar → select a member → verify DM opens with user's name as header → send a message → verify it appears → check sidebar shows DM in list → screenshot
 - [ ] Run tests — must pass before next task
 
-#### Task 19: File upload UI
+#### Task 20: File upload UI
 
 Depends on backend S3 integration.
 
@@ -464,7 +649,7 @@ Depends on backend S3 integration.
 - [ ] **agent-browser**: click file picker → select an image → verify chip appears below composer with progress → send message → verify image preview renders in message → screenshot composer with attachment and sent message with preview
 - [ ] Run tests for upload state machine — must pass before next task
 
-#### Task 20: Infinite scroll / message pagination
+#### Task 21: Infinite scroll / message pagination
 
 - [ ] Scroll-to-top loads older messages via `before` cursor
 - [ ] "Jump to bottom" button when scrolled up + new messages arrive
@@ -474,7 +659,7 @@ Depends on backend S3 integration.
 - [ ] **agent-browser**: in a channel with many messages, scroll to top → verify spinner appears → verify older messages load → scroll to middle → send message from second tab → verify "jump to bottom" button appears → click it → verify scroll snaps to newest message → screenshot
 - [ ] Run tests — must pass before next task
 
-#### Task 21: Search UI
+#### Task 22: Search UI
 
 Depends on backend full-text search.
 
@@ -487,7 +672,7 @@ Depends on backend full-text search.
 - [ ] **agent-browser**: press Cmd+K → verify command palette opens → type search term → verify results appear with highlights → click a message result → verify navigation to correct channel and message is visible → screenshot palette and result navigation
 - [ ] Run tests — must pass before next task
 
-#### Task 22: User presence indicators
+#### Task 23: User presence indicators
 
 Depends on backend presence system.
 
@@ -499,7 +684,7 @@ Depends on backend presence system.
 - [ ] **agent-browser**: login in two tabs with different users → verify green presence dots on both users' avatars → close one tab → wait 30s → verify dot turns gray on the remaining tab → screenshot both states
 - [ ] Run tests — must pass before next task
 
-#### Task 23: Channel settings and member management
+#### Task 24: Channel settings and member management
 
 - [ ] Build `app/components/workspace/ChannelSettings.tsx` — Dialog with tabs:
   - Overview: editable name, topic, visibility
@@ -514,7 +699,7 @@ Depends on backend presence system.
 
 ### Milestone 7: Polish and Verification
 
-#### Task 24: Keyboard shortcuts
+#### Task 25: Keyboard shortcuts
 
 - [ ] `Enter` — send message
 - [ ] `Shift+Enter` — newline
@@ -524,7 +709,7 @@ Depends on backend presence system.
 - [ ] `Cmd+/` — keyboard shortcut help overlay
 - [ ] **agent-browser**: press Cmd+K → verify search opens → press Escape → verify it closes → press Up in empty composer → verify edit mode on last message → press Cmd+/ → verify help overlay → screenshot each
 
-#### Task 25: Error handling and loading states
+#### Task 26: Error handling and loading states
 
 - [ ] Error boundary at route level (catch errors, show retry UI)
 - [ ] Loading skeletons for channel list, message list, thread panel
@@ -533,7 +718,7 @@ Depends on backend presence system.
 - [ ] 401 responses: clear session, redirect to login
 - [ ] **agent-browser**: stop the API server → verify "Reconnecting..." banner appears → restart server → verify banner disappears and messages reload → screenshot reconnection state. Navigate to a channel → verify loading skeletons show briefly before messages appear → screenshot skeleton state.
 
-#### Task 26: Verify acceptance criteria
+#### Task 27: Verify acceptance criteria
 
 - [ ] Verify `app/compontnes/` directory no longer exists
 - [ ] Verify no references to `daycareAppUse` or old `syncEngineCreate`
@@ -570,7 +755,7 @@ Depends on backend presence system.
   11. Open DM → send message
   12. Logout → verify redirect to `/login`
 
-#### Task 27: [Final] Update documentation
+#### Task 28: [Final] Update documentation
 
 - [ ] Update CLAUDE.md with new web architecture (shadcn, TanStack Router, @slopus/sync, Zustand)
 - [ ] Update `packages/daycare-web/package.json` description
@@ -579,35 +764,116 @@ Depends on backend presence system.
 
 ## Technical Details
 
-### @slopus/sync Integration
-- Schema defines collections (channels, messages, members, readStates, typingStates) and singletons (session, activeOrg, activeUser)
-- Mutations defined inline with schema for full type inference
-- `mutate()` applies optimistic change, returns `mutationId`
-- `rebase()` called on every SSE event — replays pending mutations on new server state
-- `commit(mutationId)` after REST API confirms success
-- On API failure: mutation removed on next rebase (automatic rollback)
-- `localField` for UI-only state on synced objects (e.g. `message.pending`, `channel.isJoined`)
+### @slopus/sync API Summary (from happy-list reference)
+
+**Schema DSL:**
+- `defineSchema({ ... }).withMutations({ ... })` — schema + mutations in one chain
+- `type({ fields: { ... } })` — ID-indexed collection (like `channel`, `message`)
+- `object({ fields: { ... } })` — singleton (like `context`)
+- `field<T>()` — server-synced field
+- `localField<T>(default)` — client-only field (cursors, pending flags, UI state)
+- `mutation((draft, input: T) => { ... })` — Immer-style optimistic updater
+- `InferSchema<typeof schema>` — infer full schema type
+- `InferMutations<typeof schema>` — union of mutation names
+- `InferMutationInput<typeof schema, M>` — input type for mutation M
+
+**Engine lifecycle:**
+```typescript
+// Create new
+const engine = syncEngine(schema, {
+  from: 'new',
+  objects: { context: { userId, orgId, orgSlug, orgName } }
+});
+
+// Restore from localStorage
+const engine = syncEngine(schema, {
+  from: 'restore',
+  data: localStorage.getItem('daycare:engine')!
+});
+
+// Persist
+localStorage.setItem('daycare:engine', engine.persist());
+```
+
+**Engine operations:**
+- `engine.mutate(name, input)` — apply optimistic mutation (adds to `pendingMutations`)
+- `engine.rebase(partial)` — merge server data, replay pending mutations on new base
+- `engine.rebase(partial, { allowLocalFields: true, allowServerFields: false })` — update local fields only
+- `engine.commit(mutationId)` — remove confirmed mutation from pending list
+- `engine.state` — current computed state (server + pending)
+- `engine.serverState` — server base state (before pending)
+- `engine.pendingMutations` — array of `{ id, name, input, timestamp }`
+- `engine.persist()` — serialize to string for localStorage
 
 ### Optimistic Mutation Flow (messageSend)
-1. User hits Enter
-2. `engine.mutate('messageSend', { channelId, text, tempId })` → message in state with `pending: true`
-3. React re-renders immediately
-4. `api.messageSend(...)` called in background
-5. Server responds with real message
-6. `engine.commit(mutationId)` clears pending
-7. SSE delivers `message.created` → `engine.rebase()` adds real message
-8. Pending message replaced by real message
 
-### Zustand Store Structure
+Following happy-list's pattern: `mutate → REST → rebase → commit`
+
+```
+1. User hits Enter
+2. storage.mutate('messageSend', { id, chatId, text })
+   → engine.mutate() creates pending mutation, applies Immer draft
+   → message appears in engine.state with pending: true
+   → Zustand set({ objects: engine.state }) triggers React re-render
+   → onMutate() callback invalidates sync
+3. processPendingMutations() picks up pending mutation
+4. applyServerMutation(api, mutation):
+   → api.messageSend(token, orgId, { channelId, text })
+   → server returns real message with server ID, timestamps
+   → returns { snapshot: { message: [serverMessage] } }
+5. engine.rebase(snapshot)  — merge server message into base state
+6. engine.commit(mutation.id) — remove from pending
+7. storage.updateObjects() — React re-renders with confirmed state
+8. SSE may also deliver message.created — engine.rebase() is idempotent
+```
+
+### Three Zustand Stores
+
+**1. StorageStore** (wraps sync engine — primary data):
 ```typescript
 {
-  sidebarCollapsed: boolean;
-  composerDrafts: Record<Id, string>;
-  threadComposerDraft: string;
-  activeModal: ModalType | null;
-  searchOpen: boolean;
-  searchQuery: string;
+  objects: engine.state,     // { channel: {...}, message: {...}, member: {...}, ... }
+  mutate(name, input),       // optimistic mutation → engine.mutate + set
+  updateObjects(),           // engine.state → set (after rebase/commit)
+  rebaseLocal(snapshot),     // update localFields only
 }
+```
+
+**2. UI Store** (purely client-side):
+```typescript
+{
+  sidebarCollapsed: boolean,
+  composerDrafts: Record<Id, string>,
+  threadComposerDraft: string,
+  activeModal: ModalType | null,
+  searchOpen: boolean,
+  searchQuery: string,
+}
+```
+
+**3. AppController** (not a store, but owns both):
+```typescript
+class AppController {
+  engine: SyncEngine<Schema>
+  storage: ReturnType<typeof storageStoreCreate>  // Zustand store
+  api: ApiClient
+  // SSE, sequencer, sync methods...
+}
+```
+
+### React Integration Pattern (from happy-list)
+```typescript
+// Provider (in root layout)
+<AppContext.Provider value={controller}>
+  {children}
+</AppContext.Provider>
+
+// In components
+const app = useApp();                                    // AppController
+const channels = useStorage((s) => s.objects.channel);   // reactive
+const mutate = useStorage((s) => s.mutate);              // dispatch
+
+mutate('messageSend', { id: cuid(), chatId, text });     // optimistic
 ```
 
 ### Design Token Migration

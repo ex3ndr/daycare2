@@ -511,16 +511,19 @@ function getToken(): string | null {
 async function loadOrgsData(api: ApiClient, token: string | null): Promise<OrgsData> {
   if (!token) return { myOrgs: [], joinableOrgs: [] };
 
-  const [meResult, availableResult] = await Promise.all([
+  const [meResult, availableResult] = await Promise.allSettled([
     api.meGet(token),
     api.organizationAvailableList(token),
   ]);
 
-  const myOrgIds = new Set(meResult.organizations.map((o) => o.id));
-  const joinableOrgs = availableResult.organizations.filter((o) => !myOrgIds.has(o.id));
+  if (meResult.status === "rejected") throw meResult.reason;
+
+  const myOrgIds = new Set(meResult.value.organizations.map((o) => o.id));
+  const availableOrgs = availableResult.status === "fulfilled" ? availableResult.value.organizations : [];
+  const joinableOrgs = availableOrgs.filter((o) => !myOrgIds.has(o.id));
 
   return {
-    myOrgs: meResult.organizations,
+    myOrgs: meResult.value.organizations,
     joinableOrgs,
   };
 }

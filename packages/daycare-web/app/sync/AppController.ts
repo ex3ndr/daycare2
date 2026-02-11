@@ -9,6 +9,7 @@ import { mapEventToRebase } from "./eventMappers";
 import { mutationApply } from "./mutationApply";
 import { connectionStatusSet } from "../stores/connectionStoreContext";
 import { toastAdd } from "../stores/toastStoreContext";
+import { sessionClear } from "../lib/sessionStore";
 
 const STORAGE_KEY = "daycare:engine";
 const HEARTBEAT_INTERVAL_MS = 60_000;
@@ -264,6 +265,7 @@ export class AppController {
       if (result.deactivatedUserId && result.deactivatedUserId === currentUserId) {
         toastAdd("You've been removed from this organization", "warning");
         this.destroy();
+        sessionClear();
         window.location.href = "/orgs";
         return;
       }
@@ -328,6 +330,7 @@ export class AppController {
         if (mapped.deactivatedUserId && mapped.deactivatedUserId === currentUserId) {
           toastAdd("You've been removed from this organization", "warning");
           this.destroy();
+          sessionClear();
           window.location.href = "/orgs";
           return;
         }

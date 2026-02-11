@@ -63,7 +63,7 @@ export function SettingsGeneral({ isOwner }: SettingsGeneralProps) {
 
   const hasChanges =
     name.trim() !== (org?.name ?? orgName) ||
-    (avatarUrl.trim() || null) !== (org?.avatarUrl ?? null);
+    (avatarUrl.trim() || null) !== (org?.avatarUrl?.trim() || null);
 
   if (loading) {
     return <p className="text-muted-foreground text-sm">Loading...</p>;

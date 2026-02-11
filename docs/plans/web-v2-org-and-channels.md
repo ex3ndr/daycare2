@@ -204,15 +204,15 @@ Manage email invites with send form and list.
 - Show expiry countdown for pending invites
 
 **Checklist:**
-- [ ] Create `SettingsInvites.tsx`
-- [ ] Add invite form with email input (OWNER only)
-- [ ] Fetch and display invites, split pending vs past
-- [ ] Add search/filter by email
-- [ ] Add revoke action with confirmation
-- [ ] Show status badges and expiry info
-- [ ] Handle errors (duplicate, already member)
-- [ ] Wire into SettingsLayout
-- [ ] Run `yarn typecheck` — must pass
+- [x] Create `SettingsInvites.tsx`
+- [x] Add invite form with email input (OWNER only)
+- [x] Fetch and display invites, split pending vs past
+- [x] Add search/filter by email
+- [x] Add revoke action with confirmation
+- [x] Show status badges and expiry info
+- [x] Handle errors (duplicate, already member)
+- [x] Wire into SettingsLayout
+- [x] Run `yarn typecheck` — must pass
 
 ### Task 6: Settings — Domains tab
 

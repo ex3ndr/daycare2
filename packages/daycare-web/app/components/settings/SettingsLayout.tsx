@@ -6,6 +6,7 @@ import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { cn } from "@/app/lib/utils";
 import { SettingsGeneral } from "./SettingsGeneral";
 import { SettingsMembers } from "./SettingsMembers";
+import { SettingsInvites } from "./SettingsInvites";
 
 export type SettingsTab = "general" | "members" | "invites" | "domains";
 
@@ -87,21 +88,12 @@ export function SettingsLayout() {
             <>
               {tab === "general" && <SettingsGeneral isOwner={isOwner} />}
               {tab === "members" && <SettingsMembers isOwner={isOwner} />}
-              {tab === "invites" && <SettingsInvitesPlaceholder />}
+              {tab === "invites" && <SettingsInvites isOwner={isOwner} />}
               {tab === "domains" && <SettingsDomainsPlaceholder />}
             </>
           )}
         </div>
       </ScrollArea>
-    </div>
-  );
-}
-
-function SettingsInvitesPlaceholder() {
-  return (
-    <div>
-      <h2 className="text-xl font-semibold mb-4">Invites</h2>
-      <p className="text-muted-foreground text-sm">Invite management coming soon.</p>
     </div>
   );
 }

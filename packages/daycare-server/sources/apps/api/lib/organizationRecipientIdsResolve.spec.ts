@@ -71,4 +71,43 @@ describe("organizationRecipientIdsResolve", () => {
 
     expect(new Set(result)).toEqual(new Set([userAId, userBId]));
   });
+
+  it("excludes deactivated users from recipients", async () => {
+    const orgId = createId();
+    const activeUserId = createId();
+    const deactivatedUserId = createId();
+
+    await live.db.organization.create({
+      data: {
+        id: orgId,
+        slug: `org-${createId().slice(0, 8)}`,
+        name: "Acme"
+      }
+    });
+
+    await live.db.user.createMany({
+      data: [
+        {
+          id: activeUserId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Active",
+          username: `active-${createId().slice(0, 6)}`
+        },
+        {
+          id: deactivatedUserId,
+          organizationId: orgId,
+          kind: "HUMAN",
+          firstName: "Deactivated",
+          username: `deactivated-${createId().slice(0, 6)}`,
+          deactivatedAt: new Date()
+        }
+      ]
+    });
+
+    const result = await organizationRecipientIdsResolve(live.context, orgId);
+
+    expect(result).toEqual([activeUserId]);
+    expect(result).not.toContain(deactivatedUserId);
+  });
 });

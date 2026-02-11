@@ -163,12 +163,20 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
 
   app.get("/api/org/:orgid/members", async (request) => {
     const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
+    const query = z.object({ active: z.enum(["true", "false"]).optional() }).parse(request.query);
     await authContextResolve(request, context, params.orgid);
 
+    const where: { organizationId: string; deactivatedAt?: null | { not: null } } = {
+      organizationId: params.orgid
+    };
+    if (query.active === "true") {
+      where.deactivatedAt = null;
+    } else if (query.active === "false") {
+      where.deactivatedAt = { not: null };
+    }
+
     const users = await context.db.user.findMany({
-      where: {
-        organizationId: params.orgid
-      },
+      where,
       orderBy: {
         createdAt: "asc"
       }
@@ -178,10 +186,12 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
       members: users.map((user) => ({
         id: user.id,
         kind: user.kind.toLowerCase(),
+        orgRole: user.orgRole,
         username: user.username,
         firstName: user.firstName,
         lastName: user.lastName,
         avatarUrl: user.avatarUrl,
+        deactivatedAt: user.deactivatedAt ? user.deactivatedAt.getTime() : null,
         createdAt: user.createdAt.getTime(),
         updatedAt: user.updatedAt.getTime()
       }))

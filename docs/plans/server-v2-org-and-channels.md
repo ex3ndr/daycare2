@@ -137,13 +137,13 @@ Deactivated org members must be rejected at the auth layer.
 - `GET /org/:orgid/members`: include `deactivatedAt` and `orgRole` in response; optionally filter by `?active=true`
 
 **Checklist:**
-- [ ] Update `authContextResolve` to check `user.deactivatedAt` and throw `ApiError(403, "FORBIDDEN", "Account has been deactivated")`
-- [ ] Update `organizationRecipientIdsResolve` to filter `deactivatedAt: null`
-- [ ] Update `GET /org/:orgid/members` response to include `orgRole` and `deactivatedAt` fields
-- [ ] Add `?active=true/false` query filter to `GET /org/:orgid/members`
-- [ ] Write tests for `authContextResolve` deactivation check
-- [ ] Write tests for `organizationRecipientIdsResolve` exclusion
-- [ ] Run `yarn typecheck && yarn test` — must pass
+- [x] Update `authContextResolve` to check `user.deactivatedAt` and throw `ApiError(403, "FORBIDDEN", "Account has been deactivated")`
+- [x] Update `organizationRecipientIdsResolve` to filter `deactivatedAt: null`
+- [x] Update `GET /org/:orgid/members` response to include `orgRole` and `deactivatedAt` fields
+- [x] Add `?active=true/false` query filter to `GET /org/:orgid/members`
+- [x] Write tests for `authContextResolve` deactivation check
+- [x] Write tests for `organizationRecipientIdsResolve` exclusion
+- [x] Run `yarn typecheck && yarn test` — must pass
 
 ### Task 3: Org member deactivation and reactivation
 

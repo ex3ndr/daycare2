@@ -6,7 +6,8 @@ export async function organizationRecipientIdsResolve(
 ): Promise<string[]> {
   const users = await context.db.user.findMany({
     where: {
-      organizationId
+      organizationId,
+      deactivatedAt: null
     },
     select: {
       id: true

@@ -21,6 +21,10 @@ export async function authContextResolve(
     throw new ApiError(403, "FORBIDDEN", "Not a member of this organization");
   }
 
+  if (user.deactivatedAt !== null) {
+    throw new ApiError(403, "FORBIDDEN", "Account has been deactivated");
+  }
+
   return {
     session: session.session,
     user

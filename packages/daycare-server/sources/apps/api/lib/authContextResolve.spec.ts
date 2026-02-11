@@ -105,4 +105,31 @@ describe("authContextResolve", () => {
       code: "FORBIDDEN"
     });
   });
+
+  it("throws forbidden when user is deactivated", async () => {
+    const organizationId = createId();
+    await live.db.organization.create({
+      data: {
+        id: organizationId,
+        slug: `org-${createId().slice(0, 8)}`,
+        name: "Acme"
+      }
+    });
+
+    const { token, accountId } = await seedAuth(organizationId, true);
+
+    // Deactivate the user
+    await live.db.user.updateMany({
+      where: { accountId, organizationId },
+      data: { deactivatedAt: new Date() }
+    });
+
+    const result = authContextResolve(requestCreate(token), live.context, organizationId);
+    await expect(result).rejects.toBeInstanceOf(ApiError);
+    await expect(result).rejects.toMatchObject({
+      statusCode: 403,
+      code: "FORBIDDEN",
+      message: "Account has been deactivated"
+    });
+  });
 });

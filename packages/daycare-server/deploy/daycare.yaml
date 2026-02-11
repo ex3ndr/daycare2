@@ -31,6 +31,12 @@ spec:
           value: "3005"
         - name: REDIS_URL
           value: redis://daycare-redis:6379
+        - name: OTP_STATIC_ENABLED
+          value: "true"
+        - name: OTP_STATIC_EMAIL
+          value: "integration-test@daycare.local"
+        - name: OTP_STATIC_CODE
+          value: "424242"
         envFrom:
         - secretRef:
             name: daycare-secrets

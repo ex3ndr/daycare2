@@ -25,14 +25,13 @@ export function SettingsLayout({ initialTab }: { initialTab?: SettingsTab }) {
   const orgSlug = useStorage((s) => s.objects.context.orgSlug);
   const orgName = useStorage((s) => s.objects.context.orgName);
 
-  const [tab, setTab] = useState<SettingsTab>(initialTab ?? "general");
+  const tab: SettingsTab = initialTab ?? "general";
   const [orgRole, setOrgRole] = useState<"owner" | "member">("member");
   const [loading, setLoading] = useState(true);
 
-  // Sync tab when navigated with a different search param
-  useEffect(() => {
-    if (initialTab) setTab(initialTab);
-  }, [initialTab]);
+  function setTab(newTab: SettingsTab) {
+    navigate({ to: "/$orgSlug/settings", params: { orgSlug }, search: { tab: newTab } });
+  }
 
   useEffect(() => {
     app.api

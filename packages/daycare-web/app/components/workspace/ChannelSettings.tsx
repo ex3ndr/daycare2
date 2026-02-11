@@ -108,13 +108,7 @@ export function ChannelSettings({
     }
   }, [open, channelName, channelTopic]);
 
-  // Load members when members tab is selected or dialog opens
-  useEffect(() => {
-    if (!open) return;
-    loadMembers();
-  }, [open, channelId]);
-
-  function loadMembers() {
+  const loadMembers = useCallback(() => {
     setMembersLoading(true);
     setMembersError(null);
     api
@@ -132,7 +126,13 @@ export function ChannelSettings({
         setMembersError(err instanceof Error ? err.message : "Failed to load members");
       })
       .finally(() => setMembersLoading(false));
-  }
+  }, [api, token, orgId, channelId, currentUserId]);
+
+  // Load members when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    loadMembers();
+  }, [open, loadMembers]);
 
   // Load org members for add-member section
   const loadOrgMembers = useCallback(() => {

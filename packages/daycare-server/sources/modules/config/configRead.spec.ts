@@ -20,7 +20,13 @@ describe("configRead", () => {
       redisUrl: "redis://localhost:6379",
       tokenService: "daycare",
       tokenSeed: "daycare-local-token-seed-0001",
-      allowOpenOrgJoin: true
+      allowOpenOrgJoin: true,
+      resendApiKey: undefined,
+      resendFrom: undefined,
+      otpTtlSeconds: 600,
+      otpCooldownSeconds: 60,
+      otpMaxAttempts: 5,
+      otpSalt: "daycare-local-token-seed-0001"
     });
   });
 

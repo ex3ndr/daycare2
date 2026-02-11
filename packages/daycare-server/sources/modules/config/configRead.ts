@@ -8,7 +8,13 @@ const configSchema = z.object({
   REDIS_URL: z.string().url(),
   TOKEN_SERVICE: z.string().min(2).default("daycare"),
   TOKEN_SEED: z.string().min(16),
-  ALLOW_OPEN_ORG_JOIN: z.string().optional()
+  ALLOW_OPEN_ORG_JOIN: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+  RESEND_FROM: z.string().optional(),
+  OTP_TTL_SECONDS: z.coerce.number().int().positive().default(600),
+  OTP_COOLDOWN_SECONDS: z.coerce.number().int().positive().default(60),
+  OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  OTP_SALT: z.string().optional()
 });
 
 export type DaycareConfig = {
@@ -20,6 +26,12 @@ export type DaycareConfig = {
   tokenService: string;
   tokenSeed: string;
   allowOpenOrgJoin: boolean;
+  resendApiKey?: string;
+  resendFrom?: string;
+  otpTtlSeconds: number;
+  otpCooldownSeconds: number;
+  otpMaxAttempts: number;
+  otpSalt: string;
 };
 
 export function configRead(env: NodeJS.ProcessEnv = process.env): DaycareConfig {
@@ -36,6 +48,12 @@ export function configRead(env: NodeJS.ProcessEnv = process.env): DaycareConfig 
     redisUrl: parsed.REDIS_URL,
     tokenService: parsed.TOKEN_SERVICE,
     tokenSeed: parsed.TOKEN_SEED,
-    allowOpenOrgJoin
+    allowOpenOrgJoin,
+    resendApiKey: parsed.RESEND_API_KEY,
+    resendFrom: parsed.RESEND_FROM,
+    otpTtlSeconds: parsed.OTP_TTL_SECONDS,
+    otpCooldownSeconds: parsed.OTP_COOLDOWN_SECONDS,
+    otpMaxAttempts: parsed.OTP_MAX_ATTEMPTS,
+    otpSalt: parsed.OTP_SALT ?? parsed.TOKEN_SEED
   };
 }

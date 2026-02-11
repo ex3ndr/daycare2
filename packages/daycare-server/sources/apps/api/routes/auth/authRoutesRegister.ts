@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { authEmailOtpRequest } from "@/apps/auth/authEmailOtpRequest.js";
+import { authEmailOtpVerify } from "@/apps/auth/authEmailOtpVerify.js";
 import { authLogin } from "@/apps/auth/authLogin.js";
 import { authLogout } from "@/apps/auth/authLogout.js";
 import { accountSessionResolve } from "@/apps/api/lib/accountSessionResolve.js";
@@ -9,6 +11,15 @@ import { apiResponseOk } from "@/apps/api/lib/apiResponseOk.js";
 
 const loginBodySchema = z.object({
   email: z.string().email().trim().toLowerCase()
+});
+
+const otpRequestSchema = z.object({
+  email: z.string().email().trim().toLowerCase()
+});
+
+const otpVerifySchema = z.object({
+  email: z.string().email().trim().toLowerCase(),
+  code: z.string().trim().regex(/^\d{6}$/)
 });
 
 export async function authRoutesRegister(app: FastifyInstance, context: ApiContext): Promise<void> {
@@ -24,6 +35,27 @@ export async function authRoutesRegister(app: FastifyInstance, context: ApiConte
     const body = loginBodySchema.parse(request.body);
 
     const result = await authLogin(context, body.email);
+
+    return apiResponseOk(result);
+  });
+
+  app.post("/api/auth/email/request-otp", async (request) => {
+    const body = otpRequestSchema.parse(request.body);
+
+    const result = await authEmailOtpRequest(context, {
+      email: body.email
+    });
+
+    return apiResponseOk(result);
+  });
+
+  app.post("/api/auth/email/verify-otp", async (request) => {
+    const body = otpVerifySchema.parse(request.body);
+
+    const result = await authEmailOtpVerify(context, {
+      email: body.email,
+      code: body.code
+    });
 
     return apiResponseOk(result);
   });

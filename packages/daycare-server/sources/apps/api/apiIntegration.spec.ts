@@ -8,7 +8,9 @@ import { databaseCreate } from "@/modules/database/databaseCreate.js";
 import { redisConnect } from "@/modules/redis/redisConnect.js";
 import { redisCreate } from "@/modules/redis/redisCreate.js";
 import { tokenServiceCreate } from "@/modules/auth/tokenServiceCreate.js";
+import { emailServiceCreate } from "@/modules/email/emailServiceCreate.js";
 import { updatesServiceCreate } from "@/modules/updates/updatesServiceCreate.js";
+import { testDatabaseReset } from "@/utils/testDatabaseReset.js";
 
 const integrationEnabled = process.env.INTEGRATION === "1";
 const databaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
@@ -50,23 +52,29 @@ describeIntegration("api integration", () => {
     const tokenSeed = process.env.TOKEN_SEED ?? "daycare-test-seed-00000000000000000000000000000000";
     const tokenService = process.env.TOKEN_SERVICE ?? "daycare-test";
     const tokens = await tokenServiceCreate(tokenService, tokenSeed);
+    const email = emailServiceCreate({ nodeEnv: "test" });
 
     const updates = updatesServiceCreate(db);
     app = await apiCreate({
       db,
       redis,
       tokens,
+      email,
       updates,
       nodeEnv: "test",
-      allowOpenOrgJoin: true
+      allowOpenOrgJoin: true,
+      otp: {
+        ttlSeconds: 600,
+        cooldownSeconds: 60,
+        maxAttempts: 5,
+        salt: tokenSeed
+      }
     });
     await app.ready();
   });
 
   beforeEach(async () => {
-    await db.$executeRawUnsafe(
-      'TRUNCATE TABLE "UserUpdate", "ChatTypingState", "MessageReaction", "MessageAttachment", "MessageMention", "Message", "Thread", "ChatMember", "Chat", "FileAsset", "Session", "User", "Account", "Organization" RESTART IDENTITY CASCADE;'
-    );
+    await testDatabaseReset(db);
     await redis.flushall();
   });
 

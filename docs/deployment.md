@@ -16,6 +16,12 @@ The server expects the following environment variables, provided via `daycare-se
 - `TOKEN_SEED`
 - `TOKEN_SERVICE` (optional; defaults to `daycare`)
 - `ALLOW_OPEN_ORG_JOIN` (optional)
+- `RESEND_API_KEY`
+- `RESEND_FROM`
+- `OTP_TTL_SECONDS` (optional; defaults to `600`)
+- `OTP_COOLDOWN_SECONDS` (optional; defaults to `60`)
+- `OTP_MAX_ATTEMPTS` (optional; defaults to `5`)
+- `OTP_SALT` (optional; defaults to `TOKEN_SEED`)
 
 `daycare.yaml` defines an `ExternalSecret` that extracts from `/daycare-server`. Adjust this to match your secret store structure, or replace it with a standard `Secret`.
 

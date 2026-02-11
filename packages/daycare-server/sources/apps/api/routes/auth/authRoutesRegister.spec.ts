@@ -1,57 +1,80 @@
-import Fastify from "fastify";
-import type { ApiContext } from "@/apps/api/lib/apiContext.js";
-import { ApiError } from "@/apps/api/lib/apiError.js";
-import { apiResponseFail } from "@/apps/api/lib/apiResponseFail.js";
-import { describe, expect, it, vi } from "vitest";
+import type { FastifyInstance } from "fastify";
+import type { PrismaClient } from "@prisma/client";
+import type Redis from "ioredis";
+import { createHash } from "node:crypto";
+import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
+import { createId } from "@paralleldrive/cuid2";
+import { apiCreate } from "@/apps/api/apiCreate.js";
+import { authOtpCodeHash } from "@/apps/auth/authOtpCodeHash.js";
+import { databaseConnect } from "@/modules/database/databaseConnect.js";
+import { databaseCreate } from "@/modules/database/databaseCreate.js";
+import { redisConnect } from "@/modules/redis/redisConnect.js";
+import { redisCreate } from "@/modules/redis/redisCreate.js";
+import { tokenServiceCreate } from "@/modules/auth/tokenServiceCreate.js";
+import { updatesServiceCreate } from "@/modules/updates/updatesServiceCreate.js";
+import { emailServiceCreate } from "@/modules/email/emailServiceCreate.js";
+import { testDatabaseReset } from "@/utils/testDatabaseReset.js";
 
-vi.mock("@/apps/api/lib/accountSessionResolve.js", () => ({
-  accountSessionResolve: vi.fn()
-}));
+const databaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
+const redisUrl = process.env.TEST_REDIS_URL ?? process.env.REDIS_URL;
 
-import { accountSessionResolve } from "@/apps/api/lib/accountSessionResolve.js";
-import { authRoutesRegister } from "./authRoutesRegister.js";
-
-function appCreate(context: ApiContext) {
-  const app = Fastify();
-  app.setErrorHandler((error, _request, reply) => {
-    if (error instanceof ApiError) {
-      return reply.status(error.statusCode).send(apiResponseFail(error.code, error.message, error.details));
-    }
-    return reply.status(500).send(apiResponseFail("INTERNAL_ERROR", "Unexpected server error"));
-  });
-  void authRoutesRegister(app, context);
-  return app;
+if (!databaseUrl || !redisUrl) {
+  throw new Error("authRoutesRegister.spec.ts requires DATABASE_URL and REDIS_URL (or TEST_DATABASE_URL/TEST_REDIS_URL)");
 }
 
 describe("authRoutesRegister", () => {
-  it("logs in with direct email in development", async () => {
-    const context = {
-      nodeEnv: "development",
-      db: {
-        account: {
-          upsert: vi.fn().mockResolvedValue({
-            id: "account-1",
-            email: "dev@example.com",
-            createdAt: new Date("2026-02-10T00:00:00.000Z"),
-            updatedAt: new Date("2026-02-10T00:00:00.000Z")
-          })
-        },
-        session: {
-          create: vi.fn().mockResolvedValue({
-            id: "session-1",
-            expiresAt: new Date("2026-02-11T00:00:00.000Z")
-          })
-        },
-        organization: {
-          findMany: vi.fn()
-        }
-      },
-      tokens: {
-        issue: vi.fn().mockResolvedValue("token-1")
-      }
-    } as unknown as ApiContext;
+  let db: PrismaClient;
+  let redis: Redis;
+  let tokens: Awaited<ReturnType<typeof tokenServiceCreate>>;
 
-    const app = appCreate(context);
+  beforeAll(async () => {
+    db = databaseCreate(databaseUrl);
+    await databaseConnect(db);
+
+    redis = redisCreate(redisUrl);
+    await redisConnect(redis);
+
+    tokens = await tokenServiceCreate("daycare-test", "daycare-test-seed-00000000000000000000000000000000");
+  });
+
+  beforeEach(async () => {
+    await testDatabaseReset(db);
+    await redis.flushall();
+  });
+
+  afterAll(async () => {
+    await redis.quit();
+    await db.$disconnect();
+  });
+
+  async function appCreate(nodeEnv: "development" | "test" | "production"): Promise<FastifyInstance> {
+    const email = emailServiceCreate({
+      nodeEnv,
+      apiKey: nodeEnv === "production" ? "test-key" : undefined,
+      from: nodeEnv === "production" ? "Daycare <no-reply@daycare.local>" : undefined
+    });
+    const updates = updatesServiceCreate(db);
+    const app = await apiCreate({
+      db,
+      redis,
+      tokens,
+      email,
+      updates,
+      nodeEnv,
+      allowOpenOrgJoin: true,
+      otp: {
+        ttlSeconds: 600,
+        cooldownSeconds: 60,
+        maxAttempts: 5,
+        salt: "salt"
+      }
+    });
+    await app.ready();
+    return app;
+  }
+
+  it("logs in with direct email in development", async () => {
+    const app = await appCreate("development");
     const response = await app.inject({
       method: "POST",
       url: "/api/auth/login",
@@ -63,32 +86,13 @@ describe("authRoutesRegister", () => {
     expect(response.statusCode).toBe(200);
     const payload = response.json() as any;
     expect(payload.ok).toBe(true);
-    expect(payload.data.token).toBe("token-1");
+    expect(payload.data.token).toBeTruthy();
 
     await app.close();
   });
 
   it("rejects direct email login in production", async () => {
-    const context = {
-      nodeEnv: "production",
-      db: {
-        account: {
-          findUnique: vi.fn(),
-          create: vi.fn()
-        },
-        session: {
-          create: vi.fn()
-        },
-        organization: {
-          findMany: vi.fn()
-        }
-      },
-      tokens: {
-        issue: vi.fn()
-      }
-    } as unknown as ApiContext;
-
-    const app = appCreate(context);
+    const app = await appCreate("production");
     const response = await app.inject({
       method: "POST",
       url: "/api/auth/login",
@@ -106,91 +110,72 @@ describe("authRoutesRegister", () => {
   });
 
   it("revokes session on logout", async () => {
-    vi.mocked(accountSessionResolve).mockResolvedValue({
-      session: {} as any,
-      sessionId: "session-1",
-      accountId: "account-1"
+    const app = await appCreate("test");
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: {
+        email: "user@example.com"
+      }
     });
 
-    const context = {
-      nodeEnv: "development",
-      db: {
-        account: {
-          findUnique: vi.fn()
-        },
-        session: {
-          create: vi.fn(),
-          update: vi.fn().mockResolvedValue({})
-        },
-        organization: {
-          findMany: vi.fn()
-        }
-      },
-      tokens: {
-        issue: vi.fn()
-      }
-    } as unknown as ApiContext;
+    const loginPayload = login.json() as any;
+    const token = loginPayload.data.token;
 
-    const app = appCreate(context);
     const response = await app.inject({
       method: "POST",
       url: "/api/auth/logout",
       headers: {
-        authorization: "Bearer token"
+        authorization: `Bearer ${token}`
       }
     });
 
     expect(response.statusCode).toBe(200);
     const payload = response.json() as any;
     expect(payload.ok).toBe(true);
+    expect(payload.data.revoked).toBe(true);
 
     await app.close();
   });
 
   it("returns account and organizations on /me", async () => {
-    vi.mocked(accountSessionResolve).mockResolvedValue({
-      session: {} as any,
-      sessionId: "session-1",
-      accountId: "account-1"
+    const app = await appCreate("test");
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      payload: {
+        email: "user@example.com"
+      }
     });
 
-    const context = {
-      nodeEnv: "development",
-      db: {
-        account: {
-          findUnique: vi.fn().mockResolvedValue({
-            id: "account-1",
-            email: "dev@example.com",
-            createdAt: new Date("2026-02-10T00:00:00.000Z"),
-            updatedAt: new Date("2026-02-10T00:00:00.000Z")
-          })
-        },
-        session: {
-          create: vi.fn(),
-          update: vi.fn()
-        },
-        organization: {
-          findMany: vi.fn().mockResolvedValue([{
-            id: "org-1",
-            slug: "acme",
-            name: "Acme",
-            avatarUrl: null,
-            createdAt: new Date("2026-02-10T00:00:00.000Z"),
-            updatedAt: new Date("2026-02-10T00:00:00.000Z")
-          }])
-        }
-      },
-      tokens: {
-        issue: vi.fn()
-      }
-    } as unknown as ApiContext;
+    const loginPayload = login.json() as any;
+    const token = loginPayload.data.token;
+    const accountId = loginPayload.data.account.id;
 
-    const app = appCreate(context);
+    const orgId = createId();
+    await db.organization.create({
+      data: {
+        id: orgId,
+        slug: "acme",
+        name: "Acme"
+      }
+    });
+    await db.user.create({
+      data: {
+        id: createId(),
+        organizationId: orgId,
+        accountId,
+        kind: "HUMAN",
+        firstName: "Owner",
+        username: "owner"
+      }
+    });
+
     const response = await app.inject({
       method: "GET",
       url: "/api/me",
       headers: {
-        authorization: "Bearer token"
+        authorization: `Bearer ${token}`
       }
     });
 
@@ -198,6 +183,47 @@ describe("authRoutesRegister", () => {
     const payload = response.json() as any;
     expect(payload.ok).toBe(true);
     expect(payload.data.organizations).toHaveLength(1);
+
+    await app.close();
+  });
+
+  it("requests an OTP email", async () => {
+    const app = await appCreate("test");
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/auth/email/request-otp",
+      payload: {
+        email: "user@example.com"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as any;
+    expect(payload.ok).toBe(true);
+    expect(payload.data.sent).toBe(true);
+
+    await app.close();
+  });
+
+  it("verifies an OTP code", async () => {
+    const app = await appCreate("test");
+    const email = "user@example.com";
+    const otpKey = `otp:${createHash("sha256").update(email).digest("hex")}`;
+    await redis.set(otpKey, authOtpCodeHash("123456", "salt"), "EX", 600);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/auth/email/verify-otp",
+      payload: {
+        email,
+        code: "123456"
+      }
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = response.json() as any;
+    expect(payload.ok).toBe(true);
+    expect(payload.data.token).toBeTruthy();
 
     await app.close();
   });

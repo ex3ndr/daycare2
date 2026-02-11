@@ -103,18 +103,49 @@ Complete rebuild of the Daycare web frontend on a modern stack: shadcn/ui + Tail
 - **Dependencies:** React 18, Vite 5, Tailwind 3, TypeScript 5, no router/state lib
 
 ## Development Approach
-- **Testing approach**: Regular (code first, then tests). Vitest for pure functions and sync logic. Manual testing via agent-browser for UI flows.
+- **Testing approach**: Regular (code first, then tests). Vitest for pure functions. **agent-browser for all visual/UI verification.**
 - Complete each task fully before moving to the next
 - Make small, focused changes
 - **CRITICAL: every task MUST include new/updated tests** for pure functions and sync logic
 - **CRITICAL: all tests must pass before starting next task**
+- **CRITICAL: every task that produces visible UI MUST be verified via agent-browser** before moving on
 - **CRITICAL: update this plan file when scope changes during implementation**
 - Each milestone produces a buildable, testable state
 
 ## Testing Strategy
-- **Pure function tests (Vitest)**: sync schema, mutations, state derivations, API transforms, utility functions
-- **Manual UI testing (agent-browser)**: auth flow, navigation, messaging, real-time updates
-- No React component unit tests — focus on logic layer and integration
+
+### Vitest (pure logic only)
+- Sync schema, mutations, state derivations, event mappers, utility functions
+- Zustand store actions
+- Derived selectors
+- Session store read/write
+
+### agent-browser (primary UI verification)
+**agent-browser is the main way we verify the app works.** After every task that touches UI, use agent-browser to:
+1. Navigate to `http://localhost:7332` (Vite dev server)
+2. Walk through the relevant user flow visually
+3. Take screenshots to confirm layout, styling, and interactive behavior
+4. Verify optimistic updates appear instantly and resolve correctly
+5. Verify real-time SSE updates arrive (open two browser tabs if needed)
+
+**Prerequisites before agent-browser testing:**
+- Server running: `yarn dev` (API on port 3005)
+- Infrastructure running: `yarn infra:up` (Postgres, Redis, MinIO)
+- Web running: `yarn web` (Vite on port 7332)
+- Use the integration OTP for login: email `integration-test@daycare.local`, code `424242` (requires `OTP_STATIC_ENABLED=true`)
+
+**What to verify per milestone:**
+| Milestone | agent-browser checks |
+|---|---|
+| 1. Tear Down | Page loads, shows placeholder |
+| 2. Components | Temporary test page renders all shadcn components correctly |
+| 3. State Layer | N/A (pure logic, Vitest only) |
+| 4. Routing | URL navigation works, redirects fire, back/forward works |
+| 5. Core Views | Full flow: login → org → channel → send message → thread → logout |
+| 6. Features | Each feature: edit/delete, reactions, DMs, file upload, scroll, search |
+| 7. Polish | Keyboard shortcuts, error states, loading skeletons, reconnection |
+
+No React component unit tests — all UI correctness is verified visually via agent-browser.
 
 ## Progress Tracking
 - Mark completed items with `[x]` immediately when done
@@ -150,7 +181,7 @@ Remove everything that will be rebuilt. Keep only reusable infra.
 - [ ] Create minimal `app/main.tsx` placeholder: renders `<div>Daycare</div>` so the app builds
 - [ ] Create minimal `app/styles.css` with only the CSS variable design tokens (`:root` block with `--bg`, `--accent`, `--rail`, `--sidebar`, fonts, radii) and Google Fonts import — no component classes
 - [ ] Verify `yarn typecheck` passes
-- [ ] Verify `yarn web` starts and shows the placeholder
+- [ ] **agent-browser**: open `http://localhost:7332`, verify placeholder renders, take screenshot
 
 #### Task 2: Install dependencies
 
@@ -193,7 +224,8 @@ Build all UI primitives before any views. Components are testable in isolation.
   - `dropdown-menu.tsx` — for message context menus
   - `popover.tsx` — for emoji picker, popovers
   - `command.tsx` — for search/command palette (Cmd+K)
-- [ ] Verify each component renders (create temporary test page in `app/main.tsx` that renders all components)
+- [ ] Create temporary test page in `app/main.tsx` that renders all components with variant/size combinations
+- [ ] **agent-browser**: open test page, screenshot each component group, verify warm palette applied (orange primary, beige background, dark sidebar tones)
 - [ ] Verify `yarn typecheck` passes
 
 ---
@@ -328,7 +360,7 @@ Build every screen. After this milestone the app is fully functional for core me
 - [ ] Loading state (Button disabled + spinner)
 - [ ] Error display (inline error message)
 - [ ] Daycare warm aesthetic (gradient background, grain overlay, centered card)
-- [ ] Manual test: login flow end-to-end via agent-browser
+- [ ] **agent-browser**: navigate to `/login`, enter integration test email, submit, verify redirect to `/orgs`, screenshot login card and loading state
 - [ ] Run tests — must pass before next task
 
 #### Task 12: Organization picker (`/orgs`)
@@ -337,7 +369,7 @@ Build every screen. After this milestone the app is fully functional for core me
 - [ ] "Create Organization" Dialog with form fields (name, slug, firstName, username)
 - [ ] On org click: load org → start sync engine → redirect to `/:orgSlug`
 - [ ] On create: create org → start sync → redirect
-- [ ] Manual test: org selection and creation via agent-browser
+- [ ] **agent-browser**: login → arrive at `/orgs` → screenshot org list → create new org → verify redirect to workspace → screenshot
 - [ ] Run tests — must pass before next task
 
 #### Task 13: Workspace layout (`_workspace` route)
@@ -350,7 +382,7 @@ The workspace chrome: rail, sidebar, content area, thread panel.
 - [ ] Channel list: ScrollArea, clickable rows with unread Badge, active highlight
 - [ ] "New Channel" button → Dialog
 - [ ] Routing: channel click → `/:orgSlug/c/:channelId`
-- [ ] Manual test: workspace layout renders, channel navigation works
+- [ ] **agent-browser**: verify 4-column layout (dark rail, dark sidebar, light chat, light thread), click channels and verify URL changes, screenshot full workspace, verify unread badges show on non-selected channels
 - [ ] Run tests — must pass before next task
 
 #### Task 14: Channel view (messages + composer)
@@ -367,7 +399,7 @@ The main messaging view.
 - [ ] Optimistic send: message appears immediately with `pending` badge, resolves on commit
 - [ ] Typing signals: emit on keystroke (throttled 1.5s), show typing users from sync state
 - [ ] Read marking: mark read on channel select + on new messages while viewing
-- [ ] Manual test: send message optimistically, see SSE confirmation
+- [ ] **agent-browser**: type a message → hit Enter → verify message appears instantly with "sending" badge → wait for badge to disappear (SSE confirm) → screenshot. Open second tab, send message there, verify it appears in first tab via SSE.
 - [ ] Run tests — must pass before next task
 
 #### Task 15: Thread panel
@@ -379,7 +411,7 @@ The main messaging view.
   - Close button → navigate back to channel
 - [ ] Thread opens via "Thread" button on message → thread URL
 - [ ] Replies use `messageSend` mutation with `threadId`
-- [ ] Manual test: open thread, reply, close thread
+- [ ] **agent-browser**: click "Thread" on a message → verify thread panel opens with root message at top and URL updates → type reply → verify it appears → click Close → verify panel closes and URL reverts → screenshot open and closed states
 - [ ] Run tests — must pass before next task
 
 ---
@@ -395,7 +427,7 @@ The main messaging view.
 - [ ] Show "(edited)" indicator on edited messages
 - [ ] Show deleted messages as "[This message was deleted]" or hide
 - [ ] Only show edit/delete for own messages
-- [ ] Manual test: edit message, delete message, verify optimistic + server confirm
+- [ ] **agent-browser**: hover a message → verify context menu appears → click Edit → verify inline textarea with old text → change text → save → verify "(edited)" label appears instantly (optimistic) → screenshot. Click Delete on another message → confirm dialog → verify message disappears → screenshot.
 - [ ] Run tests for edit/delete mutations — must pass before next task
 
 #### Task 17: Emoji reactions
@@ -405,7 +437,7 @@ The main messaging view.
 - [ ] Click existing reaction → toggle (add/remove via `reactionToggle` mutation)
 - [ ] "+" button → EmojiPicker for new reaction
 - [ ] Optimistic: reaction appears/disappears immediately
-- [ ] Manual test: add reaction, remove reaction, see counts update
+- [ ] **agent-browser**: click "+" on a message → verify emoji picker popover → click `:fire:` → verify reaction badge appears with count 1 and highlighted → click it again → verify it disappears → screenshot picker open and reaction states
 - [ ] Run tests for reaction toggle logic — must pass before next task
 
 #### Task 18: Direct messages UI
@@ -417,7 +449,7 @@ Depends on backend DM API routes.
 - [ ] Build `app/routes/_workspace.$orgSlug.dm.$dmId.tsx` — same message view but DM header (user avatar + name)
 - [ ] DM creation → `POST /api/org/:orgid/directs` → navigate to DM route
 - [ ] Same message list and composer components
-- [ ] Manual test: create DM, send message
+- [ ] **agent-browser**: click "New Message" in sidebar → select a member → verify DM opens with user's name as header → send a message → verify it appears → check sidebar shows DM in list → screenshot
 - [ ] Run tests — must pass before next task
 
 #### Task 19: File upload UI
@@ -430,7 +462,7 @@ Depends on backend S3 integration.
 - [ ] Attached files as chips below composer before sending
 - [ ] Build `app/components/messages/Attachment.tsx` — image preview, file icon + name for documents
 - [ ] Drag-and-drop support onto message area
-- [ ] Manual test: upload image, send with attachment
+- [ ] **agent-browser**: click file picker → select an image → verify chip appears below composer with progress → send message → verify image preview renders in message → screenshot composer with attachment and sent message with preview
 - [ ] Run tests for upload state machine — must pass before next task
 
 #### Task 20: Infinite scroll / message pagination
@@ -440,7 +472,7 @@ Depends on backend S3 integration.
 - [ ] Auto-scroll to bottom on new messages only if already at bottom
 - [ ] Merge paginated messages into sync engine state via rebase
 - [ ] Loading spinner at top while fetching
-- [ ] Manual test: scroll up, see older messages load, jump back
+- [ ] **agent-browser**: in a channel with many messages, scroll to top → verify spinner appears → verify older messages load → scroll to middle → send message from second tab → verify "jump to bottom" button appears → click it → verify scroll snaps to newest message → screenshot
 - [ ] Run tests — must pass before next task
 
 #### Task 21: Search UI
@@ -453,7 +485,7 @@ Depends on backend full-text search.
 - [ ] Channel results: name + topic
 - [ ] Click message → navigate to channel at that message (`around` pagination)
 - [ ] Click channel → navigate to channel
-- [ ] Manual test: search, click result, verify navigation
+- [ ] **agent-browser**: press Cmd+K → verify command palette opens → type search term → verify results appear with highlights → click a message result → verify navigation to correct channel and message is visible → screenshot palette and result navigation
 - [ ] Run tests — must pass before next task
 
 #### Task 22: User presence indicators
@@ -465,7 +497,7 @@ Depends on backend presence system.
 - [ ] Heartbeat every 60 seconds
 - [ ] Listen for `user.presence` SSE events → update sync state
 - [ ] Show in: member list, DM sidebar, message avatars
-- [ ] Manual test: two tabs, see presence update
+- [ ] **agent-browser**: login in two tabs with different users → verify green presence dots on both users' avatars → close one tab → wait 30s → verify dot turns gray on the remaining tab → screenshot both states
 - [ ] Run tests — must pass before next task
 
 #### Task 23: Channel settings and member management
@@ -476,7 +508,7 @@ Depends on backend presence system.
 - [ ] Open via channel header settings icon
 - [ ] Archive/unarchive button (owner, depends on backend)
 - [ ] Notification preferences dropdown (ALL / MENTIONS_ONLY / MUTED)
-- [ ] Manual test: edit channel, change roles, archive
+- [ ] **agent-browser**: click settings icon in channel header → verify dialog opens with Overview tab → edit channel name → save → verify header updates → switch to Members tab → verify member list with role badges → screenshot both tabs
 - [ ] Run tests — must pass before next task
 
 ---
@@ -491,7 +523,7 @@ Depends on backend presence system.
 - [ ] `Escape` — close thread/modal/search
 - [ ] `Up Arrow` (empty composer) — edit last own message
 - [ ] `Cmd+/` — keyboard shortcut help overlay
-- [ ] Manual test: all shortcuts work
+- [ ] **agent-browser**: press Cmd+K → verify search opens → press Escape → verify it closes → press Up in empty composer → verify edit mode on last message → press Cmd+/ → verify help overlay → screenshot each
 
 #### Task 25: Error handling and loading states
 
@@ -500,7 +532,7 @@ Depends on backend presence system.
 - [ ] Toast notifications for send failed, connection lost, reconnected
 - [ ] SSE disconnect: "Reconnecting..." banner, auto-retry
 - [ ] 401 responses: clear session, redirect to login
-- [ ] Manual test: disconnect network, see reconnection UI
+- [ ] **agent-browser**: stop the API server → verify "Reconnecting..." banner appears → restart server → verify banner disappears and messages reload → screenshot reconnection state. Navigate to a channel → verify loading skeletons show briefly before messages appear → screenshot skeleton state.
 
 #### Task 26: Verify acceptance criteria
 
@@ -525,7 +557,19 @@ Depends on backend presence system.
 - [ ] Verify thread panel works
 - [ ] Run full test suite — all pass
 - [ ] Run `yarn typecheck` — no errors
-- [ ] Manual test: complete flow (login → org → channel → send → thread → react → edit → delete → search → DM → logout)
+- [ ] **agent-browser full smoke test**: complete end-to-end flow with screenshots at each step:
+  1. Open `/login` → enter integration email → submit
+  2. Arrive at `/orgs` → select or create org
+  3. Land in workspace → verify layout (rail, sidebar, chat, thread panel)
+  4. Click a channel → verify messages load
+  5. Send a message → verify optimistic + SSE confirm
+  6. Open thread → reply → close thread
+  7. Add reaction → verify count → remove reaction
+  8. Edit a message → verify "(edited)"
+  9. Delete a message → verify removal
+  10. Cmd+K → search → click result → verify navigation
+  11. Open DM → send message
+  12. Logout → verify redirect to `/login`
 
 #### Task 27: [Final] Update documentation
 

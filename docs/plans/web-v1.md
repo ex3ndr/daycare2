@@ -129,10 +129,9 @@ Complete rebuild of the Daycare web frontend on a modern stack: shadcn/ui + Tail
 5. Verify real-time SSE updates arrive (open two browser tabs if needed)
 
 **Prerequisites before agent-browser testing:**
-- Server running: `yarn dev` (API on port 3005)
-- Infrastructure running: `yarn infra:up` (Postgres, Redis, MinIO)
 - Web running: `yarn web` (Vite on port 7332)
-- Use the integration OTP for login: email `integration-test@daycare.local`, code `424242` (requires `OTP_STATIC_ENABLED=true`)
+- Vite proxies `/api` to the public server at `https://daycare-api.korshakov.org/` — no local infra or server needed
+- Use the integration OTP for login: email `integration-test@daycare.local`, code `424242`
 
 **What to verify per milestone:**
 | Milestone | agent-browser checks |

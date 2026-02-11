@@ -74,6 +74,14 @@
 - `getLogger("module.name")` — always pass an explicit module name.
 - Module labels padded/trimmed to 20 chars.
 
+## Public API Server (Web Development)
+When working on the web app (`packages/daycare-web`), use the public API server instead of starting local infrastructure:
+- **API endpoint**: `https://daycare-api.korshakov.org/`
+- **No local infra needed**: skip `yarn infra:up` and `yarn dev` — the public server is always available.
+- **Vite proxy target**: set to `https://daycare-api.korshakov.org` in `packages/daycare-web/vite.config.ts`.
+- **Auth**: use integration OTP — email `integration-test@daycare.local`, code `424242`.
+- **Workflow**: `yarn web` → open `http://localhost:7332` → Vite proxies `/api` to the public server.
+
 ## Agent-Specific Notes
 - **Always write code, comments, commit messages, and documentation in English.**
 - Never edit `node_modules`.

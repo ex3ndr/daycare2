@@ -10,6 +10,7 @@ import type {
   OrgDomain,
   OrgInvite,
   Organization,
+  OrgRole,
   ReadState,
   Session,
   TypingState,
@@ -17,6 +18,7 @@ import type {
   UpdatesDiffResult,
   User
 } from "../types";
+import { orgRoleNormalize } from "../orgRoleNormalize";
 import { apiRequest, apiRequestFireUnauthorized } from "./apiRequest";
 import { sseSubscribe } from "./sseSubscribe";
 
@@ -166,7 +168,7 @@ export type ApiClient = {
   ) => { close: () => void };
   orgMemberDeactivate: (token: string, orgId: string, userId: string) => Promise<{ user: { id: string; deactivatedAt: number | null } }>;
   orgMemberReactivate: (token: string, orgId: string, userId: string) => Promise<{ user: { id: string; deactivatedAt: number | null } }>;
-  orgMemberRoleSet: (token: string, orgId: string, userId: string, input: { role: "OWNER" | "MEMBER" }) => Promise<{ user: { id: string; orgRole: string } }>;
+  orgMemberRoleSet: (token: string, orgId: string, userId: string, input: { role: "OWNER" | "MEMBER" }) => Promise<{ user: { id: string; orgRole: OrgRole } }>;
   orgInviteCreate: (token: string, orgId: string, input: { email: string }) => Promise<{ invite: OrgInvite }>;
   orgInviteList: (token: string, orgId: string) => Promise<{ invites: OrgInvite[] }>;
   orgInviteRevoke: (token: string, orgId: string, inviteId: string) => Promise<{ invite: { id: string; revokedAt: number | null } }>;
@@ -188,6 +190,15 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
       token: options.token,
       body: options.body
     });
+  const userNormalize = (user: User): User => ({
+    ...user,
+    orgRole: orgRoleNormalize(user.orgRole),
+  });
+  const membersWithUserNormalize = (members: Array<ChannelMember & { user: User }>): Array<ChannelMember & { user: User }> =>
+    members.map((member) => ({
+      ...member,
+      user: userNormalize(member.user),
+    }));
 
   return {
     authLogin: (email) => request("/api/auth/login", { method: "POST", body: { email } }),
@@ -197,16 +208,34 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
     meGet: (token) => request("/api/me", { token }),
     organizationAvailableList: (token) => request("/api/org/available", { token }),
     organizationCreate: (token, input) => request("/api/org/create", { method: "POST", token, body: input }),
-    organizationJoin: (token, orgId, input) => request(`/api/org/${orgId}/join`, { method: "POST", token, body: input }),
+    organizationJoin: async (token, orgId, input) => {
+      const result = await request<{ joined: boolean; user: User }>(`/api/org/${orgId}/join`, { method: "POST", token, body: input });
+      return { ...result, user: userNormalize(result.user) };
+    },
     organizationGet: (token, orgId) => request(`/api/org/${orgId}`, { token }),
-    organizationMembers: (token, orgId) => request(`/api/org/${orgId}/members`, { token }),
-    profileGet: (token, orgId) => request(`/api/org/${orgId}/profile`, { token }),
-    profilePatch: (token, orgId, input) => request(`/api/org/${orgId}/profile`, { method: "PATCH", token, body: input }),
+    organizationMembers: async (token, orgId) => {
+      const result = await request<{ members: User[] }>(`/api/org/${orgId}/members`, { token });
+      return { members: result.members.map((member) => userNormalize(member)) };
+    },
+    profileGet: async (token, orgId) => {
+      const result = await request<{ profile: User }>(`/api/org/${orgId}/profile`, { token });
+      return { profile: userNormalize(result.profile) };
+    },
+    profilePatch: async (token, orgId, input) => {
+      const result = await request<{ profile: User }>(`/api/org/${orgId}/profile`, { method: "PATCH", token, body: input });
+      return { profile: userNormalize(result.profile) };
+    },
     channelList: (token, orgId) => request(`/api/org/${orgId}/channels`, { token }),
     channelCreate: (token, orgId, input) => request(`/api/org/${orgId}/channels`, { method: "POST", token, body: input }),
     channelJoin: (token, orgId, channelId) => request(`/api/org/${orgId}/channels/${channelId}/join`, { method: "POST", token }),
     channelLeave: (token, orgId, channelId) => request(`/api/org/${orgId}/channels/${channelId}/leave`, { method: "POST", token }),
-    channelMembers: (token, orgId, channelId) => request(`/api/org/${orgId}/channels/${channelId}/members`, { token }),
+    channelMembers: async (token, orgId, channelId) => {
+      const result = await request<{ members: Array<ChannelMember & { user: User }> }>(
+        `/api/org/${orgId}/channels/${channelId}/members`,
+        { token },
+      );
+      return { members: membersWithUserNormalize(result.members) };
+    },
     messageList: (token, orgId, channelId, query) => {
       const params = new URLSearchParams();
       if (query?.limit) {
@@ -328,8 +357,18 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
       request(`/api/org/${orgId}/members/${userId}/deactivate`, { method: "POST", token }),
     orgMemberReactivate: (token, orgId, userId) =>
       request(`/api/org/${orgId}/members/${userId}/reactivate`, { method: "POST", token }),
-    orgMemberRoleSet: (token, orgId, userId, input) =>
-      request(`/api/org/${orgId}/members/${userId}/role`, { method: "PATCH", token, body: input }),
+    orgMemberRoleSet: async (token, orgId, userId, input) => {
+      const result = await request<{ user: { id: string; orgRole: string } }>(
+        `/api/org/${orgId}/members/${userId}/role`,
+        { method: "PATCH", token, body: input },
+      );
+      return {
+        user: {
+          id: result.user.id,
+          orgRole: orgRoleNormalize(result.user.orgRole) ?? "member",
+        },
+      };
+    },
     orgInviteCreate: (token, orgId, input) =>
       request(`/api/org/${orgId}/invites`, { method: "POST", token, body: input }),
     orgInviteList: (token, orgId) =>

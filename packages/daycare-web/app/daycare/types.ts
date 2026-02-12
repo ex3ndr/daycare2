@@ -1,5 +1,6 @@
 export type Id = string;
 export type UnixMs = number;
+export type OrgRole = "owner" | "member";
 
 export type ApiError = {
   code: string;
@@ -49,7 +50,7 @@ export type User = {
   bio?: string | null;
   timezone?: string | null;
   systemPrompt?: string | null;
-  orgRole?: "owner" | "member";
+  orgRole?: OrgRole;
   deactivatedAt: UnixMs | null;
   createdAt: UnixMs;
   updatedAt: UnixMs;
@@ -68,7 +69,7 @@ export type Channel = {
 export type ChannelMember = {
   chatId: Id;
   userId: Id;
-  role: "owner" | "member";
+  role: OrgRole;
   joinedAt: UnixMs;
   leftAt: UnixMs | null;
   notificationLevel?: "all" | "mentions_only" | "muted";

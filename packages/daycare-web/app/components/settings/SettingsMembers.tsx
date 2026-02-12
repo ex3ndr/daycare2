@@ -21,6 +21,7 @@ import {
 } from "@/app/components/ui/dropdown-menu";
 import { Search, MoreVertical, Shield, UserX, UserCheck } from "lucide-react";
 import { toastAdd } from "@/app/stores/toastStoreContext";
+import { orgRoleNormalize } from "@/app/daycare/orgRoleNormalize";
 import type { User } from "@/app/daycare/types";
 
 type SettingsMembersProps = {
@@ -71,9 +72,7 @@ export function SettingsMembers({ isOwner }: SettingsMembersProps) {
       try {
         await app.api.orgMemberRoleSet(app.token, app.orgId, userId, { role });
         setMembers((prev) =>
-          prev.map((m) =>
-            m.id === userId ? { ...m, orgRole: role.toLowerCase() as "owner" | "member" } : m,
-          ),
+          prev.map((m) => (m.id === userId ? { ...m, orgRole: orgRoleNormalize(role) } : m)),
         );
         toastAdd(`Role updated to ${role.toLowerCase()}`, "success");
       } catch (err) {
@@ -198,7 +197,7 @@ function MemberRow({
     : member.firstName;
   const initials = (member.firstName[0] ?? "") + (member.lastName?.[0] ?? "");
   const isDeactivated = member.deactivatedAt !== null && member.deactivatedAt !== undefined;
-  const role = member.orgRole ?? "member";
+  const role = orgRoleNormalize(member.orgRole) ?? "member";
 
   return (
     <div

@@ -270,6 +270,10 @@ model FileAsset {
   expiresAt      DateTime?
   committedAt    DateTime?
 
+  imageWidth     Int?
+  imageHeight    Int?
+  imageThumbhash String?
+
   organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdByUser User?              @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
   attachments  MessageAttachment[]

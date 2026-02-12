@@ -13,7 +13,8 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "react-native": ["./node_modules/react-native-web"]
     },
     "esModuleInterop": true
   },

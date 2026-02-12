@@ -9,6 +9,7 @@
     "build": "yarn workspaces run build",
     "dev": "yarn workspace daycare-server run dev",
     "web": "yarn workspace daycare-web dev",
+    "desktop": "yarn workspace daycare-desktop dev",
     "infra:up": "docker compose up -d db redis s3",
     "infra:down": "docker compose down",
     "infra:logs": "docker compose logs -f db redis s3",

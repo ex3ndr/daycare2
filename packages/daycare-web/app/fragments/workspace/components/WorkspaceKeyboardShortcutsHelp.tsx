@@ -19,7 +19,7 @@ export const shortcuts = [
   { keys: [mod, "/"], description: "Keyboard shortcuts" },
 ];
 
-export function KeyboardShortcutsHelp() {
+export function WorkspaceKeyboardShortcutsHelp() {
   const [open, setOpen] = useState(false);
 
   const handleKeyDown = useCallback(
@@ -32,6 +32,7 @@ export function KeyboardShortcutsHelp() {
     [],
   );
 
+  // Global keyboard shortcut listener — no hook abstraction for keydown
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);

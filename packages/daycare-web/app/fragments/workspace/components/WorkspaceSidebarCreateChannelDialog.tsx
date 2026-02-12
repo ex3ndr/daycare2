@@ -11,7 +11,7 @@ import {
 } from "@/app/components/ui/dialog";
 import { Hash, Lock } from "lucide-react";
 
-export function SidebarCreateChannelDialog({
+export function WorkspaceSidebarCreateChannelDialog({
   open,
   onOpenChange,
   onCreated,

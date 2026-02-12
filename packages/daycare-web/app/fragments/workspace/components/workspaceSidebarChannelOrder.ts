@@ -22,7 +22,7 @@ export function channelOrderWrite(orgId: string, order: string[]): void {
 export function useChannelOrder<T extends { id: string; name: string }>(orgId: string, channels: T[]) {
   const [order, setOrder] = useState<string[]>(() => channelOrderRead(orgId));
 
-  // Re-read order when orgId changes
+  // Re-read order when orgId changes — no hook abstraction for localStorage
   useEffect(() => {
     setOrder(channelOrderRead(orgId));
   }, [orgId]);

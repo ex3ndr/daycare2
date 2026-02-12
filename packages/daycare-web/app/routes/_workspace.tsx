@@ -8,7 +8,7 @@ import { apiClientCreate } from "@/app/daycare/api/apiClientCreate";
 import { sessionGet } from "@/app/lib/sessionStore";
 import { TooltipProvider } from "@/app/components/ui/tooltip";
 import { SearchCommandPalette } from "@/app/components/search/SearchCommandPalette";
-import { KeyboardShortcutsHelp } from "@/app/components/workspace/KeyboardShortcutsHelp";
+import { WorkspaceKeyboardShortcutsHelp } from "@/app/fragments/workspace/WorkspaceKeyboardShortcutsHelp";
 import { PhotoViewer } from "@/app/components/ui/PhotoViewer";
 import { Loader2 } from "lucide-react";
 import { ErrorBoundary } from "@/app/components/ErrorBoundary";
@@ -69,6 +69,7 @@ function WorkspaceLayout() {
   if (error) {
     return (
       <div className="flex h-screen items-center justify-center">
+        <div className="drag-region fixed top-0 left-0 right-0 h-[30px]" />
         <p className="text-destructive">{error}</p>
       </div>
     );
@@ -77,6 +78,7 @@ function WorkspaceLayout() {
   if (!controller) {
     return (
       <div className="flex h-screen items-center justify-center">
+        <div className="drag-region fixed top-0 left-0 right-0 h-[30px]" />
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -95,7 +97,7 @@ function WorkspaceLayout() {
           </div>
         </div>
         <SearchCommandPalette />
-        <KeyboardShortcutsHelp />
+        <WorkspaceKeyboardShortcutsHelp />
         <PhotoViewer />
       </TooltipProvider>
     </AppContext.Provider>

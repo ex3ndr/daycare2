@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { shortcuts } from "./KeyboardShortcutsHelp";
+import { shortcuts } from "./WorkspaceKeyboardShortcutsHelp";
 
-describe("KeyboardShortcutsHelp", () => {
+describe("WorkspaceKeyboardShortcutsHelp", () => {
   it("should define all required keyboard shortcuts", () => {
     const descriptions = shortcuts.map((s) => s.description);
     expect(descriptions).toContain("Send message");

@@ -1,6 +1,6 @@
 import { createRoute, Outlet } from "@tanstack/react-router";
 import { workspaceRoute } from "./_workspace";
-import { WorkspaceShell } from "@/app/components/workspace/WorkspaceShell";
+import { WorkspaceLayout } from "@/app/fragments/workspace/WorkspaceLayout";
 
 export const orgSlugRoute = createRoute({
   getParentRoute: () => workspaceRoute,
@@ -10,8 +10,8 @@ export const orgSlugRoute = createRoute({
 
 function OrgLayout() {
   return (
-    <WorkspaceShell>
+    <WorkspaceLayout>
       <Outlet />
-    </WorkspaceShell>
+    </WorkspaceLayout>
   );
 }

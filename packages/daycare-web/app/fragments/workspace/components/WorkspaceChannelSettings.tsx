@@ -35,7 +35,7 @@ const NOTIFICATION_LABELS: Record<NotificationSetting, string> = {
   MUTED: "Muted",
 };
 
-type ChannelSettingsProps = {
+type WorkspaceChannelSettingsProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   channelId: string;
@@ -49,7 +49,7 @@ type ChannelSettingsProps = {
   onChannelUpdated?: () => void;
 };
 
-export function ChannelSettings({
+export function WorkspaceChannelSettings({
   open,
   onOpenChange,
   channelId,
@@ -61,7 +61,7 @@ export function ChannelSettings({
   token,
   orgId,
   onChannelUpdated,
-}: ChannelSettingsProps) {
+}: WorkspaceChannelSettingsProps) {
   const [tab, setTab] = useState<Tab>("overview");
 
   // Overview form state
@@ -128,7 +128,7 @@ export function ChannelSettings({
       .finally(() => setMembersLoading(false));
   }, [api, token, orgId, channelId, currentUserId]);
 
-  // Load members when dialog opens
+  // Load members when dialog opens — external API data fetch
   useEffect(() => {
     if (!open) return;
     loadMembers();
@@ -146,7 +146,7 @@ export function ChannelSettings({
       .finally(() => setOrgMembersLoading(false));
   }, [api, token, orgId]);
 
-  // Fetch org members when add-member section opens
+  // Fetch org members when add-member section opens — external API data fetch
   useEffect(() => {
     if (showAddMember) {
       loadOrgMembers();

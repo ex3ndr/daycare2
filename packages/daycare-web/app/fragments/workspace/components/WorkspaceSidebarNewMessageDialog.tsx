@@ -20,7 +20,7 @@ type MemberItem = {
   avatarUrl: string | null;
 };
 
-export function SidebarNewMessageDialog({
+export function WorkspaceSidebarNewMessageDialog({
   open,
   onOpenChange,
   onCreated,
@@ -41,6 +41,7 @@ export function SidebarNewMessageDialog({
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch org members when dialog opens — external data subscription with no hook abstraction
   useEffect(() => {
     if (!open) return;
     setLoading(true);

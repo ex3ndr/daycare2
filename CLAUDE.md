@@ -14,7 +14,7 @@
 - REST for CRUD, SSE for real-time events
 
 ### Web Frontend (`packages/daycare-web`)
-- **UI components**: shadcn/ui + Tailwind CSS (warm palette: beige background, orange primary, dark sidebar/rail)
+- **UI components**: shadcn/ui primitives + React Native Web layout for workspace surfaces
 - **Routing**: TanStack Router with file-based route tree, auth guards, deep linking
 - **State**: @slopus/sync engine wrapped in Zustand (StorageStore) for optimistic mutations + server rebase
 - **UI state**: separate Zustand stores for connection, toasts, and UI (modals, drafts, sidebar)
@@ -42,10 +42,12 @@ app/
   routes/          -> TanStack Router route files (__root, login, orgs, _workspace.*)
   sync/            -> @slopus/sync schema, AppController, StorageStore, selectors, event mappers, UpdateSequencer
   stores/          -> Zustand UI stores (uiStore, connectionStore, toastStore)
+  fragments/
+    workspace/     -> Workspace UI implementation and internal components (source of truth)
   components/
     ui/            -> shadcn/ui primitives (button, input, dialog, avatar, badge, etc.), PhotoViewer
     messages/      -> MessageRow, Composer, ReactionBar, EmojiPicker, FileUpload, Attachment
-    workspace/     -> Rail, Sidebar, ChannelSettings, ProfileEditor, KeyboardShortcutsHelp
+    workspace/     -> legacy workspace components kept temporarily during migration; do not extend
     settings/      -> SettingsLayout, SettingsGeneral, SettingsMembers, SettingsInvites, SettingsDomains
     search/        -> SearchCommandPalette
     skeletons/     -> Loading skeleton components
@@ -54,6 +56,12 @@ app/
     api/           -> typed API client, HTTP request helper, SSE subscriber
     types.ts       -> shared TypeScript types
 ```
+
+### Workspace UI Rules
+- All new workspace UI code lives in `packages/daycare-web/app/fragments/workspace`.
+- `packages/daycare-web/app/components/workspace` is legacy fallback during migration; keep it until explicitly removed.
+- Treat workspace as a desktop React Native app: use React Native Web primitives (`View`, `Text`, `Pressable`, `StyleSheet`) for layout and structure.
+- Tailwind classes may be used for existing legacy components or small visual tweaks, but not as the primary layout system for new workspace fragments.
 
 ## Conventions
 - typescript only, esm output

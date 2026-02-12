@@ -89,6 +89,7 @@ function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center p-4">
+      <div className="drag-region fixed top-0 left-0 right-0 h-[30px]" />
       {/* Grain overlay */}
       <div
         className="pointer-events-none fixed inset-0 opacity-[0.03]"

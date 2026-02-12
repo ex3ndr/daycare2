@@ -22,7 +22,7 @@ type ProfileFields = {
   avatarUrl: string;
 };
 
-export function ProfileEditor({
+export function WorkspaceProfileEditor({
   open,
   onOpenChange,
 }: {
@@ -44,6 +44,7 @@ export function ProfileEditor({
   const [fetching, setFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Fetch profile data when dialog opens — no hook abstraction for this API call
   useEffect(() => {
     if (!open) return;
     setFetching(true);

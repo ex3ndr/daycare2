@@ -8,111 +8,150 @@
   :root {
     color-scheme: light;
 
-    /* shadcn core */
-    --background: 0 0% 100%;
-    --foreground: 0 0% 13%;
+    /* M3 light — from happy-app theme.light.json + theme.ts */
+    --background: 300 100% 99%;          /* #fffbff */
+    --foreground: 255 8% 11%;            /* #1c1b1f */
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 13%;
+    --card: 300 100% 99%;
+    --card-foreground: 255 8% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 13%;
+    --popover-foreground: 255 8% 11%;
 
-    --primary: 22 66% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 249 34% 49%;              /* #5e52a7 */
+    --primary-foreground: 0 0% 100%;     /* #ffffff */
 
-    --secondary: 37 27% 89%;
-    --secondary-foreground: 36 9% 11%;
+    --secondary: 254 68% 93%;            /* #e5dff9 */
+    --secondary-foreground: 252 21% 14%; /* #1c192b */
 
-    --muted: 37 33% 95%;
-    --muted-foreground: 30 9% 39%;
+    --muted: 265 24% 90%;               /* #e5e0ec — surfaceVariant */
+    --muted-foreground: 252 8% 29%;     /* #48454f — onSurfaceVariant */
 
-    --accent: 37 27% 89%;
-    --accent-foreground: 36 9% 11%;
+    --accent: 254 68% 93%;
+    --accent-foreground: 252 21% 14%;
 
-    --destructive: 0 50% 52%;
+    --destructive: 0 76% 42%;            /* #ba1a1a */
     --destructive-foreground: 0 0% 100%;
 
-    --success: 160 54% 40%;
+    --success: 145 63% 42%;              /* #34C759 */
 
-    --border: 36 9% 11% / 0.12;
-    --input: 36 9% 11% / 0.12;
-    --ring: 22 66% 50%;
+    --border: 262 10% 79%;              /* #c9c5d0 — outlineVariant */
+    --input: 262 10% 79%;
+    --ring: 249 34% 49%;
 
     --radius: 12px;
 
-    /* Sidebar — aubergine tones */
-    --sidebar: 292 31% 25%;
-    --sidebar-foreground: 280 10% 96%;
-    --sidebar-border: 294 24% 30%;
-    --sidebar-accent: 288 30% 81%;
-    --sidebar-accent-foreground: 294 40% 16%;
-    --sidebar-muted: 294 28% 29%;
-    --sidebar-muted-foreground: 280 12% 88%;
+    /* Sidebar — M3 light surfaces */
+    --sidebar: 0 0% 100%;                /* white */
+    --sidebar-foreground: 255 8% 11%;    /* #1c1b1f — onSurface */
+    --sidebar-border: 262 10% 79%;       /* #c9c5d0 — outlineVariant */
+    --sidebar-accent: 254 68% 93%;       /* #e5dff9 — secondaryContainer */
+    --sidebar-accent-foreground: 252 21% 14%; /* #1c192b — onSecondaryContainer */
+    --sidebar-muted: 265 24% 95%;        /* light surfaceVariant */
+    --sidebar-muted-foreground: 252 8% 29%; /* #48454f — onSurfaceVariant */
 
-    /* Rail — darkest aubergine */
-    --rail: 293 58% 15%;
-    --rail-foreground: 280 20% 95%;
+    /* Rail / Shell */
+    --rail: 0 0% 96%;                    /* #F5F5F5 */
+    --rail-foreground: 252 8% 29%;       /* #48454f — onSurfaceVariant */
 
-    /* Sidebar header — between rail and sidebar */
-    --sidebar-header: 293 50% 17%;
+    /* Sidebar header */
+    --sidebar-header: 265 24% 96%;
 
-    /* Daycare legacy tokens (for gradient and custom use) */
-    --bg: #ffffff;
-    --bg-accent: #f8f8f8;
+    /* Legacy tokens — from happy-app theme.ts light */
+    --bg: #fffbff;
+    --bg-accent: #F8F8F8;
     --surface: #ffffff;
-    --ink: #1f1d1a;
-    --ink-soft: #6c635a;
-    --shadow: 0 18px 40px rgba(18, 14, 10, 0.12);
-    --shadow-soft: 0 10px 24px rgba(18, 14, 10, 0.08);
+    --ink: #1c1b1f;
+    --ink-soft: #48454f;
+    --shadow: 0 18px 40px rgba(0, 0, 0, 0.1);
+    --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.06);
+    --presence-online: hsl(var(--success));
+    --presence-away: #f59e0b;
+    --presence-offline: #9ca3af;
+
+    /* App color aliases for JS/TS style usage */
+    --color-background: hsl(var(--background));
+    --color-surface: var(--surface);
+    --color-sidebar: hsl(var(--sidebar));
+    --color-sidebar-foreground: hsl(var(--sidebar-foreground));
+    --color-sidebar-border: hsl(var(--sidebar-border));
+    --color-sidebar-accent: hsl(var(--sidebar-accent));
+    --color-sidebar-accent-foreground: hsl(var(--sidebar-accent-foreground));
+    --color-sidebar-muted: hsl(var(--sidebar-muted));
+    --color-sidebar-muted-foreground: hsl(var(--sidebar-muted-foreground));
+    --color-rail: hsl(var(--rail));
+    --color-bg-accent: var(--bg-accent);
+    --color-ink: var(--ink);
+    --color-ink-soft: var(--ink-soft);
+    --color-presence-online: var(--presence-online);
+    --color-presence-away: var(--presence-away);
+    --color-presence-offline: var(--presence-offline);
+    --color-border: hsl(var(--border));
+    --color-foreground: hsl(var(--foreground));
+    --color-muted-foreground: hsl(var(--muted-foreground));
+    --color-primary: hsl(var(--primary));
   }
 
   .dark {
-    --background: 210 16% 10%;
-    --foreground: 36 35% 95%;
+    /* M3 dark — from happy-app theme.dark.json + theme.ts */
+    --background: 255 8% 11%;            /* #1c1b1f */
+    --foreground: 288 9% 89%;            /* #e5e1e6 */
 
-    --card: 210 12% 14%;
-    --card-foreground: 36 35% 95%;
+    --card: 258 7% 15%;
+    --card-foreground: 288 9% 89%;
 
-    --popover: 210 12% 14%;
-    --popover-foreground: 36 35% 95%;
+    --popover: 258 7% 15%;
+    --popover-foreground: 288 9% 89%;
 
-    --primary: 22 66% 50%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 248 100% 87%;             /* #c8bfff */
+    --primary-foreground: 250 56% 30%;   /* #2f2176 */
 
-    --secondary: 210 12% 20%;
-    --secondary-foreground: 36 35% 95%;
+    --secondary: 249 13% 31%;            /* #474459 */
+    --secondary-foreground: 254 68% 93%; /* #e5dff9 */
 
-    --muted: 210 12% 18%;
-    --muted-foreground: 36 20% 60%;
+    --muted: 258 7% 18%;                /* #2C2C2E — surfaceHigh */
+    --muted-foreground: 262 10% 79%;    /* #c9c5d0 — onSurfaceVariant */
 
-    --accent: 210 12% 20%;
-    --accent-foreground: 36 35% 95%;
+    --accent: 249 13% 31%;
+    --accent-foreground: 254 68% 93%;
 
-    --destructive: 0 50% 52%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 6 100% 84%;           /* #ffb4ab */
+    --destructive-foreground: 0 75% 21%; /* #690005 */
 
-    --success: 160 54% 40%;
+    --success: 145 63% 42%;
 
-    --border: 36 35% 95% / 0.12;
-    --input: 36 35% 95% / 0.12;
-    --ring: 22 66% 50%;
+    --border: 258 7% 23%;               /* #38383A — divider */
+    --input: 258 7% 23%;
+    --ring: 248 100% 87%;
 
-    --sidebar: 210 16% 8%;
-    --sidebar-foreground: 36 35% 95%;
-    --sidebar-border: 210 16% 14%;
-    --sidebar-accent: 210 16% 14%;
-    --sidebar-accent-foreground: 36 35% 95%;
-    --sidebar-muted: 210 16% 12%;
-    --sidebar-muted-foreground: 36 20% 60%;
+    /* Sidebar — M3 dark surfaces */
+    --sidebar: 255 12% 8%;
+    --sidebar-foreground: 288 9% 89%;
+    --sidebar-border: 258 7% 15%;
+    --sidebar-accent: 258 7% 15%;
+    --sidebar-accent-foreground: 288 9% 89%;
+    --sidebar-muted: 255 10% 11%;
+    --sidebar-muted-foreground: 258 5% 58%;
 
-    --rail: 210 16% 6%;
-    --rail-foreground: 36 35% 95%;
+    /* Rail / Shell */
+    --rail: 255 15% 6%;
+    --rail-foreground: 288 9% 89%;
+
+    --sidebar-header: 255 13% 7%;
   }
 
   * {
     @apply border-border;
     box-sizing: border-box;
+  }
+
+  /* Electron frameless window drag region */
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+
+  .no-drag {
+    -webkit-app-region: no-drag;
   }
 
   html,

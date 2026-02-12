@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { channelOrderRead, channelOrderWrite } from "./sidebarChannelOrder";
+import { channelOrderRead, channelOrderWrite } from "./workspaceSidebarChannelOrder";
 
 // Node 22 has a broken built-in localStorage (requires --localstorage-file).
 // Replace it with a simple in-memory mock for tests.

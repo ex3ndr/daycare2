@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "@tanstack/react-router";
 import { useApp, useStorage } from "@/app/sync/AppContext";
 import { useShallow } from "zustand/react/shallow";
 import { sessionClear } from "@/app/lib/sessionStore";
@@ -13,17 +12,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
-import { LogOut, ArrowLeftRight, Plus, UserPen } from "lucide-react";
-import { ProfileEditor } from "./ProfileEditor";
+import { LogOut, ArrowLeftRight, UserPen } from "lucide-react";
+import { WorkspaceProfileEditor } from "./WorkspaceProfileEditor";
 
-export function Rail() {
+export function WorkspaceRailUserMenu() {
   const app = useApp();
-  const navigate = useNavigate();
 
-  const { orgName, orgSlug, firstName, lastName, username, avatarUrl } = useStorage(
+  const { firstName, lastName, username, avatarUrl } = useStorage(
     useShallow((s) => ({
-      orgName: s.objects.context.orgName,
-      orgSlug: s.objects.context.orgSlug,
       firstName: s.objects.context.firstName,
       lastName: s.objects.context.lastName,
       username: s.objects.context.username,
@@ -34,6 +30,7 @@ export function Rail() {
   const [orgRole, setOrgRole] = useState<"owner" | "member">("member");
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
 
+  // Fetch org role on mount — no hook abstraction for this one-off API call
   useEffect(() => {
     app.api
       .profileGet(app.token, app.orgId)
@@ -58,40 +55,15 @@ export function Rail() {
   }
 
   return (
-    <div className="flex w-[67px] shrink-0 flex-col items-center pt-3 pb-2">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            onClick={() => navigate({ to: "/$orgSlug", params: { orgSlug } })}
-            className="rounded-[10px] transition-opacity hover:opacity-90"
-          >
-            <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#d2ced8] text-[15px] text-[#7b4a8e]">
-              <span className="-translate-y-[0.5px]">↗</span>
-            </div>
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right">{orgName}</TooltipContent>
-      </Tooltip>
-
-      <button className="mt-4 flex h-8 w-8 flex-col items-center justify-center rounded-[8px] bg-[#59356a] text-[#ccbed6]">
-        <span className="text-[12px] leading-none">•••</span>
-        <span className="mt-[1px] text-[8px] leading-none">More</span>
-      </button>
-
-      <div className="flex-1" />
-
-      <button className="mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-[#5b2f6f] text-[#d8cade] hover:bg-[#6b3a81]">
-        <Plus className="h-4 w-4" />
-      </button>
-
+    <>
       <DropdownMenu>
         <Tooltip>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
-              <button className="rounded-full ring-2 ring-transparent transition-all hover:ring-white/25 focus-visible:outline-none focus-visible:ring-white/35">
+              <button className="rounded-full ring-2 ring-transparent transition-all hover:ring-foreground/15 focus-visible:outline-none focus-visible:ring-foreground/25">
                 <Avatar size="sm">
                   {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
-                  <AvatarFallback className="bg-[#705280] text-[#ece3f1] text-[10px]">
+                  <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
                     {userInitials}
                   </AvatarFallback>
                 </Avatar>
@@ -102,7 +74,6 @@ export function Rail() {
         </Tooltip>
 
         <DropdownMenuContent side="right" align="end" className="w-56">
-          {/* User info header */}
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col gap-1">
               <p className="text-sm font-medium leading-none">{displayName}</p>
@@ -127,7 +98,7 @@ export function Rail() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <ProfileEditor open={profileEditorOpen} onOpenChange={setProfileEditorOpen} />
-    </div>
+      <WorkspaceProfileEditor open={profileEditorOpen} onOpenChange={setProfileEditorOpen} />
+    </>
   );
 }

@@ -4,7 +4,7 @@ import { Blocks } from "lucide-react";
 import { Separator } from "@/app/components/ui/separator";
 import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { cn } from "@/app/lib/utils";
-import { TopBar } from "@/app/components/workspace/TopBar";
+import { WorkspaceLayoutTopBar } from "@/app/fragments/workspace/WorkspaceLayoutTopBar";
 import { DevComponents } from "./DevComponents";
 
 export type DevTab = "components";
@@ -60,7 +60,7 @@ export function DevLayout({ initialTab }: { initialTab?: DevTab }) {
 
       {/* Content column */}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <TopBar />
+        <WorkspaceLayoutTopBar />
         <ScrollArea className="flex-1 bg-background">
           <div className="max-w-4xl mx-auto p-8">
             {tab === "components" && <DevComponents />}

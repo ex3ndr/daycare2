@@ -6,7 +6,7 @@ import { Separator } from "@/app/components/ui/separator";
 import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { cn } from "@/app/lib/utils";
 import { toastAdd } from "@/app/stores/toastStoreContext";
-import { TopBar } from "@/app/components/workspace/TopBar";
+import { WorkspaceLayoutTopBar } from "@/app/fragments/workspace/WorkspaceLayoutTopBar";
 import { SettingsGeneral } from "./SettingsGeneral";
 import { SettingsMembers } from "./SettingsMembers";
 import { SettingsInvites } from "./SettingsInvites";
@@ -99,7 +99,7 @@ export function SettingsLayout({ initialTab }: { initialTab?: SettingsTab }) {
 
       {/* Content column */}
       <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <TopBar />
+        <WorkspaceLayoutTopBar />
         <ScrollArea className="flex-1 bg-background">
         <div className="max-w-2xl mx-auto p-8">
           {loading ? (

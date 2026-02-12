@@ -58,7 +58,7 @@ export function Rail() {
   }
 
   return (
-    <div className="flex w-[67px] shrink-0 flex-col items-center bg-[#3a0d49] pt-3 pb-2">
+    <div className="flex w-[67px] shrink-0 flex-col items-center pt-3 pb-2">
       <Tooltip>
         <TooltipTrigger asChild>
           <button

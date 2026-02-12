@@ -9,7 +9,7 @@ import { mentionUsernamesExtract } from "@/apps/messages/mentionUsernamesExtract
 type MessageWithRelations = Prisma.MessageGetPayload<{
   include: {
     senderUser: true;
-    attachments: true;
+    attachments: { include: { file: true } };
     reactions: true;
   };
 }>;
@@ -73,7 +73,7 @@ export async function messageEdit(
     },
     include: {
       senderUser: true,
-      attachments: true,
+      attachments: { include: { file: true } },
       reactions: true
     }
   });

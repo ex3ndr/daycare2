@@ -12,7 +12,7 @@ import { getLogger } from "@/utils/getLogger.js";
 type MessageWithRelations = Prisma.MessageGetPayload<{
   include: {
     senderUser: true;
-    attachments: true;
+    attachments: { include: { file: true } };
     reactions: true;
   };
 }>;
@@ -33,6 +33,13 @@ type MessageSendInput = {
 };
 
 const logger = getLogger("messages.send");
+
+const FILE_URL_PATTERN = /^\/api\/org\/[^/]+\/files\/([^/?#]+)$/;
+
+function fileIdFromAttachmentUrl(url: string): string | null {
+  const match = FILE_URL_PATTERN.exec(url);
+  return match ? match[1]! : null;
+}
 
 export async function messageSend(
   context: ApiContext,
@@ -134,13 +141,14 @@ export async function messageSend(
             url: attachment.url,
             mimeType: attachment.mimeType,
             fileName: attachment.fileName,
-            sizeBytes: attachment.sizeBytes
+            sizeBytes: attachment.sizeBytes,
+            fileId: fileIdFromAttachmentUrl(attachment.url)
           }))
         }
       },
       include: {
         senderUser: true,
-        attachments: true,
+        attachments: { include: { file: true } },
         reactions: true
       }
     });

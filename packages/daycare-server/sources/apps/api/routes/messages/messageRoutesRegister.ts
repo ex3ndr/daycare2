@@ -66,7 +66,7 @@ const reactionBodySchema = z.object({
 type MessageWithRelations = Prisma.MessageGetPayload<{
   include: {
     senderUser: true;
-    attachments: true;
+    attachments: { include: { file: true } };
     reactions: true;
   };
 }>;
@@ -100,7 +100,10 @@ function messageSerialize(message: MessageWithRelations) {
         mimeType: attachment.mimeType,
         fileName: attachment.fileName,
         sizeBytes: attachment.sizeBytes,
-        sortOrder: attachment.sortOrder
+        sortOrder: attachment.sortOrder,
+        imageWidth: attachment.file?.imageWidth ?? null,
+        imageHeight: attachment.file?.imageHeight ?? null,
+        imageThumbhash: attachment.file?.imageThumbhash ?? null
       })),
     reactions: message.reactions.map((reaction) => ({
       id: reaction.id,
@@ -157,7 +160,7 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
         },
         include: {
           senderUser: true,
-          attachments: true,
+          attachments: { include: { file: true } },
           reactions: true
         },
         orderBy: {
@@ -177,7 +180,7 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
         },
         include: {
           senderUser: true,
-          attachments: true,
+          attachments: { include: { file: true } },
           reactions: true
         },
         orderBy: {
@@ -213,7 +216,7 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
         },
         include: {
           senderUser: true,
-          attachments: true,
+          attachments: { include: { file: true } },
           reactions: true
         },
         orderBy: {
@@ -249,7 +252,7 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
         },
         include: {
           senderUser: true,
-          attachments: true,
+          attachments: { include: { file: true } },
           reactions: true
         },
         orderBy: {
@@ -271,7 +274,7 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
       },
       include: {
         senderUser: true,
-        attachments: true,
+        attachments: { include: { file: true } },
         reactions: true
       },
       orderBy: {

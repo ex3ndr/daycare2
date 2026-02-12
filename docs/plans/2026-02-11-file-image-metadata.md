@@ -62,11 +62,11 @@ When an image file is uploaded, the server validates it is PNG/JPG/GIF by readin
 - Modify: `packages/daycare-server/sources/apps/messages/messageSend.ts`
 - Modify: `packages/daycare-server/sources/apps/api/routes/messages/messageRoutesRegister.ts`
 
-- [ ] In `messageSend`, when attachment URL matches `/api/org/{orgId}/files/{fileId}` pattern, extract fileId and set it on the MessageAttachment record
-- [ ] Update `messageSerialize` to include file relation (add file to Prisma include), and add `imageWidth`, `imageHeight`, `imageThumbhash` from the linked FileAsset to the attachment response (null when no file or not an image)
-- [ ] Update `messageSendBodySchema` if needed (no new client fields required — fileId is derived from URL)
-- [ ] Write/update tests
-- [ ] Run test suite
+- [x] In `messageSend`, when attachment URL matches `/api/org/{orgId}/files/{fileId}` pattern, extract fileId and set it on the MessageAttachment record
+- [x] Update `messageSerialize` to include file relation (add file to Prisma include), and add `imageWidth`, `imageHeight`, `imageThumbhash` from the linked FileAsset to the attachment response (null when no file or not an image)
+- [x] Update `messageSendBodySchema` if needed (no new client fields required — fileId is derived from URL)
+- [x] Write/update tests
+- [x] Run test suite
 
 ## Task 5: Update web client types and Attachment component
 

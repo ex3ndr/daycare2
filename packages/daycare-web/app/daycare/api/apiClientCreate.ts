@@ -36,6 +36,9 @@ export type FileAsset = {
   createdAt: number;
   expiresAt: number | null;
   committedAt: number | null;
+  imageWidth: number | null;
+  imageHeight: number | null;
+  imageThumbhash: string | null;
 };
 
 export type UploadInitResult = {

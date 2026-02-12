@@ -30,6 +30,9 @@ type MessageRebaseItem = {
     fileName: string | null;
     sizeBytes: number | null;
     sortOrder: number;
+    imageWidth: number | null;
+    imageHeight: number | null;
+    imageThumbhash: string | null;
   }>;
   reactions: Array<{
     id: string;

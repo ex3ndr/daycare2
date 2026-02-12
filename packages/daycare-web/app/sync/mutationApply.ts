@@ -25,7 +25,7 @@ type MessageShape = {
   threadReplyCount: number;
   threadLastReplyAt: number | null;
   sender: { id: string; kind: string; username: string; firstName: string; lastName: string | null; avatarUrl: string | null };
-  attachments: Array<{ id: string; kind: string; url: string; mimeType: string | null; fileName: string | null; sizeBytes: number | null; sortOrder: number }>;
+  attachments: Array<{ id: string; kind: string; url: string; mimeType: string | null; fileName: string | null; sizeBytes: number | null; sortOrder: number; imageWidth: number | null; imageHeight: number | null; imageThumbhash: string | null }>;
   reactions: Array<{ id: string; userId: string; shortcode: string; createdAt: number }>;
 };
 

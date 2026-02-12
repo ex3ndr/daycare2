@@ -4,6 +4,7 @@ import { useApp } from "@/app/sync/AppContext";
 import { useUiStore } from "@/app/stores/uiStoreContext";
 import { FileIcon, Download } from "lucide-react";
 import type { PhotoViewerImage } from "@/app/stores/uiStore";
+import { thumbHashToDataURL } from "thumbhash";
 
 type AttachmentData = {
   id: string;
@@ -13,12 +14,29 @@ type AttachmentData = {
   fileName: string | null;
   sizeBytes: number | null;
   sortOrder: number;
+  imageWidth: number | null;
+  imageHeight: number | null;
+  imageThumbhash: string | null;
 };
 
 type AttachmentProps = {
   attachment: AttachmentData;
   onImageClick?: () => void;
 };
+
+function thumbhashToUrl(thumbhash: string | null): string | null {
+  if (!thumbhash) return null;
+  try {
+    const binary = atob(thumbhash);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return thumbHashToDataURL(bytes);
+  } catch {
+    return null;
+  }
+}
 
 function attachmentFileRefParse(url: string): { orgId: string; fileId: string } | null {
   if (typeof window === "undefined") return null;
@@ -64,6 +82,7 @@ function useResolvedUrl(url: string) {
 export function Attachment({ attachment, onImageClick }: AttachmentProps) {
   const resolvedUrl = useResolvedUrl(attachment.url);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const placeholderUrl = useMemo(() => thumbhashToUrl(attachment.imageThumbhash), [attachment.imageThumbhash]);
 
   // Reset loading state when URL changes
   useEffect(() => {
@@ -71,6 +90,19 @@ export function Attachment({ attachment, onImageClick }: AttachmentProps) {
   }, [attachment.url]);
 
   if (isPreviewableImage(attachment.mimeType)) {
+    const hasRealDimensions = attachment.imageWidth && attachment.imageHeight;
+    const placeholderStyle: React.CSSProperties = !imageLoaded
+      ? hasRealDimensions
+        ? { aspectRatio: `${attachment.imageWidth}/${attachment.imageHeight}`, maxWidth: `min(20rem, ${attachment.imageWidth}px)` }
+        : { aspectRatio: "16/9", width: "20rem" }
+      : {};
+
+    if (placeholderUrl && !imageLoaded) {
+      placeholderStyle.backgroundImage = `url(${placeholderUrl})`;
+      placeholderStyle.backgroundSize = "cover";
+      placeholderStyle.backgroundPosition = "center";
+    }
+
     return (
       <button
         type="button"
@@ -79,7 +111,7 @@ export function Attachment({ attachment, onImageClick }: AttachmentProps) {
       >
         <div
           className="rounded-md border overflow-hidden bg-muted/30"
-          style={!imageLoaded ? { aspectRatio: "16/9", width: "20rem" } : undefined}
+          style={placeholderStyle}
         >
           <img
             src={resolvedUrl}

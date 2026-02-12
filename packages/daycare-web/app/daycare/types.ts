@@ -95,6 +95,9 @@ export type MessageAttachment = {
   fileName: string | null;
   sizeBytes: number | null;
   sortOrder: number;
+  imageWidth: number | null;
+  imageHeight: number | null;
+  imageThumbhash: string | null;
 };
 
 export type MessageReaction = {

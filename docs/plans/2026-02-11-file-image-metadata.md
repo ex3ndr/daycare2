@@ -76,11 +76,11 @@ When an image file is uploaded, the server validates it is PNG/JPG/GIF by readin
 - Modify: `packages/daycare-web/app/components/messages/Attachment.tsx`
 - Modify: `packages/daycare-web/app/daycare/api/apiClientCreate.ts` (FileAsset type)
 
-- [ ] Add `imageWidth`, `imageHeight`, `imageThumbhash` (all nullable) to MessageAttachment type, sync schema attachment shape, and FileAsset API type
-- [ ] In `Attachment.tsx`, use real dimensions for placeholder aspect ratio instead of hardcoded 16/9, and render thumbhash as CSS background (base64 data URL from thumbhash-to-dataURL) while image loads
-- [ ] Install `thumbhash` package in `daycare-web` for client-side decoding
-- [ ] Update any optimistic mutation code that creates attachment objects to include the new nullable fields
-- [ ] Run typecheck and test suite
+- [x] Add `imageWidth`, `imageHeight`, `imageThumbhash` (all nullable) to MessageAttachment type, sync schema attachment shape, and FileAsset API type
+- [x] In `Attachment.tsx`, use real dimensions for placeholder aspect ratio instead of hardcoded 16/9, and render thumbhash as CSS background (base64 data URL from thumbhash-to-dataURL) while image loads
+- [x] Install `thumbhash` package in `daycare-web` for client-side decoding
+- [x] Update any optimistic mutation code that creates attachment objects to include the new nullable fields
+- [x] Run typecheck and test suite
 
 ## Verification
 

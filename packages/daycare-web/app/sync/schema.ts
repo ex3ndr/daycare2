@@ -42,6 +42,9 @@ export const schema = defineSchema({
           fileName: string | null;
           sizeBytes: number | null;
           sortOrder: number;
+          imageWidth: number | null;
+          imageHeight: number | null;
+          imageThumbhash: string | null;
         }>
       >(),
       reactions: field<
@@ -165,6 +168,9 @@ export const schema = defineSchema({
           fileName: a.fileName ?? null,
           sizeBytes: a.sizeBytes ?? null,
           sortOrder: i,
+          imageWidth: null,
+          imageHeight: null,
+          imageThumbhash: null,
         })),
         reactions: [],
         pending: true,

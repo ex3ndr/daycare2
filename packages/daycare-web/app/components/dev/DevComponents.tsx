@@ -25,6 +25,8 @@ import {
 } from "@/app/components/ui/dropdown-menu";
 import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { ChevronDown } from "lucide-react";
+import { MessagePhoto } from "@/app/components/messages/MessagePhoto";
+import { MessageDocument } from "@/app/components/messages/MessageDocument";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -239,6 +241,74 @@ export function DevComponents() {
             ))}
           </div>
         </ScrollArea>
+      </Section>
+
+      {/* MessagePhoto */}
+      <Section title="MessagePhoto">
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Landscape (800x600)</p>
+            <MessagePhoto
+              url="https://picsum.photos/800/600"
+              width={800}
+              height={600}
+              thumbhash="47sCBYBIaKmGh3h2d3d4gHiPcYBX"
+              fileName="landscape-photo.jpg"
+            />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Portrait (600x900)</p>
+            <MessagePhoto
+              url="https://picsum.photos/600/900"
+              width={600}
+              height={900}
+              thumbhash="n4QBBAB4mYhYd4BIeMiIgAhdhw=="
+              fileName="portrait-photo.jpg"
+            />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Small image (200x150) — no upscaling</p>
+            <MessagePhoto
+              url="https://picsum.photos/200/150"
+              width={200}
+              height={150}
+              thumbhash="3jgBBwBJWG54eIh0iHeHV3d/t2EI8nYH"
+              fileName="small.png"
+            />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Wide panoramic (1920x400)</p>
+            <MessagePhoto
+              url="https://picsum.photos/1920/400"
+              width={1920}
+              height={400}
+              thumbhash="TAcCBIB4eIh4eIhwh3eAeQoAAA=="
+              fileName="panorama.jpg"
+            />
+          </div>
+        </div>
+      </Section>
+
+      {/* MessageDocument */}
+      <Section title="MessageDocument">
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">With file name and size</p>
+            <MessageDocument url="#" fileName="quarterly-report.pdf" sizeBytes={2_450_000} />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Small file</p>
+            <MessageDocument url="#" fileName="config.json" sizeBytes={1_280} />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">No file name (fallback)</p>
+            <MessageDocument url="#" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Long file name (truncation)</p>
+            <MessageDocument url="#" fileName="very-long-filename-that-should-be-truncated-in-the-display.xlsx" sizeBytes={15_700_000} />
+          </div>
+        </div>
       </Section>
     </div>
   );

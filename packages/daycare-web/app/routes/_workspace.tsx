@@ -92,10 +92,10 @@ function WorkspaceLayout() {
                 <Outlet />
               </ErrorBoundary>
             </div>
-            <div className="flex h-12 shrink-0 items-center border-t border-[#c7d7df] bg-[#d8e9f1] px-3 text-[14px] text-[#1f2528]">
+            <div className="flex h-12 shrink-0 items-center border-t border-[#c7d7df] bg-[#e7f5fd] px-3 text-[14px] text-[#1f2528]">
               <span className="mr-2 text-[#8c7a35]">⚠</span>
               <span>Slack needs your permission to enable notifications.</span>
-              <button className="ml-1 text-[#2e5f80] hover:underline">Enable notifications</button>
+              <button className="ml-1 text-[#1264a3] hover:underline">Enable notifications</button>
               <button className="ml-auto text-[#5f6f76]">×</button>
             </div>
           </div>

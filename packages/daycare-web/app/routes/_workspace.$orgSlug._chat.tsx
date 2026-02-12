@@ -11,14 +11,14 @@ export const chatLayoutRoute = createRoute({
 
 function ChatLayout() {
   return (
-    <>
-      <Sidebar />
-      <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
-        <TopBar />
+    <div className="flex flex-1 flex-col min-w-0 overflow-hidden">
+      <TopBar />
+      <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden rounded-tl-[8px] rounded-tr-[8px] border border-[#d7d7da] bg-background">
+        <Sidebar />
         <div className="flex flex-1 min-w-0 overflow-hidden bg-background">
           <Outlet />
         </div>
       </div>
-    </>
+    </div>
   );
 }

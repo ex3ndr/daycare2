@@ -1,10 +1,10 @@
 import { useEffect, useState, useMemo } from "react";
-import { isPreviewableImage, fileSizeFormat } from "@/app/lib/fileUploadCreate";
+import { isPreviewableImage } from "@/app/lib/fileUploadCreate";
 import { useApp } from "@/app/sync/AppContext";
 import { useUiStore } from "@/app/stores/uiStoreContext";
-import { FileIcon, Download } from "lucide-react";
 import type { PhotoViewerImage } from "@/app/stores/uiStore";
-import { thumbHashToDataURL } from "thumbhash";
+import { MessagePhoto } from "./MessagePhoto";
+import { MessageDocument } from "./MessageDocument";
 
 type AttachmentData = {
   id: string;
@@ -23,20 +23,6 @@ type AttachmentProps = {
   attachment: AttachmentData;
   onImageClick?: () => void;
 };
-
-function thumbhashToUrl(thumbhash: string | null): string | null {
-  if (!thumbhash) return null;
-  try {
-    const binary = atob(thumbhash);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return thumbHashToDataURL(bytes);
-  } catch {
-    return null;
-  }
-}
 
 function attachmentFileRefParse(url: string): { orgId: string; fileId: string } | null {
   if (typeof window === "undefined") return null;
@@ -79,73 +65,40 @@ function useResolvedUrl(url: string) {
   return resolvedUrl;
 }
 
+function isPhoto(attachment: AttachmentData): boolean {
+  return (
+    isPreviewableImage(attachment.mimeType) &&
+    attachment.imageWidth != null &&
+    attachment.imageHeight != null &&
+    attachment.imageWidth > 0 &&
+    attachment.imageHeight > 0 &&
+    attachment.imageThumbhash != null &&
+    attachment.imageThumbhash.length > 0
+  );
+}
+
 export function Attachment({ attachment, onImageClick }: AttachmentProps) {
   const resolvedUrl = useResolvedUrl(attachment.url);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const placeholderUrl = useMemo(() => thumbhashToUrl(attachment.imageThumbhash), [attachment.imageThumbhash]);
 
-  // Reset loading state when URL changes
-  useEffect(() => {
-    setImageLoaded(false);
-  }, [attachment.url]);
-
-  if (isPreviewableImage(attachment.mimeType)) {
-    const hasRealDimensions = attachment.imageWidth != null && attachment.imageHeight != null && attachment.imageWidth > 0 && attachment.imageHeight > 0;
-    const placeholderStyle: React.CSSProperties = !imageLoaded
-      ? hasRealDimensions
-        ? { aspectRatio: `${attachment.imageWidth}/${attachment.imageHeight}`, maxWidth: `min(20rem, ${attachment.imageWidth}px)` }
-        : { aspectRatio: "16/9", width: "20rem" }
-      : {};
-
-    if (placeholderUrl && !imageLoaded) {
-      placeholderStyle.backgroundImage = `url(${placeholderUrl})`;
-      placeholderStyle.backgroundSize = "cover";
-      placeholderStyle.backgroundPosition = "center";
-    }
-
+  if (isPhoto(attachment)) {
     return (
-      <button
-        type="button"
+      <MessagePhoto
+        url={resolvedUrl}
+        width={attachment.imageWidth!}
+        height={attachment.imageHeight!}
+        thumbhash={attachment.imageThumbhash!}
+        fileName={attachment.fileName}
         onClick={onImageClick}
-        className="mt-1 inline-block max-w-sm text-left cursor-pointer"
-      >
-        <div
-          className="rounded-md border overflow-hidden bg-muted/30"
-          style={placeholderStyle}
-        >
-          <img
-            src={resolvedUrl}
-            alt={attachment.fileName ?? "Image"}
-            className="rounded-md max-h-64 object-contain"
-            loading="lazy"
-            onLoad={() => setImageLoaded(true)}
-          />
-        </div>
-        {attachment.fileName && (
-          <span className="mt-0.5 block text-xs text-muted-foreground truncate">
-            {attachment.fileName}
-          </span>
-        )}
-      </button>
+      />
     );
   }
 
   return (
-    <a
-      href={resolvedUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="mt-1 inline-flex items-center gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm hover:bg-muted transition-colors max-w-sm"
-    >
-      <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-      <span className="truncate">{attachment.fileName ?? "File"}</span>
-      {attachment.sizeBytes != null && (
-        <span className="text-xs text-muted-foreground shrink-0">
-          {fileSizeFormat(attachment.sizeBytes)}
-        </span>
-      )}
-      <Download className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-    </a>
+    <MessageDocument
+      url={resolvedUrl}
+      fileName={attachment.fileName}
+      sizeBytes={attachment.sizeBytes}
+    />
   );
 }
 
@@ -156,9 +109,8 @@ type AttachmentListProps = {
 export function AttachmentList({ attachments }: AttachmentListProps) {
   const photoViewerOpen = useUiStore((s) => s.photoViewerOpen);
 
-  // Collect previewable image attachments for multi-image navigation
   const imageAttachments = useMemo(
-    () => attachments.filter((a) => isPreviewableImage(a.mimeType)),
+    () => attachments.filter((a) => isPhoto(a)),
     [attachments],
   );
 
@@ -180,9 +132,7 @@ export function AttachmentList({ attachments }: AttachmentListProps) {
           key={att.id}
           attachment={att}
           onImageClick={
-            isPreviewableImage(att.mimeType)
-              ? () => handleImageClick(att)
-              : undefined
+            isPhoto(att) ? () => handleImageClick(att) : undefined
           }
         />
       ))}

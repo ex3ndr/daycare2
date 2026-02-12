@@ -8,7 +8,7 @@ import { useUiStore, failedMessageRemove } from "@/app/stores/uiStoreContext";
 import { MessageRow } from "@/app/components/messages/MessageRow";
 import { FailedMessageRow } from "@/app/components/messages/FailedMessageRow";
 import { Composer } from "@/app/components/messages/Composer";
-import { Hash, Lock, ArrowDown, Loader2, Headphones, Bell, Search, MoreVertical, Star, Users } from "lucide-react";
+import { Hash, Lock, ArrowDown, Loader2, Headphones, Bell, Search, MoreVertical, Star, Users, PencilLine, File as FileIcon } from "lucide-react";
 import { MessageListSkeleton } from "@/app/components/skeletons/MessageListSkeleton";
 import { ChannelSettings } from "@/app/components/workspace/ChannelSettings";
 import { useThrottledTyping } from "@/app/lib/useThrottledTyping";
@@ -299,9 +299,18 @@ function ChannelPage() {
             </div>
           </div>
           <div className="flex h-[38px] items-center gap-5 px-4 text-[13px] text-[#57585b]">
-            <button className="h-full border-b-2 border-[#5a3368] font-semibold">Messages</button>
-            <button>Add canvas</button>
-            <button>Files</button>
+            <button className="flex items-center gap-1.5 h-full border-b-2 border-[#5a3368] font-semibold">
+              <span className="inline-block h-2.5 w-2.5 rounded-[3px] bg-[#5a3368]" />
+              Messages
+            </button>
+            <button className="flex items-center gap-1.5">
+              <PencilLine className="h-3 w-3" />
+              Add canvas
+            </button>
+            <button className="flex items-center gap-1.5">
+              <FileIcon className="h-3 w-3" />
+              Files
+            </button>
             <button className="text-lg leading-none">+</button>
           </div>
         </div>
@@ -384,13 +393,13 @@ function ChannelPage() {
         </div>
 
         {/* Typing indicator */}
-        <div className="h-6 px-5 flex items-center">
-          {typingText && (
+        {typingText && (
+          <div className="h-6 px-5 flex items-center">
             <span className="text-xs text-muted-foreground animate-pulse">
               {typingText}
             </span>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Composer */}
         <Composer

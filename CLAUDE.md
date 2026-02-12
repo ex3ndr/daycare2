@@ -84,6 +84,66 @@ app/
 - Naming: use **Daycare** for product/UI/docs headings; use `daycare` in user-facing strings and config keys.
 - Use `@/types` for shared types instead of deep module imports.
 
+## React Component Guidelines
+
+### Avoid `useEffect`
+- `useEffect` is a code smell in most cases. Before reaching for it, consider alternatives:
+  - **Derived state**: if you're syncing state from props or other state, compute it inline during render or use `useMemo`. Never `useEffect` + `setState` to mirror a prop — just derive it.
+  - **Event handlers**: if something should happen in response to a user action (click, submit, input change), do it in the event handler, not in an effect that watches for state changes after the fact.
+  - **Refs for imperative APIs**: if you need to interact with a DOM element or third-party library imperatively (focus, scroll, measure), use `useRef` + `useLayoutEffect` only when truly necessary.
+  - **Data fetching**: use the router's loader/data-fetching mechanism (TanStack Router loaders) or a dedicated fetching hook rather than `useEffect` + `fetch` + `setState`.
+  - **Subscriptions**: for external stores (Zustand, SSE streams, browser APIs), use `useSyncExternalStore` or the store's own hook, not `useEffect` with manual subscribe/unsubscribe.
+- Legitimate uses of `useEffect` are rare: setting up/tearing down non-React subscriptions that have no hook abstraction, or one-time initialization that genuinely has no better home. When you do use one, leave a brief comment explaining why an effect is the right choice here.
+
+### One Component Per File, Colocate Related Components in Folders
+- Each file exports **one** React component. The file name matches the component name: `MessageRow.tsx` exports `MessageRow`.
+- When a component has internal sub-components that are only used by it, group them in a folder named after the parent component:
+  ```
+  Sidebar/
+    Sidebar.tsx            -> the main Sidebar component
+    SidebarItem.tsx         -> internal component used only by Sidebar
+    SidebarSection.tsx      -> another internal component
+  ```
+- The folder name matches the parent component. Each sub-component gets its own file inside the folder.
+- If a component is simple and has no internal sub-components, it stays as a standalone file — no folder needed.
+- Do not put unrelated components together in one file for convenience.
+
+### Prefix-Style Component Naming
+- Component names use **domain-prefix** style, mirroring the server-side `domainVerb` convention:
+  - `Sidebar`, `SidebarItem`, `SidebarSection` — not `Item`, `Section`
+  - `Message`, `MessageRow`, `MessageActions` — not `Row`, `Actions`
+  - `Channel`, `ChannelHeader`, `ChannelSettings` — not `Header`, `Settings`
+- The prefix makes it immediately clear which domain a component belongs to, even outside its folder context. Grep-friendly and unambiguous.
+- Shared/generic UI primitives (from `components/ui/`) are the exception — `Button`, `Dialog`, `Avatar` are fine without a domain prefix since they are domain-agnostic.
+
+### Route Files Stay Thin
+- Route files (`app/routes/*.tsx`) handle **routing concerns only**: declaring the route, its params, loaders, error boundaries, and rendering the top-level page component.
+- Move all business logic, layout composition, data transformation, and UI orchestration into dedicated components imported by the route.
+- A route file should read like a table of contents — a quick glance shows what the route does, not how:
+  ```tsx
+  // Good: route file is a thin shell
+  function ChannelRoute() {
+    const { channelId } = Route.useParams()
+    return <ChannelView channelId={channelId} />
+  }
+
+  // Bad: route file contains the entire page implementation
+  function ChannelRoute() {
+    const { channelId } = Route.useParams()
+    const messages = useMessages(channelId)
+    const members = useMembers(channelId)
+    // ... 200 lines of UI, handlers, and logic
+  }
+  ```
+- This keeps route files small, makes page components independently testable, and avoids coupling UI logic to the routing layer.
+
+### Dev Page for Component Verification
+- The app has a dev route at `/:orgSlug/dev` (`_workspace.$orgSlug.dev.tsx`) used as a sandbox for visually testing components in isolation.
+- When building a non-trivial UI component — anything with visual states, variants, or layout complexity — add a section for it on the dev page. Render the component with representative props covering its key states (empty, loading, populated, error, edge cases like long text or missing data).
+- This serves as a living component gallery: it lets you verify design correctness without navigating through the full app flow, and makes it easy to compare against reference screenshots.
+- Keep dev page entries self-contained: each section should show the component name as a heading and render the component with hardcoded/mock data — no dependency on real API state.
+- Trivial components (a styled wrapper, a single-line text formatter) don't need dev page entries. Use judgment — if you'd want to eyeball it to confirm it looks right, add it.
+
 ## File Organization: One Function, Prefix Naming
 - One public function per file. File name matches function name.
 - Prefix notation: `channelCreate` not `createChannel`, `messageSend` not `sendMessage`.
@@ -190,3 +250,8 @@ When working on the web app (`packages/daycare-web`), use the public API server 
 - commit after each ready-to-use change using Angular-style commits
 - build and run tests before each commit
 - avoid backward-compatibility shims for internal code
+
+## Browser Screenshots (agent-browser)
+- When taking pixel-perfect screenshots for visual comparison, **always match the viewport size to the reference image exactly**. Extract the reference image dimensions first and set the browser viewport to that size before capturing.
+- **HiDPI / device pixel ratio matters**: Playwright and headless Chrome default to `deviceScaleFactor: 1`, but reference screenshots may have been taken on a Retina display (`deviceScaleFactor: 2`). A 1440x900 viewport at 2x produces a 2880x1800 pixel image. Always check the reference image's actual pixel dimensions vs. the intended CSS viewport and set `deviceScaleFactor` accordingly so screenshots are comparable.
+- When in doubt, capture at `deviceScaleFactor: 1` and note the setting — mismatched DPR is the most common cause of "everything looks right but the diff is red" failures.

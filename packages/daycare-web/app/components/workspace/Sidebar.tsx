@@ -26,7 +26,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
-import { Hash, Lock, Plus, MessageSquare, ChevronDown, Settings, Users, Mail, GripVertical, PencilLine, Headphones, FileText, AtSign, Star } from "lucide-react";
+import { Hash, Lock, Plus, MessageSquare, ChevronDown, Settings, Users, Mail, GripVertical, PencilLine, Headphones, Send, BookUser, Star, LayoutGrid, Grid2X2 } from "lucide-react";
 import type { ApiClient } from "@/app/daycare/api/apiClientCreate";
 import { ChannelListSkeleton } from "@/app/components/skeletons/ChannelListSkeleton";
 import { channelOrderSort } from "@/app/lib/channelOrderSort";
@@ -146,11 +146,11 @@ export function Sidebar() {
   if (sidebarCollapsed) return null;
 
   return (
-    <div className="flex w-[315px] shrink-0 flex-col bg-sidebar text-sidebar-foreground">
+    <div className="flex w-[280px] shrink-0 flex-col bg-sidebar text-sidebar-foreground">
       {/* Org header with dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex h-[52px] w-full items-center gap-1 px-4 text-left bg-sidebar-header hover:brightness-110 transition-all focus-visible:outline-none">
+          <button className="flex h-[52px] w-full items-center gap-1 px-4 text-left bg-sidebar hover:brightness-110 transition-all focus-visible:outline-none">
             <h2 className="font-display text-[20px] leading-none font-semibold truncate">{orgName}</h2>
             <ChevronDown className="h-4 w-4 shrink-0 text-sidebar-muted-foreground" />
             <span className="ml-auto flex items-center gap-3 text-sidebar-muted-foreground">
@@ -216,10 +216,10 @@ export function Sidebar() {
       <ScrollArea className="flex-1">
         <div className="pb-2">
           <div className="space-y-0.5 px-3 pb-3 text-[#d6cde0]">
-            <NavRow icon={<AtSign className="h-3.5 w-3.5" />} label="Threads" />
+            <NavRow icon={<MessageSquare className="h-3.5 w-3.5" />} label="Threads" />
             <NavRow icon={<Headphones className="h-3.5 w-3.5" />} label="Huddles" />
-            <NavRow icon={<FileText className="h-3.5 w-3.5" />} label="Drafts & sent" />
-            <NavRow icon={<FileText className="h-3.5 w-3.5" />} label="Directories" />
+            <NavRow icon={<Send className="h-3.5 w-3.5" />} label="Drafts & sent" />
+            <NavRow icon={<BookUser className="h-3.5 w-3.5" />} label="Directories" />
           </div>
 
           <Separator className="mx-4 mb-2 bg-sidebar-border" />
@@ -248,7 +248,7 @@ export function Sidebar() {
 
           <div className="px-4 pb-1 pt-2">
             <p className="flex items-center gap-1 text-[13px] text-[#d6cde0]">
-              <MessageSquare className="h-3.5 w-3.5" />
+              <Grid2X2 className="h-3.5 w-3.5" />
               Channels
             </p>
           </div>
@@ -380,6 +380,13 @@ export function Sidebar() {
               </button>
             </div>
           )}
+
+          <div className="px-4 pb-1 pt-2">
+            <p className="flex items-center gap-1 text-[13px] text-[#d6cde0]">
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Apps
+            </p>
+          </div>
         </div>
       </ScrollArea>
 

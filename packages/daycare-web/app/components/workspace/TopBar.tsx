@@ -19,7 +19,7 @@ export function TopBar() {
     "?";
 
   return (
-    <div className="flex h-[37px] shrink-0 items-center gap-2 border-b border-[#5b3a68] bg-[#4f285d] px-3 text-[#d7cae0]">
+    <div className="flex h-[39px] shrink-0 items-center gap-2 border-b border-[#6b4573] bg-[#5a3560] px-3 text-[#d7cae0]">
       <button className="flex h-5 w-5 items-center justify-center rounded text-[#b59ec1] hover:bg-white/10">
         <ArrowLeft className="h-3.5 w-3.5" />
       </button>
@@ -30,7 +30,7 @@ export function TopBar() {
         <RotateCcw className="h-3.5 w-3.5" />
       </button>
 
-      <div className="ml-1 flex h-6 w-full max-w-[640px] items-center gap-2 rounded-md bg-white/10 px-3 text-[13px] text-[#d8cade]/80">
+      <div className="ml-1 flex h-6 w-full max-w-[680px] items-center gap-2 rounded-md bg-white/10 px-3 text-[13px] text-[#d8cade]/80">
         <Search className="h-3.5 w-3.5 shrink-0" />
         <span>Search Openland</span>
       </div>

@@ -43,10 +43,10 @@ const Avatar = React.forwardRef<
   React.ComponentRef<typeof AvatarPrimitive.Root>,
   AvatarProps
 >(({ className, size, presence, ...props }, ref) => (
-  <div className="relative inline-flex shrink-0">
+  <div className={cn("relative inline-flex shrink-0", className)}>
     <AvatarPrimitive.Root
       ref={ref}
-      className={cn(avatarVariants({ size, className }))}
+      className={cn(avatarVariants({ size }))}
       {...props}
     />
     {presence && (

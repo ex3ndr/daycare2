@@ -6,6 +6,7 @@ import { useConversation } from "@/app/components/conversation/useConversation";
 import { ConversationTimeline } from "@/app/components/conversation/ConversationTimeline";
 import { Composer } from "@/app/components/messages/Composer";
 import { WorkspaceChannelSettings } from "@/app/fragments/workspace/WorkspaceChannelSettings";
+import { ChatList } from "./components/ChatList";
 import { ChatChannelHeader } from "./components/ChatChannelHeader";
 import { ChatTypingIndicator } from "./components/ChatTypingIndicator";
 import { ChatDropZone } from "./components/ChatDropZone";
@@ -52,22 +53,23 @@ export function ChatChannel({
           onSettingsOpen={() => setSettingsOpen(true)}
         />
 
-        <ConversationTimeline
-          messages={conv.messages}
-          messagesLoaded={conv.messagesLoaded}
-          failedMsgs={conv.failedMsgs}
-          userId={conv.userId}
-          presenceState={conv.presenceState}
-          editingMessageId={conv.editingMessageId}
-          pagination={conv.pagination}
-          onThreadOpen={handleThreadOpen}
-          onReactionToggle={conv.handleReactionToggle}
-          onEdit={conv.handleEdit}
-          onDelete={conv.handleDelete}
-          onEditModeChange={conv.handleEditModeChange}
-          onRetry={conv.handleRetry}
-          onDismiss={conv.handleDismiss}
-        />
+        <ChatList pagination={conv.pagination} hasMessages={conv.messages.length > 0}>
+          <ConversationTimeline
+            messages={conv.messages}
+            messagesLoaded={conv.messagesLoaded}
+            failedMsgs={conv.failedMsgs}
+            userId={conv.userId}
+            presenceState={conv.presenceState}
+            editingMessageId={conv.editingMessageId}
+            onThreadOpen={handleThreadOpen}
+            onReactionToggle={conv.handleReactionToggle}
+            onEdit={conv.handleEdit}
+            onDelete={conv.handleDelete}
+            onEditModeChange={conv.handleEditModeChange}
+            onRetry={conv.handleRetry}
+            onDismiss={conv.handleDismiss}
+          />
+        </ChatList>
 
         <ChatTypingIndicator text={conv.typingText} />
 

@@ -39,10 +39,10 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     borderBottomWidth: 1,
     borderBottomColor: themeColors.border,
-    backgroundColor: themeColors.background,
+    backgroundColor: themeColors.surface,
   },
   row: {
-    height: 49,
+    height: 52,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,

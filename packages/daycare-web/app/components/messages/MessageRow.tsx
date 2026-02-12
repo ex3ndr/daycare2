@@ -171,7 +171,7 @@ export function MessageRow({
   if (message.deletedAt) {
     return (
       <div className={cn("flex gap-3 px-5 opacity-50", isGroupContinuation ? "py-0.5" : "py-1.5")}>
-        <div className="w-9 shrink-0" />
+        <div className="w-8 shrink-0" />
         <p className="text-sm italic text-muted-foreground">
           This message was deleted
         </p>
@@ -320,7 +320,7 @@ export function MessageRow({
       {isGroupContinuation ? (
         <div
           className={cn(
-            "group flex gap-3 px-5 py-0.5 hover:bg-accent/30 transition-colors",
+            "group flex gap-3 px-5 py-px hover:bg-accent/30 transition-colors",
             message.pending && "opacity-70",
             isEditing && "bg-accent/20",
           )}
@@ -328,7 +328,7 @@ export function MessageRow({
           {/* Timestamp on hover, aligned with avatar column */}
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="w-9 shrink-0 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-default text-right leading-5 pt-0.5">
+              <span className="w-8 shrink-0 text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity cursor-default text-right leading-5 pt-0.5 whitespace-nowrap">
                 {new Date(message.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
               </span>
             </TooltipTrigger>
@@ -351,7 +351,7 @@ export function MessageRow({
             isEditing && "bg-accent/20",
           )}
         >
-          <Avatar size="sm" className="mt-0.5 shrink-0" presence={presence}>
+          <Avatar size="sm" className="mt-0.5 shrink-0 self-start" presence={presence}>
             {sender.avatarUrl && <AvatarImage src={sender.avatarUrl} alt={displayName(sender)} />}
             <AvatarFallback>{initialsFromSender(sender)}</AvatarFallback>
           </Avatar>

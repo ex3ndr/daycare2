@@ -28,7 +28,7 @@ export function ChatDirectHeader({
 
 const styles = StyleSheet.create({
   container: {
-    height: 56,
+    height: 52,
     flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
@@ -36,7 +36,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: themeColors.border,
-    backgroundColor: themeColors.background,
+    backgroundColor: themeColors.surface,
   },
   name: {
     fontSize: 16,

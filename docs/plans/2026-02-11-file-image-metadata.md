@@ -38,10 +38,10 @@ When an image file is uploaded, the server validates it is PNG/JPG/GIF by readin
 - Create: `packages/daycare-server/sources/apps/files/fileImageMetadataExtract.ts`
 - Create: `packages/daycare-server/sources/apps/files/fileImageMetadataExtract.spec.ts`
 
-- [ ] Install `sharp` and `thumbhash` as server dependencies
-- [ ] Create `fileImageMetadataExtract(payload: Buffer, mimeType: string)` that: validates magic bytes match declared MIME type (PNG/JPG/GIF only), extracts width/height via sharp, generates thumbhash by resizing to <=100px and converting to RGBA, returns `{ width, height, thumbhash }` or null for non-image files
-- [ ] Write tests: valid PNG/JPG/GIF returns metadata, non-image file returns null, mismatched MIME vs magic bytes throws error
-- [ ] Run test suite
+- [x] Install `sharp` and `thumbhash` as server dependencies
+- [x] Create `fileImageMetadataExtract(payload: Buffer, mimeType: string)` that: validates magic bytes match declared MIME type (PNG/JPG/GIF only), extracts width/height via sharp, generates thumbhash by resizing to <=100px and converting to RGBA, returns `{ width, height, thumbhash }` or null for non-image files
+- [x] Write tests: valid PNG/JPG/GIF returns metadata, non-image file returns null, mismatched MIME vs magic bytes throws error
+- [x] Run test suite
 
 ## Task 3: Integrate image metadata into file upload commit
 

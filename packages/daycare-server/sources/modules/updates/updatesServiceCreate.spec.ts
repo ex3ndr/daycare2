@@ -460,11 +460,13 @@ describe("updatesServiceCreate", () => {
     const db = dbCreate();
     const service = updatesServiceCreate(db, instance.pubSub);
     service.subscribe("user-1", "org-1", replyCreate(vi.fn()));
-    await Promise.resolve();
+    await vi.waitFor(() => {
+      expect(instance.spies.subscribe).toHaveBeenCalledWith("updates");
+    });
 
     await service.stop();
 
-    expect(instance.spies.unsubscribe).toHaveBeenCalledWith("updates:user-1", "updates-ephemeral:user-1");
+    expect(instance.spies.unsubscribe).toHaveBeenCalledWith("updates");
     expect(instance.spies.off).toHaveBeenCalledTimes(1);
   });
 });

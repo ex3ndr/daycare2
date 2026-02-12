@@ -17,6 +17,7 @@ const GIF_MAGIC = Buffer.from([0x47, 0x49, 0x46, 0x38]);
 const MAGIC_BY_MIME: Record<string, Buffer> = {
   "image/png": PNG_MAGIC,
   "image/jpeg": JPEG_MAGIC,
+  "image/jpg": JPEG_MAGIC,
   "image/gif": GIF_MAGIC
 };
 

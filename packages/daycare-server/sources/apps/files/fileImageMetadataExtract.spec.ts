@@ -49,6 +49,16 @@ describe("fileImageMetadataExtract", () => {
     expect(result!.thumbhash).toBeTruthy();
   });
 
+  it("extracts metadata from a JPEG with non-standard image/jpg MIME", async () => {
+    const jpeg = await createTestJpeg(120, 80);
+    const result = await fileImageMetadataExtract(jpeg, "image/jpg");
+
+    expect(result).not.toBeNull();
+    expect(result!.width).toBe(120);
+    expect(result!.height).toBe(80);
+    expect(result!.thumbhash).toBeTruthy();
+  });
+
   it("extracts metadata from a valid GIF", async () => {
     const gif = await createTestGif(50, 50);
     const result = await fileImageMetadataExtract(gif, "image/gif");

@@ -68,6 +68,26 @@ export async function messageSend(
     throw new ApiError(403, "FORBIDDEN", "Cannot send messages to archived channels");
   }
 
+  // Resolve fileIds from attachment URLs and validate they exist in this org
+  const candidateFileIds = (input.attachments ?? [])
+    .map((a) => fileIdFromAttachmentUrl(a.url, input.organizationId))
+    .filter((id): id is string => id !== null);
+
+  const validFileIds = new Set<string>();
+  if (candidateFileIds.length > 0) {
+    const files = await context.db.fileAsset.findMany({
+      where: {
+        id: { in: candidateFileIds },
+        organizationId: input.organizationId,
+        status: "COMMITTED"
+      },
+      select: { id: true }
+    });
+    for (const f of files) {
+      validFileIds.add(f.id);
+    }
+  }
+
   const threadId = input.threadId ?? null;
   const usernames = mentionUsernamesExtract(input.text);
   let mentionedBots: Array<{ id: string; webhookUrl: string }> = [];
@@ -136,16 +156,19 @@ export async function messageSend(
           }))
         },
         attachments: {
-          create: (input.attachments ?? []).map((attachment, index) => ({
-            id: createId(),
-            sortOrder: index,
-            kind: attachment.kind,
-            url: attachment.url,
-            mimeType: attachment.mimeType,
-            fileName: attachment.fileName,
-            sizeBytes: attachment.sizeBytes,
-            fileId: fileIdFromAttachmentUrl(attachment.url, input.organizationId)
-          }))
+          create: (input.attachments ?? []).map((attachment, index) => {
+            const extractedFileId = fileIdFromAttachmentUrl(attachment.url, input.organizationId);
+            return {
+              id: createId(),
+              sortOrder: index,
+              kind: attachment.kind,
+              url: attachment.url,
+              mimeType: attachment.mimeType,
+              fileName: attachment.fileName,
+              sizeBytes: attachment.sizeBytes,
+              fileId: extractedFileId && validFileIds.has(extractedFileId) ? extractedFileId : null
+            };
+          })
         }
       },
       include: {

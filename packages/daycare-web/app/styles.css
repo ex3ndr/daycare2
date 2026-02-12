@@ -8,15 +8,15 @@
   :root {
     color-scheme: light;
 
-    /* shadcn core — Daycare warm palette */
-    --background: 36 25% 94%;
-    --foreground: 36 9% 11%;
+    /* shadcn core */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 13%;
 
     --card: 0 0% 100%;
-    --card-foreground: 36 9% 11%;
+    --card-foreground: 0 0% 13%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 36 9% 11%;
+    --popover-foreground: 0 0% 13%;
 
     --primary: 22 66% 50%;
     --primary-foreground: 0 0% 100%;
@@ -41,22 +41,25 @@
 
     --radius: 12px;
 
-    /* Sidebar — dark tones */
-    --sidebar: 210 12% 16%;
-    --sidebar-foreground: 40 28% 94%;
-    --sidebar-border: 210 12% 22%;
-    --sidebar-accent: 210 12% 22%;
-    --sidebar-accent-foreground: 40 28% 94%;
-    --sidebar-muted: 210 12% 20%;
-    --sidebar-muted-foreground: 40 28% 80%;
+    /* Sidebar — aubergine tones */
+    --sidebar: 292 31% 25%;
+    --sidebar-foreground: 280 10% 96%;
+    --sidebar-border: 294 24% 30%;
+    --sidebar-accent: 288 30% 81%;
+    --sidebar-accent-foreground: 294 40% 16%;
+    --sidebar-muted: 294 28% 29%;
+    --sidebar-muted-foreground: 280 12% 88%;
 
-    /* Rail — darkest tone */
-    --rail: 210 16% 10%;
-    --rail-foreground: 36 35% 95%;
+    /* Rail — darkest aubergine */
+    --rail: 293 58% 15%;
+    --rail-foreground: 280 20% 95%;
+
+    /* Sidebar header — between rail and sidebar */
+    --sidebar-header: 293 50% 17%;
 
     /* Daycare legacy tokens (for gradient and custom use) */
-    --bg: #f4f1ec;
-    --bg-accent: #ece6dc;
+    --bg: #ffffff;
+    --bg-accent: #f8f8f8;
     --surface: #ffffff;
     --ink: #1f1d1a;
     --ink-soft: #6c635a;
@@ -121,8 +124,6 @@
   body {
     @apply bg-background text-foreground font-sans;
     margin: 0;
-    background: radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.9), transparent 45%),
-      radial-gradient(circle at 85% 15%, #f3d3b7, transparent 40%),
-      linear-gradient(160deg, var(--bg), var(--bg-accent));
+    background: var(--bg);
   }
 }

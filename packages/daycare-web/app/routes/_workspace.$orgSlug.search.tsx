@@ -1,6 +1,6 @@
 import { createRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
-import { orgSlugRoute } from "./_workspace.$orgSlug";
+import { chatLayoutRoute } from "./_workspace.$orgSlug._chat";
 import { useApp, useStorage } from "@/app/sync/AppContext";
 import { Input } from "@/app/components/ui/input";
 import { ScrollArea } from "@/app/components/ui/scroll-area";
@@ -16,7 +16,7 @@ type SearchParams = {
 };
 
 export const searchRoute = createRoute({
-  getParentRoute: () => orgSlugRoute,
+  getParentRoute: () => chatLayoutRoute,
   path: "search",
   validateSearch: (search: Record<string, unknown>): SearchParams => ({
     q: typeof search.q === "string" ? search.q : undefined,
@@ -26,7 +26,7 @@ export const searchRoute = createRoute({
 
 function SearchPage() {
   const { q } = searchRoute.useSearch();
-  const { orgSlug } = orgSlugRoute.useParams();
+  const { orgSlug } = chatLayoutRoute.useParams();
   const navigate = useNavigate();
   const app = useApp();
   const orgId = useStorage((s) => s.objects.context.orgId);

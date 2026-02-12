@@ -46,7 +46,8 @@ const config: Config = {
           accent: "hsl(var(--sidebar-accent))",
           "accent-foreground": "hsl(var(--sidebar-accent-foreground))",
           muted: "hsl(var(--sidebar-muted))",
-          "muted-foreground": "hsl(var(--sidebar-muted-foreground))"
+          "muted-foreground": "hsl(var(--sidebar-muted-foreground))",
+          header: "hsl(var(--sidebar-header))"
         },
         rail: {
           DEFAULT: "hsl(var(--rail))",

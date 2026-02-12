@@ -5,6 +5,7 @@ import { loginRoute } from "./routes/login";
 import { orgsRoute } from "./routes/orgs";
 import { workspaceRoute } from "./routes/_workspace";
 import { orgSlugRoute } from "./routes/_workspace.$orgSlug";
+import { chatLayoutRoute } from "./routes/_workspace.$orgSlug._chat";
 import { orgSlugIndexRoute } from "./routes/_workspace.$orgSlug.index";
 import { channelRoute } from "./routes/_workspace.$orgSlug.c.$channelId";
 import { threadRoute } from "./routes/_workspace.$orgSlug.c.$channelId.t.$threadId";
@@ -12,6 +13,7 @@ import { dmRoute } from "./routes/_workspace.$orgSlug.dm.$dmId";
 import { dmThreadRoute } from "./routes/_workspace.$orgSlug.dm.$dmId.t.$threadId";
 import { searchRoute } from "./routes/_workspace.$orgSlug.search";
 import { settingsRoute } from "./routes/_workspace.$orgSlug.settings";
+import { devRoute } from "./routes/_workspace.$orgSlug.dev";
 
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -19,11 +21,14 @@ const routeTree = rootRoute.addChildren([
   orgsRoute,
   workspaceRoute.addChildren([
     orgSlugRoute.addChildren([
-      orgSlugIndexRoute,
-      channelRoute.addChildren([threadRoute]),
-      dmRoute.addChildren([dmThreadRoute]),
-      searchRoute,
+      chatLayoutRoute.addChildren([
+        orgSlugIndexRoute,
+        channelRoute.addChildren([threadRoute]),
+        dmRoute.addChildren([dmThreadRoute]),
+        searchRoute,
+      ]),
       settingsRoute,
+      devRoute,
     ]),
   ]),
 ]);

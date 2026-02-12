@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useShallow } from "zustand/react/shallow";
 import { useApp, useStorage } from "@/app/sync/AppContext";
@@ -26,7 +26,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
-import { Hash, Lock, Plus, MessageSquare, ChevronDown, ChevronRight, Settings, Users, Mail, GripVertical } from "lucide-react";
+import { Hash, Lock, Plus, MessageSquare, ChevronDown, Settings, Users, Mail, GripVertical, PencilLine, Headphones, FileText, AtSign, Star } from "lucide-react";
 import type { ApiClient } from "@/app/daycare/api/apiClientCreate";
 import { ChannelListSkeleton } from "@/app/components/skeletons/ChannelListSkeleton";
 import { channelOrderSort } from "@/app/lib/channelOrderSort";
@@ -124,8 +124,8 @@ export function Sidebar() {
     [directMap, orgId],
   );
 
-  const [channelsOpen, setChannelsOpen] = useState(true);
-  const [dmsOpen, setDmsOpen] = useState(true);
+  const channelsOpen = true;
+  const dmsOpen = true;
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
   const [dmDialogOpen, setDmDialogOpen] = useState(false);
 
@@ -146,13 +146,17 @@ export function Sidebar() {
   if (sidebarCollapsed) return null;
 
   return (
-    <div className="flex w-[280px] shrink-0 flex-col bg-sidebar text-sidebar-foreground">
+    <div className="flex w-[315px] shrink-0 flex-col bg-sidebar text-sidebar-foreground">
       {/* Org header with dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex h-14 w-full items-center gap-1 px-4 text-left hover:bg-sidebar-accent/50 transition-colors focus-visible:outline-none">
-            <h2 className="font-display text-lg font-semibold truncate">{orgName}</h2>
+          <button className="flex h-[52px] w-full items-center gap-1 px-4 text-left bg-sidebar-header hover:brightness-110 transition-all focus-visible:outline-none">
+            <h2 className="font-display text-[20px] leading-none font-semibold truncate">{orgName}</h2>
             <ChevronDown className="h-4 w-4 shrink-0 text-sidebar-muted-foreground" />
+            <span className="ml-auto flex items-center gap-3 text-sidebar-muted-foreground">
+              <Settings className="h-4 w-4" />
+              <PencilLine className="h-4 w-4" />
+            </span>
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
@@ -202,21 +206,54 @@ export function Sidebar() {
 
       <Separator className="bg-sidebar-border" />
 
-      <ScrollArea className="flex-1">
-        <div className="py-2">
-          {/* Channels section */}
-          <button
-            onClick={() => setChannelsOpen(!channelsOpen)}
-            className="flex w-full items-center gap-1 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-sidebar-muted-foreground hover:text-sidebar-foreground transition-colors"
-          >
-            {channelsOpen ? (
-              <ChevronDown className="h-3 w-3" />
-            ) : (
-              <ChevronRight className="h-3 w-3" />
-            )}
-            Channels
-          </button>
+      <div className="px-4 py-3">
+        <button className="flex h-8 w-full items-center justify-center rounded-md border border-[#d6d5d9] bg-[#fafafb] text-sm font-semibold text-[#3d2e42]">
+          <span className="mr-1.5 text-sm">⚡</span>
+          Upgrade Plan
+        </button>
+      </div>
 
+      <ScrollArea className="flex-1">
+        <div className="pb-2">
+          <div className="space-y-0.5 px-3 pb-3 text-[#d6cde0]">
+            <NavRow icon={<AtSign className="h-3.5 w-3.5" />} label="Threads" />
+            <NavRow icon={<Headphones className="h-3.5 w-3.5" />} label="Huddles" />
+            <NavRow icon={<FileText className="h-3.5 w-3.5" />} label="Drafts & sent" />
+            <NavRow icon={<FileText className="h-3.5 w-3.5" />} label="Directories" />
+          </div>
+
+          <Separator className="mx-4 mb-2 bg-sidebar-border" />
+
+          <div className="px-4 pb-1">
+            <p className="flex items-center gap-1 text-[13px] text-[#d6cde0]">
+              <Star className="h-3.5 w-3.5" />
+              Starred
+            </p>
+            <div className="mt-1 space-y-0.5 pl-3">
+              {["backend", "design", "dev-talk", "general", "imports"].map((name) => (
+                <button
+                  key={name}
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-[3px] text-left text-sm ${
+                    name === "general"
+                      ? "bg-[#d9d0de] text-[#4f2d5b]"
+                      : "text-[#d6cde0] hover:bg-white/10"
+                  }`}
+                >
+                  <Hash className="h-3.5 w-3.5 shrink-0" />
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="px-4 pb-1 pt-2">
+            <p className="flex items-center gap-1 text-[13px] text-[#d6cde0]">
+              <MessageSquare className="h-3.5 w-3.5" />
+              Channels
+            </p>
+          </div>
+
+          {/* Channels section */}
           {channelsOpen && sortedChannels.length === 0 && (
             <ChannelListSkeleton />
           )}
@@ -273,7 +310,7 @@ export function Sidebar() {
 
               <button
                 onClick={() => setChannelDialogOpen(true)}
-                className="flex w-full items-center gap-2 px-4 py-1.5 text-sm text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                className="flex w-full items-center gap-2 px-4 py-1.5 text-sm text-[#d6cde0] hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 New Channel
@@ -281,22 +318,14 @@ export function Sidebar() {
             </div>
           )}
 
-          <Separator className="my-2 bg-sidebar-border" />
+          <div className="px-4 pb-1 pt-2">
+            <p className="flex items-center gap-1 text-[13px] text-[#d6cde0]">
+              <MessageSquare className="h-3.5 w-3.5" />
+              Direct messages
+            </p>
+          </div>
 
           {/* DMs section */}
-          <button
-            onClick={() => setDmsOpen(!dmsOpen)}
-            className="flex w-full items-center gap-1 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-sidebar-muted-foreground hover:text-sidebar-foreground transition-colors"
-          >
-            {dmsOpen ? (
-              <ChevronDown className="h-3 w-3" />
-            ) : (
-              <ChevronRight className="h-3 w-3" />
-            )}
-            <MessageSquare className="h-3 w-3" />
-            Direct Messages
-          </button>
-
           {dmsOpen && (
             <div className="mt-0.5">
               {directs.map((dm) => {
@@ -344,7 +373,7 @@ export function Sidebar() {
 
               <button
                 onClick={() => setDmDialogOpen(true)}
-                className="flex w-full items-center gap-2 px-4 py-1.5 text-sm text-sidebar-muted-foreground hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+                className="flex w-full items-center gap-2 px-4 py-1.5 text-sm text-[#d6cde0] hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
               >
                 <Plus className="h-4 w-4" />
                 New Message
@@ -454,6 +483,15 @@ function ChannelRow({
         )}
       </button>
     </div>
+  );
+}
+
+function NavRow({ icon, label }: { icon: ReactNode; label: string }) {
+  return (
+    <button className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-sm hover:bg-white/10">
+      <span className="shrink-0 text-[#cdbed7]">{icon}</span>
+      <span>{label}</span>
+    </button>
   );
 }
 

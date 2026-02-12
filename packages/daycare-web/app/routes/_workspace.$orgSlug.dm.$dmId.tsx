@@ -1,7 +1,7 @@
 import { createRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { orgSlugRoute } from "./_workspace.$orgSlug";
+import { chatLayoutRoute } from "./_workspace.$orgSlug._chat";
 import { useApp, useStorage } from "@/app/sync/AppContext";
 import { messagesForChannel, typingUsersForChannel, presenceForUser } from "@/app/sync/selectors";
 import { useUiStore, failedMessageRemove } from "@/app/stores/uiStoreContext";
@@ -21,14 +21,14 @@ import { messageGroupCheck } from "@/app/lib/messageGroupCheck";
 import { messageIdCreate } from "@/app/lib/messageIdCreate";
 
 export const dmRoute = createRoute({
-  getParentRoute: () => orgSlugRoute,
+  getParentRoute: () => chatLayoutRoute,
   path: "dm/$dmId",
   component: DmPage,
 });
 
 function DmPage() {
   const { dmId } = dmRoute.useParams();
-  const { orgSlug } = orgSlugRoute.useParams();
+  const { orgSlug } = chatLayoutRoute.useParams();
   const navigate = useNavigate();
   const app = useApp();
 

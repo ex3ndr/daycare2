@@ -1,17 +1,15 @@
 import { createRoute, Outlet, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { orgSlugRoute } from "./_workspace.$orgSlug";
+import { chatLayoutRoute } from "./_workspace.$orgSlug._chat";
 import { useApp, useStorage } from "@/app/sync/AppContext";
 import { messagesForChannel, typingUsersForChannel, presenceForUser } from "@/app/sync/selectors";
 import { useUiStore, failedMessageRemove } from "@/app/stores/uiStoreContext";
 import { MessageRow } from "@/app/components/messages/MessageRow";
 import { FailedMessageRow } from "@/app/components/messages/FailedMessageRow";
 import { Composer } from "@/app/components/messages/Composer";
-import { Hash, Lock, ArrowDown, Loader2, Settings } from "lucide-react";
+import { Hash, Lock, ArrowDown, Loader2, Headphones, Bell, Search, MoreVertical, Star, Users } from "lucide-react";
 import { MessageListSkeleton } from "@/app/components/skeletons/MessageListSkeleton";
-import { Button } from "@/app/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/app/components/ui/tooltip";
 import { ChannelSettings } from "@/app/components/workspace/ChannelSettings";
 import { useThrottledTyping } from "@/app/lib/useThrottledTyping";
 import { typingTextFormat } from "@/app/lib/typingTextFormat";
@@ -23,14 +21,14 @@ import { messageGroupCheck } from "@/app/lib/messageGroupCheck";
 import { messageIdCreate } from "@/app/lib/messageIdCreate";
 
 export const channelRoute = createRoute({
-  getParentRoute: () => orgSlugRoute,
+  getParentRoute: () => chatLayoutRoute,
   path: "c/$channelId",
   component: ChannelPage,
 });
 
 function ChannelPage() {
   const { channelId } = channelRoute.useParams();
-  const { orgSlug } = orgSlugRoute.useParams();
+  const { orgSlug } = chatLayoutRoute.useParams();
   const navigate = useNavigate();
   const app = useApp();
 
@@ -267,39 +265,44 @@ function ChannelPage() {
         )}
 
         {/* Channel header */}
-        <div className="flex h-14 shrink-0 items-center gap-2 border-b bg-background px-5">
-          {channel?.visibility === "private" ? (
-            <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
-          ) : (
-            <Hash className="h-4 w-4 text-muted-foreground shrink-0" />
-          )}
-          <h2 className="font-display text-base font-semibold truncate">
-            {channel?.name ?? "Channel"}
-          </h2>
-          {channel?.topic && (
-            <>
-              <span className="text-muted-foreground">--</span>
-              <span className="text-sm text-muted-foreground truncate">
-                {channel.topic}
-              </span>
-            </>
-          )}
-          <div className="ml-auto shrink-0">
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setSettingsOpen(true)}
-                  >
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Channel settings</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+        <div className="shrink-0 border-b border-[#d8d8da] bg-background">
+          <div className="flex h-[49px] items-center gap-2 border-b border-[#e7e7e8] px-4">
+            <Star className="h-4 w-4 text-[#c5a84d]" />
+            {channel?.visibility === "private" ? (
+              <Lock className="h-4 w-4 text-[#6a6a6d] shrink-0" />
+            ) : (
+              <Hash className="h-4 w-4 text-[#6a6a6d] shrink-0" />
+            )}
+            <h2 className="font-display text-[20px] font-semibold truncate text-[#232325]">
+              {channel?.name ?? "general"}
+            </h2>
+            <div className="ml-auto flex items-center gap-2 text-[#68696d]">
+              <button className="flex h-6 items-center gap-1 rounded-full border border-[#d4d5d8] px-1.5 text-[11px]">
+                <Users className="h-3.5 w-3.5" />
+                2
+              </button>
+              <button className="flex h-6 w-6 items-center justify-center rounded hover:bg-[#f4f4f5]">
+                <Headphones className="h-3.5 w-3.5" />
+              </button>
+              <button className="flex h-6 w-6 items-center justify-center rounded hover:bg-[#f4f4f5]">
+                <Bell className="h-3.5 w-3.5" />
+              </button>
+              <button className="flex h-6 w-6 items-center justify-center rounded hover:bg-[#f4f4f5]">
+                <Search className="h-3.5 w-3.5" />
+              </button>
+              <button
+                className="flex h-6 w-6 items-center justify-center rounded hover:bg-[#f4f4f5]"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <MoreVertical className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+          <div className="flex h-[38px] items-center gap-5 px-4 text-[13px] text-[#57585b]">
+            <button className="h-full border-b-2 border-[#5a3368] font-semibold">Messages</button>
+            <button>Add canvas</button>
+            <button>Files</button>
+            <button className="text-lg leading-none">+</button>
           </div>
         </div>
 

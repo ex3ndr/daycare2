@@ -1,9 +1,9 @@
 import { createRoute } from "@tanstack/react-router";
-import { orgSlugRoute } from "./_workspace.$orgSlug";
+import { chatLayoutRoute } from "./_workspace.$orgSlug._chat";
 
 // Index route for /:orgSlug — placeholder until channels are loaded
 export const orgSlugIndexRoute = createRoute({
-  getParentRoute: () => orgSlugRoute,
+  getParentRoute: () => chatLayoutRoute,
   path: "/",
   component: OrgIndexPage,
 });

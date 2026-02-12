@@ -84,8 +84,8 @@ When an image file is uploaded, the server validates it is PNG/JPG/GIF by readin
 
 ## Verification
 
-- [ ] Manual test: upload a PNG, JPG, and GIF — verify thumbhash, width, height appear in message response
-- [ ] Manual test: upload a non-image file — verify no image metadata, no error
-- [ ] Manual test: upload a file with wrong MIME type (e.g. .exe renamed to .jpg) — verify 400 error
-- [ ] Run full test suite (`yarn test`)
-- [ ] Run typecheck (`yarn typecheck`)
+- [x] Manual test: upload a PNG, JPG, and GIF — verify thumbhash, width, height appear in message response
+- [x] Manual test: upload a non-image file — verify no image metadata, no error
+- [x] Manual test: upload a file with wrong MIME type (e.g. .exe renamed to .jpg) — verify 400 error
+- [x] Run full test suite (`yarn test`)
+- [x] Run typecheck (`yarn typecheck`)

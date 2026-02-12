@@ -223,7 +223,7 @@ describe("uiStore", () => {
         chatId: "ch-2",
         text: "Second",
         threadId: "thread-1",
-        attachments: [{ kind: "file", url: "https://example.com/f.txt" }],
+        attachments: [{ kind: "file", fileId: "file-1" }],
         failedAt: 2000,
         error: "Error 2",
       });

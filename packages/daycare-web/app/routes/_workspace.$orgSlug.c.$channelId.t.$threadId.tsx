@@ -15,6 +15,7 @@ import { useThrottledTyping } from "@/app/lib/useThrottledTyping";
 import { typingTextFormat } from "@/app/lib/typingTextFormat";
 import { useFileUpload } from "@/app/lib/useFileUpload";
 import { messageGroupCheck } from "@/app/lib/messageGroupCheck";
+import { messageIdCreate } from "@/app/lib/messageIdCreate";
 
 export const threadRoute = createRoute({
   getParentRoute: () => channelRoute,
@@ -106,7 +107,7 @@ function ThreadPanel() {
   const handleSend = useCallback(
     (text: string) => {
       const attachments = fileUpload.getReadyAttachments();
-      const id = crypto.randomUUID();
+      const id = messageIdCreate();
       mutate("messageSend", {
         id,
         chatId: channelId,

@@ -40,6 +40,8 @@ export async function typingRoutesRegister(app: FastifyInstance, context: ApiCon
       organizationId: params.orgid,
       channelId: params.channelId,
       userId: auth.user.id,
+      username: auth.user.username,
+      firstName: auth.user.firstName,
       threadRootMessageId: body.threadRootMessageId ?? null
     });
 

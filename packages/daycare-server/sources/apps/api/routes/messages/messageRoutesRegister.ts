@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type { Prisma } from "@prisma/client";
+import { isCuid } from "@paralleldrive/cuid2";
 import { z } from "zod";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
 import { messageDelete } from "@/apps/messages/messageDelete.js";
@@ -22,20 +23,14 @@ const messageListQuerySchema = z.object({
   threadId: z.string().min(1).nullable().optional()
 });
 
-const messageAttachmentUrlSchema = z.string().trim().min(1).refine((value) => {
-  if (/^\/api\/org\/[^/]+\/files\/[^/?#]+$/.test(value)) {
-    return true;
-  }
-  return z.string().url().safeParse(value).success;
-}, "Invalid url");
-
 const messageSendBodySchema = z.object({
+  messageId: z.string().trim().min(1).refine((value) => isCuid(value), "Invalid messageId"),
   channelId: z.string().min(1),
   text: z.string().max(10000),
   threadId: z.string().min(1).nullable().optional(),
   attachments: z.array(z.object({
     kind: z.string().min(1),
-    url: messageAttachmentUrlSchema,
+    fileId: z.string().trim().min(1),
     mimeType: z.string().nullable().optional(),
     fileName: z.string().nullable().optional(),
     sizeBytes: z.number().int().positive().nullable().optional()
@@ -300,6 +295,7 @@ export async function messageRoutesRegister(app: FastifyInstance, context: ApiCo
 
     return await idempotencyGuard(request, context, { type: "user", id: auth.user.id }, async () => {
       const message = await messageSend(context, {
+        messageId: body.messageId,
         organizationId: params.orgid,
         channelId: body.channelId,
         userId: auth.user.id,

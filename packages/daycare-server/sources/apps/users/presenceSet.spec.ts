@@ -56,7 +56,7 @@ describe("presenceSet", () => {
   }
 
   it("sets online presence with ttl and publishes event", async () => {
-    const { orgId, user1Id, user2Id } = await seedUsers();
+    const { orgId, user1Id } = await seedUsers();
 
     const status = await presenceSet(live.context, {
       organizationId: orgId,
@@ -71,9 +71,7 @@ describe("presenceSet", () => {
     expect(redisValue).toBe("online");
 
     const updates = await live.db.userUpdate.findMany({ orderBy: { userId: "asc" } });
-    expect(updates).toHaveLength(2);
-    expect(new Set(updates.map((update) => update.userId))).toEqual(new Set([user1Id, user2Id]));
-    expect(new Set(updates.map((update) => update.eventType))).toEqual(new Set(["user.presence"]));
+    expect(updates).toHaveLength(0);
   });
 
   it("sets away presence with ttl", async () => {

@@ -15,6 +15,7 @@ import type {
   ReadState,
   Session,
   TypingState,
+  EphemeralEnvelope,
   UpdateEnvelope,
   UpdatesDiffResult,
   User,
@@ -99,12 +100,13 @@ export type ApiClient = {
     token: string,
     orgId: string,
     input: {
+      messageId: string;
       channelId: string;
       text: string;
       threadId?: string | null;
       attachments?: Array<{
         kind: string;
-        url: string;
+        fileId: string;
         mimeType?: string | null;
         fileName?: string | null;
         sizeBytes?: number | null;
@@ -183,6 +185,7 @@ export type ApiClient = {
     onUpdate: (update: UpdateEnvelope) => void,
     onReady?: () => void,
     onDisconnect?: () => void,
+    onEphemeral?: (event: EphemeralEnvelope) => void,
   ) => { close: () => void };
   orgMemberDeactivate: (token: string, orgId: string, userId: string) => Promise<{ user: { id: string; deactivatedAt: number | null } }>;
   orgMemberReactivate: (token: string, orgId: string, userId: string) => Promise<{ user: { id: string; deactivatedAt: number | null } }>;
@@ -453,7 +456,7 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
     },
     updatesDiff: (token, orgId, input) =>
       request(`/api/org/${orgId}/updates/diff`, apiSchemas.updatesDiff, { method: "POST", token, body: input }),
-    updatesStreamSubscribe: (token, orgId, onUpdate, onReady, onDisconnect) => {
+    updatesStreamSubscribe: (token, orgId, onUpdate, onReady, onDisconnect, onEphemeral) => {
       const subscription = sseSubscribe({
         url: `${baseUrl}/api/org/${orgId}/updates/stream`,
         headers: {
@@ -465,6 +468,15 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
             return;
           }
           if (event.event === "ping") {
+            return;
+          }
+          if (event.event === "ephemeral") {
+            try {
+              const payload = JSON.parse(event.data) as EphemeralEnvelope;
+              onEphemeral?.(payload);
+            } catch {
+              // Ignore malformed ephemeral payloads.
+            }
             return;
           }
           if (event.event !== "update") {

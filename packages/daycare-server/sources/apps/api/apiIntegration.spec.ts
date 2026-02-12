@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { PrismaClient } from "@prisma/client";
 import type Redis from "ioredis";
+import { createId } from "@paralleldrive/cuid2";
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 import { apiCreate } from "./apiCreate.js";
 import { databaseConnect } from "@/modules/database/databaseConnect.js";
@@ -202,6 +203,7 @@ describeIntegration("api integration", () => {
         authorization: `Bearer ${ownerToken}`
       },
       payload: {
+        messageId: createId(),
         channelId,
         text: `Hello @${memberUsername}`
       }

@@ -1,4 +1,5 @@
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
+import { organizationRecipientIdsResolve } from "@/apps/api/lib/organizationRecipientIdsResolve.js";
 
 const PRESENCE_TTL_SECONDS = 90;
 
@@ -20,6 +21,13 @@ export async function presenceHeartbeat(
 
   if (currentValue === "online" || currentValue === "away") {
     await context.redis.set(key, currentValue, "EX", PRESENCE_TTL_SECONDS);
+
+    const recipients = await organizationRecipientIdsResolve(context, input.organizationId);
+    await context.updates.publishEphemeralToUsers(recipients, "user.presence", {
+      orgId: input.organizationId,
+      userId: input.userId,
+      status: currentValue
+    });
   }
 
   await context.db.user.updateMany({

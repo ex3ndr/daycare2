@@ -25,7 +25,7 @@ export async function presenceSet(
   );
 
   const recipients = await organizationRecipientIdsResolve(context, input.organizationId);
-  await context.updates.publishToUsers(recipients, "user.presence", {
+  await context.updates.publishEphemeralToUsers(recipients, "user.presence", {
     orgId: input.organizationId,
     userId: input.userId,
     status: input.status

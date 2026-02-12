@@ -18,6 +18,7 @@ import { useMessagePagination } from "@/app/lib/useMessagePagination";
 import { cn } from "@/app/lib/utils";
 import { lastEditableMessageFind } from "@/app/lib/lastEditableMessageFind";
 import { messageGroupCheck } from "@/app/lib/messageGroupCheck";
+import { messageIdCreate } from "@/app/lib/messageIdCreate";
 
 export const dmRoute = createRoute({
   getParentRoute: () => orgSlugRoute,
@@ -120,7 +121,7 @@ function DmPage() {
   const handleSend = useCallback(
     (text: string) => {
       const attachments = fileUpload.getReadyAttachments();
-      const id = crypto.randomUUID();
+      const id = messageIdCreate();
       mutate("messageSend", {
         id,
         chatId: dmId,
@@ -173,7 +174,7 @@ function DmPage() {
       const msg = failedMsgs.find(([id]) => id === failedId)?.[1];
       if (!msg) return;
       failedMessageRemove(failedId);
-      const id = crypto.randomUUID();
+      const id = messageIdCreate();
       mutate("messageSend", {
         id,
         chatId: dmId,

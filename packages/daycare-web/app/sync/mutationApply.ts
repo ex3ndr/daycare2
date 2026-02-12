@@ -53,27 +53,28 @@ export async function mutationApply(
         threadId?: string | null;
         attachments?: Array<{
           kind: string;
-          url: string;
+          fileId: string;
           mimeType?: string | null;
           fileName?: string | null;
           sizeBytes?: number | null;
         }>;
       };
       const result = await api.messageSend(token, orgId, {
+        messageId: input.id,
         channelId: input.chatId,
         text: input.text,
         threadId: input.threadId,
         attachments: input.attachments,
       });
       const msg = result.message;
-      // Use the client-generated ID in the snapshot so the React key stays
-      // stable. The idMapping lets AppController rewrite SSE/sync data
-      // that arrives with the server-assigned ID.
+      const idMapping = msg.id === input.id
+        ? undefined
+        : { type: "message", clientId: input.id, serverId: msg.id } as const;
       return {
         snapshot: {
           message: [
             {
-              id: input.id,
+              id: msg.id,
               chatId: msg.chatId,
               senderUserId: msg.senderUserId,
               threadId: msg.threadId,
@@ -96,7 +97,7 @@ export async function mutationApply(
             },
           ],
         },
-        idMapping: { type: "message", clientId: input.id, serverId: msg.id },
+        idMapping,
       };
     }
 

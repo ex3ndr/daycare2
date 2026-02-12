@@ -178,16 +178,16 @@ export function fileUploadCreate(
     // Get ready attachments for message sending
     getReadyAttachments(): Array<{
       kind: string;
-      url: string;
+      fileId: string;
       mimeType: string | null;
       fileName: string | null;
       sizeBytes: number | null;
     }> {
       return state.entries
-        .filter((e) => e.status === "ready" && e.url)
+        .filter((e) => e.status === "ready" && e.fileId)
         .map((e) => ({
           kind: attachmentKindFromMime(e.file.type),
-          url: e.url!,
+          fileId: e.fileId!,
           mimeType: e.file.type || null,
           fileName: e.file.name,
           sizeBytes: e.file.size,

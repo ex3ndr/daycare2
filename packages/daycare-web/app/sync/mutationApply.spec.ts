@@ -113,17 +113,16 @@ describe("mutationApply", () => {
       const result = await mutationApply(api, token, orgId, mutation);
 
       expect(api.messageSend).toHaveBeenCalledWith(token, orgId, {
+        messageId: "temp-msg-1",
         channelId: "ch-1",
         text: "Hello",
         threadId: null,
         attachments: undefined,
       });
       expect(result.snapshot.message).toHaveLength(1);
-      // Snapshot uses the client-generated ID for stable React keys
-      expect(result.snapshot.message![0].id).toBe("temp-msg-1");
+      expect(result.snapshot.message![0].id).toBe("server-msg-1");
       expect(result.snapshot.message![0].text).toBe("Hello");
       expect(result.snapshot.message![0].createdAt).toBe(2000);
-      // idMapping tracks client-to-server ID for SSE dedup
       expect(result.idMapping).toEqual({
         type: "message",
         clientId: "temp-msg-1",
@@ -164,7 +163,7 @@ describe("mutationApply", () => {
         attachments: [
           {
             kind: "file",
-            url: "https://example.com/f.txt",
+            fileId: "file-1",
           },
         ],
       });
@@ -172,13 +171,14 @@ describe("mutationApply", () => {
       await mutationApply(api, token, orgId, mutation);
 
       expect(api.messageSend).toHaveBeenCalledWith(token, orgId, {
+        messageId: "temp-msg-2",
         channelId: "ch-1",
         text: "",
         threadId: undefined,
         attachments: [
           {
             kind: "file",
-            url: "https://example.com/f.txt",
+            fileId: "file-1",
           },
         ],
       });

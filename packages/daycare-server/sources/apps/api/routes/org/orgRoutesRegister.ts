@@ -14,6 +14,7 @@ import { orgDomainList } from "@/apps/organizations/orgDomainList.js";
 import { orgDomainRemove } from "@/apps/organizations/orgDomainRemove.js";
 import { orgMemberRoleSet } from "@/apps/organizations/orgMemberRoleSet.js";
 import { userProfileUpdate } from "@/apps/users/userProfileUpdate.js";
+import { presenceGet } from "@/apps/users/presenceGet.js";
 import { accountSessionResolve } from "@/apps/api/lib/accountSessionResolve.js";
 import { authContextResolve } from "@/apps/api/lib/authContextResolve.js";
 import { ApiError } from "@/apps/api/lib/apiError.js";
@@ -212,6 +213,11 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
   app.get("/api/org/:orgid/profile", async (request) => {
     const params = z.object({ orgid: z.string().min(1) }).parse(request.params);
     const auth = await authContextResolve(request, context, params.orgid);
+    const presence = await presenceGet(context, {
+      organizationId: params.orgid,
+      userIds: [auth.user.id]
+    });
+    const status = presence[0]?.status ?? "offline";
 
     return apiResponseOk({
       profile: {
@@ -226,6 +232,7 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
         avatarUrl: auth.user.avatarUrl,
         systemPrompt: auth.user.systemPrompt,
         orgRole: auth.user.orgRole,
+        presence: status,
         deactivatedAt: auth.user.deactivatedAt?.getTime() ?? null,
         createdAt: auth.user.createdAt.getTime(),
         updatedAt: auth.user.updatedAt.getTime()
@@ -248,6 +255,11 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
         timezone: body.timezone,
         avatarUrl: body.avatarUrl
       });
+      const presence = await presenceGet(context, {
+        organizationId: params.orgid,
+        userIds: [updated.id]
+      });
+      const status = presence[0]?.status ?? "offline";
 
       return apiResponseOk({
         profile: {
@@ -262,6 +274,7 @@ export async function orgRoutesRegister(app: FastifyInstance, context: ApiContex
           avatarUrl: updated.avatarUrl,
           systemPrompt: updated.systemPrompt,
           orgRole: updated.orgRole,
+          presence: status,
           deactivatedAt: updated.deactivatedAt?.getTime() ?? null,
           createdAt: updated.createdAt.getTime(),
           updatedAt: updated.updatedAt.getTime()

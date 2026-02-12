@@ -50,6 +50,7 @@ export type User = {
   bio?: string | null;
   timezone?: string | null;
   systemPrompt?: string | null;
+  presence?: PresenceStatus;
   orgRole?: OrgRole;
   deactivatedAt: UnixMs | null;
   createdAt: UnixMs;
@@ -63,6 +64,7 @@ export type UserSummary = Pick<
 
 export type OrganizationMember = UserSummary & {
   orgRole?: OrgRole;
+  presence?: PresenceStatus;
   deactivatedAt: UnixMs | null;
   createdAt: UnixMs;
   updatedAt: UnixMs;
@@ -144,6 +146,13 @@ export type UpdateEnvelope = {
   id: Id;
   userId: Id;
   seqno: number;
+  eventType: string;
+  payload: Record<string, unknown>;
+  createdAt: UnixMs;
+};
+
+export type EphemeralEnvelope = {
+  userId: Id;
   eventType: string;
   payload: Record<string, unknown>;
   createdAt: UnixMs;

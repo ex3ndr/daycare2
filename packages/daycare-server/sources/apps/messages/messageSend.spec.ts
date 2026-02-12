@@ -98,7 +98,7 @@ describe("messageSend", () => {
     return fileId;
   }
 
-  it("links fileId when attachment URL matches file pattern", async () => {
+  it("links fileId when attachment references a committed file in org", async () => {
     const { orgId, userId, channelId } = await seedBase();
     const fileId = await seedFileAsset(orgId, userId, {
       imageWidth: 800,
@@ -107,13 +107,14 @@ describe("messageSend", () => {
     });
 
     const message = await messageSend(live.context, {
+      messageId: createId(),
       organizationId: orgId,
       channelId,
       userId,
       text: "check this image",
       attachments: [{
         kind: "image",
-        url: `/api/org/${orgId}/files/${fileId}`,
+        fileId,
         mimeType: "image/png",
         fileName: "test.png",
         sizeBytes: 12
@@ -128,24 +129,21 @@ describe("messageSend", () => {
     expect(message.attachments[0]!.file!.imageThumbhash).toBe("dGVzdA==");
   });
 
-  it("does not set fileId for external URLs", async () => {
+  it("rejects attachments with unknown fileIds", async () => {
     const { orgId, userId, channelId } = await seedBase();
 
-    const message = await messageSend(live.context, {
+    await expect(messageSend(live.context, {
+      messageId: createId(),
       organizationId: orgId,
       channelId,
       userId,
       text: "external link",
       attachments: [{
         kind: "link",
-        url: "https://example.com/image.png",
+        fileId: createId(),
         mimeType: "image/png"
       }]
-    });
-
-    expect(message.attachments).toHaveLength(1);
-    expect(message.attachments[0]!.fileId).toBeNull();
-    expect(message.attachments[0]!.file).toBeNull();
+    })).rejects.toThrow("One or more attachments are invalid");
   });
 
   it("includes file relation with null image metadata for non-image files", async () => {
@@ -155,13 +153,14 @@ describe("messageSend", () => {
     });
 
     const message = await messageSend(live.context, {
+      messageId: createId(),
       organizationId: orgId,
       channelId,
       userId,
       text: "text file",
       attachments: [{
         kind: "file",
-        url: `/api/org/${orgId}/files/${fileId}`,
+        fileId,
         mimeType: "text/plain",
         fileName: "readme.txt",
         sizeBytes: 12
@@ -176,30 +175,114 @@ describe("messageSend", () => {
     expect(message.attachments[0]!.file!.imageThumbhash).toBeNull();
   });
 
-  it("does not link fileId when attachment URL references a different org", async () => {
+  it("rejects attachments when fileId belongs to a different org", async () => {
     const { orgId, userId, channelId } = await seedBase();
-    const fileId = await seedFileAsset(orgId, userId, {
+    const { orgId: otherOrgId, userId: otherUserId } = await seedBase();
+    const otherOrgFileId = await seedFileAsset(otherOrgId, otherUserId, {
       imageWidth: 800,
       imageHeight: 600,
       imageThumbhash: "dGVzdA=="
     });
 
-    const message = await messageSend(live.context, {
+    await expect(messageSend(live.context, {
+      messageId: createId(),
       organizationId: orgId,
       channelId,
       userId,
       text: "cross-org attempt",
       attachments: [{
         kind: "image",
-        url: `/api/org/different-org-id/files/${fileId}`,
+        fileId: otherOrgFileId,
         mimeType: "image/png",
         fileName: "test.png",
         sizeBytes: 12
       }]
+    })).rejects.toThrow("One or more attachments are invalid");
+  });
+
+  it("returns existing message when messageId is reused in the same chat by the same user", async () => {
+    const { orgId, userId, channelId } = await seedBase();
+    const messageId = createId();
+
+    const first = await messageSend(live.context, {
+      messageId,
+      organizationId: orgId,
+      channelId,
+      userId,
+      text: "hello"
     });
 
-    expect(message.attachments).toHaveLength(1);
-    expect(message.attachments[0]!.fileId).toBeNull();
-    expect(message.attachments[0]!.file).toBeNull();
+    const second = await messageSend(live.context, {
+      messageId,
+      organizationId: orgId,
+      channelId,
+      userId,
+      text: "hello again"
+    });
+
+    expect(first.id).toBe(messageId);
+    expect(second.id).toBe(messageId);
+
+    const count = await live.db.message.count({
+      where: {
+        id: messageId
+      }
+    });
+    expect(count).toBe(1);
+  });
+
+  it("rejects messageId reuse across chats", async () => {
+    const { orgId, userId, channelId } = await seedBase();
+    const secondChannelId = createId();
+    const messageId = createId();
+
+    await live.db.chat.create({
+      data: {
+        id: secondChannelId,
+        organizationId: orgId,
+        createdByUserId: userId,
+        kind: "CHANNEL",
+        visibility: "PUBLIC",
+        name: "random"
+      }
+    });
+
+    await live.db.chatMember.create({
+      data: {
+        id: createId(),
+        chatId: secondChannelId,
+        userId,
+        role: "OWNER",
+        notificationLevel: "ALL"
+      }
+    });
+
+    await messageSend(live.context, {
+      messageId,
+      organizationId: orgId,
+      channelId,
+      userId,
+      text: "hello"
+    });
+
+    await expect(messageSend(live.context, {
+      messageId,
+      organizationId: orgId,
+      channelId: secondChannelId,
+      userId,
+      text: "hello from other channel"
+    })).rejects.toThrow("Message id already belongs to another chat");
+  });
+
+  it("rejects invalid non-cuid2 message ids", async () => {
+    const { orgId, userId, channelId } = await seedBase();
+
+    await expect(messageSend(live.context, {
+      messageId: "not-a-cuid",
+      organizationId: orgId,
+      channelId,
+      userId,
+      text: "hello"
+    })).rejects.toThrow("Invalid messageId");
   });
 });

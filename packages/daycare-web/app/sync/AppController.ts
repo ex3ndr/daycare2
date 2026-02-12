@@ -1,7 +1,7 @@
 import { syncEngine, type SyncEngine } from "@slopus/sync";
 import type { StoreApi } from "zustand";
 import type { ApiClient } from "../daycare/api/apiClientCreate";
-import type { UpdateEnvelope } from "../daycare/types";
+import type { EphemeralEnvelope, UpdateEnvelope } from "../daycare/types";
 import { schema, type Schema } from "./schema";
 import { storageStoreCreate, type StorageStore } from "./storageStoreCreate";
 import { UpdateSequencer } from "./UpdateSequencer";
@@ -222,7 +222,20 @@ export class AppController {
         // SSE disconnected — schedule reconnect
         this.handleSSEDisconnect();
       },
+      (event: EphemeralEnvelope) => {
+        this.handleEphemeral(event);
+      },
     );
+  }
+
+  private handleEphemeral(event: EphemeralEnvelope): void {
+    const mapped = mapEventToRebase(event);
+    if (!mapped.rebase) {
+      return;
+    }
+
+    this.engine.rebase(mapped.rebase);
+    this.storage.getState().updateObjects();
   }
 
   private scheduleSSEReconnect(): void {
@@ -618,7 +631,7 @@ export class AppController {
               threadId?: string | null;
               attachments?: Array<{
                 kind: string;
-                url: string;
+                fileId: string;
                 mimeType?: string | null;
                 fileName?: string | null;
                 sizeBytes?: number | null;

@@ -6,6 +6,8 @@ type ChannelTypingSetInput = {
   organizationId: string;
   channelId: string;
   userId: string;
+  username: string;
+  firstName: string;
   threadRootMessageId?: string | null;
 };
 
@@ -50,10 +52,13 @@ export async function channelTypingSet(
     }
   });
 
-  await context.updates.publishToUsers(recipients.map((item) => item.userId), "user.typing", {
+  await context.updates.publishEphemeralToUsers(recipients.map((item) => item.userId), "user.typing", {
     orgId: input.organizationId,
+    chatId: input.channelId,
     channelId: input.channelId,
     userId: input.userId,
+    username: input.username,
+    firstName: input.firstName,
     threadRootMessageId: input.threadRootMessageId ?? null,
     expiresAt: expiresAt.getTime()
   });

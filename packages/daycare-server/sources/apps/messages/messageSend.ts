@@ -1,4 +1,4 @@
-import { createId } from "@paralleldrive/cuid2";
+import { createId, isCuid } from "@paralleldrive/cuid2";
 import type { Prisma } from "@prisma/client";
 import type { ApiContext } from "@/apps/api/lib/apiContext.js";
 import { ApiError } from "@/apps/api/lib/apiError.js";
@@ -18,6 +18,7 @@ type MessageWithRelations = Prisma.MessageGetPayload<{
 }>;
 
 type MessageSendInput = {
+  messageId: string;
   organizationId: string;
   channelId: string;
   userId: string;
@@ -25,7 +26,7 @@ type MessageSendInput = {
   threadId?: string | null;
   attachments?: Array<{
     kind: string;
-    url: string;
+    fileId: string;
     mimeType?: string | null;
     fileName?: string | null;
     sizeBytes?: number | null;
@@ -34,19 +35,18 @@ type MessageSendInput = {
 
 const logger = getLogger("messages.send");
 
-const FILE_URL_PATTERN = /^\/api\/org\/([^/]+)\/files\/([^/?#]+)$/;
-
-function fileIdFromAttachmentUrl(url: string, organizationId: string): string | null {
-  const match = FILE_URL_PATTERN.exec(url);
-  if (!match) return null;
-  if (match[1] !== organizationId) return null;
-  return match[2]!;
+function fileUrlCreate(organizationId: string, fileId: string): string {
+  return `/api/org/${organizationId}/files/${fileId}`;
 }
 
 export async function messageSend(
   context: ApiContext,
   input: MessageSendInput
 ): Promise<MessageWithRelations> {
+  if (!isCuid(input.messageId)) {
+    throw new ApiError(400, "VALIDATION_ERROR", "Invalid messageId");
+  }
+
   await chatMembershipEnsure(context, input.channelId, input.userId);
 
   const chat = await context.db.chat.findFirst({
@@ -68,10 +68,52 @@ export async function messageSend(
     throw new ApiError(403, "FORBIDDEN", "Cannot send messages to archived channels");
   }
 
-  // Resolve fileIds from attachment URLs and validate they exist in this org
-  const candidateFileIds = (input.attachments ?? [])
-    .map((a) => fileIdFromAttachmentUrl(a.url, input.organizationId))
-    .filter((id): id is string => id !== null);
+  const existingMessage = await context.db.message.findUnique({
+    where: {
+      id: input.messageId
+    },
+    select: {
+      id: true,
+      chatId: true,
+      senderUserId: true,
+      chat: {
+        select: {
+          organizationId: true
+        }
+      }
+    }
+  });
+
+  if (existingMessage) {
+    if (existingMessage.chat.organizationId !== input.organizationId || existingMessage.chatId !== input.channelId) {
+      throw new ApiError(409, "CONFLICT", "Message id already belongs to another chat");
+    }
+
+    if (existingMessage.senderUserId !== input.userId) {
+      throw new ApiError(403, "FORBIDDEN", "Message id belongs to another user");
+    }
+
+    const existingWithRelations = await context.db.message.findUnique({
+      where: {
+        id: input.messageId
+      },
+      include: {
+        senderUser: true,
+        attachments: { include: { file: true } },
+        reactions: true
+      }
+    });
+
+    if (!existingWithRelations) {
+      throw new ApiError(404, "NOT_FOUND", "Message not found");
+    }
+
+    return existingWithRelations;
+  }
+
+  const candidateFileIds = Array.from(new Set(
+    (input.attachments ?? []).map((attachment) => attachment.fileId)
+  ));
 
   const validFileIds = new Set<string>();
   if (candidateFileIds.length > 0) {
@@ -85,6 +127,10 @@ export async function messageSend(
     });
     for (const f of files) {
       validFileIds.add(f.id);
+    }
+
+    if (validFileIds.size !== candidateFileIds.length) {
+      throw new ApiError(400, "VALIDATION_ERROR", "One or more attachments are invalid");
     }
   }
 
@@ -144,7 +190,7 @@ export async function messageSend(
 
     const message = await tx.message.create({
       data: {
-        id: createId(),
+        id: input.messageId,
         chatId: input.channelId,
         senderUserId: input.userId,
         threadId,
@@ -157,16 +203,15 @@ export async function messageSend(
         },
         attachments: {
           create: (input.attachments ?? []).map((attachment, index) => {
-            const extractedFileId = fileIdFromAttachmentUrl(attachment.url, input.organizationId);
             return {
               id: createId(),
               sortOrder: index,
               kind: attachment.kind,
-              url: attachment.url,
+              url: fileUrlCreate(input.organizationId, attachment.fileId),
               mimeType: attachment.mimeType,
               fileName: attachment.fileName,
               sizeBytes: attachment.sizeBytes,
-              fileId: extractedFileId && validFileIds.has(extractedFileId) ? extractedFileId : null
+              fileId: validFileIds.has(attachment.fileId) ? attachment.fileId : null
             };
           })
         }

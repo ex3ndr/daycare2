@@ -244,6 +244,21 @@ describe("mapEventToRebase", () => {
       );
       expect(result.rebase).toBeNull();
     });
+
+    it("accepts channelId fallback when chatId is missing", () => {
+      const result = mapEventToRebase(
+        makeEnvelope("user.typing", {
+          userId: "user-2",
+          username: "bob",
+          firstName: "Bob",
+          channelId: "ch-1",
+          expiresAt: 9999,
+        }),
+      );
+
+      expect(result.rebase).not.toBeNull();
+      expect(result.rebase!.typing![0].id).toBe("ch-1:user-2");
+    });
   });
 
   describe("user.presence", () => {

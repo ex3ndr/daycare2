@@ -1,3 +1,5 @@
+import { createId } from "@paralleldrive/cuid2";
+
 function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -127,6 +129,7 @@ async function run() {
     method: "POST",
     headers: authHeaders,
     body: {
+      messageId: createId(),
       channelId,
       text: "docker smoke test"
     }

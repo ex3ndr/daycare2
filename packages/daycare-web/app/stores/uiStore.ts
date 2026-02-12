@@ -22,7 +22,7 @@ export type FailedMessageData = {
   threadId: string | null;
   attachments: Array<{
     kind: string;
-    url: string;
+    fileId: string;
     mimeType?: string | null;
     fileName?: string | null;
     sizeBytes?: number | null;

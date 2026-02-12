@@ -200,6 +200,14 @@ describe("routes live integration", () => {
     const profilePatchData = responseDataGet<{ profile: { firstName: string } }>(profilePatchResponse);
     expect(profilePatchData.profile.firstName).toBe("Owner Updated");
 
+    const profileGetResponse = await app.inject({
+      method: "GET",
+      url: `/api/org/${orgId}/profile`,
+      headers: { authorization: `Bearer ${ownerToken}` }
+    });
+    const profileGetData = responseDataGet<{ profile: { presence: "online" | "away" | "offline" } }>(profileGetResponse);
+    expect(profileGetData.profile.presence).toBe("offline");
+
     const membersResponse = await app.inject({
       method: "GET",
       url: `/api/org/${orgId}/members`,
@@ -337,6 +345,7 @@ describe("routes live integration", () => {
       url: `/api/org/${setup.orgId}/messages/send`,
       headers: { authorization: `Bearer ${setup.ownerToken}` },
       payload: {
+        messageId: createId(),
         channelId: setup.channelId,
         text: "alphakeyword message"
       }

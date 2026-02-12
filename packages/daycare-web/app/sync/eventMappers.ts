@@ -117,6 +117,8 @@ export type EventMapResult = {
   deactivatedUserId?: string; // userId deactivated from the org
 };
 
+type EventEnvelopeLike = Pick<UpdateEnvelope, "eventType" | "payload" | "createdAt">;
+
 function messageToRebase(msg: Message): MessageRebaseItem {
   return {
     id: msg.id,
@@ -165,7 +167,7 @@ function userToMember(user: User): MemberRebaseItem {
   };
 }
 
-export function mapEventToRebase(update: UpdateEnvelope): EventMapResult {
+export function mapEventToRebase(update: EventEnvelopeLike): EventMapResult {
   const payload = update.payload;
 
   switch (update.eventType) {
@@ -230,11 +232,13 @@ export function mapEventToRebase(update: UpdateEnvelope): EventMapResult {
         username?: string;
         firstName?: string;
         chatId?: string;
+        channelId?: string;
         expiresAt?: number;
       };
-      if (!typing.userId || !typing.chatId || !typing.expiresAt) return { rebase: null };
+      const chatId = typing.chatId ?? typing.channelId;
+      if (!typing.userId || !chatId || !typing.expiresAt) return { rebase: null };
       // Use chatId+userId as the typing entry ID for deduplication
-      const id = `${typing.chatId}:${typing.userId}`;
+      const id = `${chatId}:${typing.userId}`;
       return {
         rebase: {
           typing: [

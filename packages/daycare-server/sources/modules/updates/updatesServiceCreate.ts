@@ -3,6 +3,8 @@ import type { FastifyReply } from "fastify";
 import { createId } from "@paralleldrive/cuid2";
 import { updatesBroadcast } from "./updatesBroadcast.js";
 import { updatesChannelCreate } from "./updatesChannelCreate.js";
+import { updatesEphemeralBroadcast } from "./updatesEphemeralBroadcast.js";
+import { updatesEphemeralChannelCreate } from "./updatesEphemeralChannelCreate.js";
 
 type UpdatePayload = Record<string, unknown>;
 
@@ -22,6 +24,13 @@ export type UpdateEnvelope = {
   createdAt: number;
 };
 
+export type EphemeralEnvelope = {
+  userId: string;
+  eventType: string;
+  payload: UpdatePayload;
+  createdAt: number;
+};
+
 export type UpdatesDiffResult = {
   updates: UpdateEnvelope[];
   headOffset: number;
@@ -31,6 +40,7 @@ export type UpdatesDiffResult = {
 export type UpdatesService = {
   subscribe: (userId: string, orgId: string, reply: FastifyReply) => () => void;
   publishToUsers: (userIds: string[], eventType: string, payload: UpdatePayload) => Promise<void>;
+  publishEphemeralToUsers: (userIds: string[], eventType: string, payload: UpdatePayload) => Promise<void>;
   diffGet: (userId: string, offset: number, limit?: number) => Promise<UpdatesDiffResult>;
   stop: () => Promise<void>;
 };
@@ -67,7 +77,7 @@ export function updatesServiceCreate(
   const clientsByUser = new Map<string, Map<string, UpdateClient>>();
   const subscribedUsers = new Set<string>();
 
-  const localDeliver = (userId: string, envelope: UpdateEnvelope): void => {
+  const localDeliverUpdate = (userId: string, envelope: UpdateEnvelope): void => {
     const clients = clientsByUser.get(userId);
     if (!clients) {
       return;
@@ -78,24 +88,52 @@ export function updatesServiceCreate(
     }
   };
 
+  const localDeliverEphemeral = (userId: string, envelope: EphemeralEnvelope): void => {
+    const clients = clientsByUser.get(userId);
+    if (!clients) {
+      return;
+    }
+
+    for (const client of clients.values()) {
+      client.reply.raw.write(`event: ephemeral\ndata: ${JSON.stringify(envelope)}\n\n`);
+    }
+  };
+
   const redisMessageHandle = (channel: string, message: string): void => {
-    const prefix = "updates:";
-    if (!channel.startsWith(prefix)) {
-      return;
-    }
+    const updatePrefix = "updates:";
+    const ephemeralPrefix = "updates-ephemeral:";
 
-    const userId = channel.slice(prefix.length);
-    if (!userId) {
-      return;
-    }
-
-    try {
-      const envelope = JSON.parse(message) as UpdateEnvelope;
-      if (envelope && envelope.userId === userId) {
-        localDeliver(userId, envelope);
+    if (channel.startsWith(updatePrefix)) {
+      const userId = channel.slice(updatePrefix.length);
+      if (!userId) {
+        return;
       }
-    } catch {
-      // Ignore malformed pub/sub payloads.
+
+      try {
+        const envelope = JSON.parse(message) as UpdateEnvelope;
+        if (envelope && envelope.userId === userId) {
+          localDeliverUpdate(userId, envelope);
+        }
+      } catch {
+        // Ignore malformed pub/sub payloads.
+      }
+      return;
+    }
+
+    if (channel.startsWith(ephemeralPrefix)) {
+      const userId = channel.slice(ephemeralPrefix.length);
+      if (!userId) {
+        return;
+      }
+
+      try {
+        const envelope = JSON.parse(message) as EphemeralEnvelope;
+        if (envelope && envelope.userId === userId) {
+          localDeliverEphemeral(userId, envelope);
+        }
+      } catch {
+        // Ignore malformed pub/sub payloads.
+      }
     }
   };
 
@@ -108,7 +146,10 @@ export function updatesServiceCreate(
       return;
     }
 
-    await redisPubSub.sub.subscribe(updatesChannelCreate(userId));
+    await redisPubSub.sub.subscribe(
+      updatesChannelCreate(userId),
+      updatesEphemeralChannelCreate(userId)
+    );
     subscribedUsers.add(userId);
   };
 
@@ -122,7 +163,10 @@ export function updatesServiceCreate(
       return;
     }
 
-    await redisPubSub.sub.unsubscribe(updatesChannelCreate(userId));
+    await redisPubSub.sub.unsubscribe(
+      updatesChannelCreate(userId),
+      updatesEphemeralChannelCreate(userId)
+    );
     subscribedUsers.delete(userId);
   };
 
@@ -177,7 +221,27 @@ export function updatesServiceCreate(
       if (redisPubSub) {
         await updatesBroadcast(redisPubSub.pub, userId, envelope);
       } else {
-        localDeliver(userId, envelope);
+        localDeliverUpdate(userId, envelope);
+      }
+    }));
+  };
+
+  const publishEphemeralToUsers = async (userIds: string[], eventType: string, payload: UpdatePayload): Promise<void> => {
+    const uniqueUserIds = Array.from(new Set(userIds));
+    const createdAt = Date.now();
+
+    await Promise.all(uniqueUserIds.map(async (userId) => {
+      const envelope: EphemeralEnvelope = {
+        userId,
+        eventType,
+        payload,
+        createdAt
+      };
+
+      if (redisPubSub) {
+        await updatesEphemeralBroadcast(redisPubSub.pub, userId, envelope);
+      } else {
+        localDeliverEphemeral(userId, envelope);
       }
     }));
   };
@@ -225,7 +289,10 @@ export function updatesServiceCreate(
       const users = new Set<string>([...subscribedUsers.values(), ...usersWithLocalClients]);
 
       if (users.size > 0) {
-        const channels = Array.from(users.values()).map((userId) => updatesChannelCreate(userId));
+        const channels = Array.from(users.values()).flatMap((userId) => [
+          updatesChannelCreate(userId),
+          updatesEphemeralChannelCreate(userId)
+        ]);
         await redisPubSub.sub.unsubscribe(...channels);
         subscribedUsers.clear();
       }
@@ -237,6 +304,7 @@ export function updatesServiceCreate(
   return {
     subscribe,
     publishToUsers,
+    publishEphemeralToUsers,
     diffGet,
     stop
   };

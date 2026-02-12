@@ -235,6 +235,28 @@ describe("updatesServiceCreate", () => {
     expect(transaction).toHaveBeenCalledTimes(1);
   });
 
+  it("publishes ephemeral updates without persisting them", async () => {
+    const transaction = vi.fn();
+    const db = {
+      $transaction: transaction
+    } as unknown as PrismaClient;
+
+    const writes: string[] = [];
+    const service = updatesServiceCreate(db);
+    service.subscribe("user-1", "org-1", replyCreate((chunk) => {
+      writes.push(chunk);
+    }));
+
+    await service.publishEphemeralToUsers(["user-1"], "user.presence", {
+      userId: "user-2",
+      status: "online"
+    });
+
+    expect(transaction).not.toHaveBeenCalled();
+    expect(writes.some((chunk) => chunk.includes("event: ephemeral"))).toBe(true);
+    expect(writes.some((chunk) => chunk.includes("\"eventType\":\"user.presence\""))).toBe(true);
+  });
+
   it("retries on unique constraint violations and trims old updates", async () => {
     const txCapture: { deleteMany?: () => Promise<{ count: number }> } = {};
 
@@ -405,6 +427,33 @@ describe("updatesServiceCreate", () => {
     expect(writes.some((chunk) => chunk.includes("event: update"))).toBe(true);
   });
 
+  it("delivers ephemeral updates across instances through redis pub/sub", async () => {
+    const bus = redisPubSubPairCreate();
+    const instanceA = bus.pairCreate();
+    const instanceB = bus.pairCreate();
+    const dbA = dbCreate();
+    const dbB = dbCreate();
+
+    const writes: string[] = [];
+    const writeSpy = vi.fn((chunk: string) => {
+      writes.push(chunk);
+    });
+
+    const updatesA = updatesServiceCreate(dbA, instanceA.pubSub);
+    const updatesB = updatesServiceCreate(dbB, instanceB.pubSub);
+    updatesB.subscribe("user-1", "org-1", replyCreate(writeSpy));
+    await Promise.resolve();
+
+    await updatesA.publishEphemeralToUsers(["user-1"], "user.typing", {
+      userId: "user-2",
+      chatId: "chat-1",
+      expiresAt: Date.now() + 5000
+    });
+
+    expect(instanceA.spies.publish).toHaveBeenCalledTimes(1);
+    expect(writes.some((chunk) => chunk.includes("event: ephemeral"))).toBe(true);
+  });
+
   it("unsubscribes redis channels on stop", async () => {
     const bus = redisPubSubPairCreate();
     const instance = bus.pairCreate();
@@ -415,7 +464,7 @@ describe("updatesServiceCreate", () => {
 
     await service.stop();
 
-    expect(instance.spies.unsubscribe).toHaveBeenCalledWith("updates:user-1");
+    expect(instance.spies.unsubscribe).toHaveBeenCalledWith("updates:user-1", "updates-ephemeral:user-1");
     expect(instance.spies.off).toHaveBeenCalledTimes(1);
   });
 });

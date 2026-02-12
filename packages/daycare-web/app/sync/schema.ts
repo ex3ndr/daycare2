@@ -134,7 +134,7 @@ export const schema = defineSchema({
         threadId?: string | null;
         attachments?: Array<{
           kind: string;
-          url: string;
+          fileId: string;
           mimeType?: string | null;
           fileName?: string | null;
           sizeBytes?: number | null;
@@ -163,7 +163,7 @@ export const schema = defineSchema({
         attachments: (input.attachments ?? []).map((a, i) => ({
           id: `${input.id}-att-${i}`,
           kind: a.kind,
-          url: a.url,
+          url: `/api/org/${draft.context.orgId}/files/${a.fileId}`,
           mimeType: a.mimeType ?? null,
           fileName: a.fileName ?? null,
           sizeBytes: a.sizeBytes ?? null,

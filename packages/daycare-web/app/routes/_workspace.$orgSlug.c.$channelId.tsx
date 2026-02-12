@@ -1,24 +1,13 @@
 import { createRoute, Outlet, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useMemo, useState } from "react";
-import { useShallow } from "zustand/react/shallow";
+import { useCallback, useState } from "react";
 import { chatLayoutRoute } from "./_workspace.$orgSlug._chat";
 import { useApp, useStorage } from "@/app/sync/AppContext";
-import { messagesForChannel, typingUsersForChannel, presenceForUser } from "@/app/sync/selectors";
-import { useUiStore, failedMessageRemove } from "@/app/stores/uiStoreContext";
-import { MessageRow } from "@/app/components/messages/MessageRow";
-import { FailedMessageRow } from "@/app/components/messages/FailedMessageRow";
+import { useConversation } from "@/app/components/conversation/useConversation";
+import { ConversationTimeline } from "@/app/components/conversation/ConversationTimeline";
 import { Composer } from "@/app/components/messages/Composer";
-import { Hash, Lock, ArrowDown, Loader2, Headphones, Bell, Search, MoreVertical, Star, Users, PencilLine, File as FileIcon } from "lucide-react";
-import { MessageListSkeleton } from "@/app/components/skeletons/MessageListSkeleton";
 import { ChannelSettings } from "@/app/components/workspace/ChannelSettings";
-import { useThrottledTyping } from "@/app/lib/useThrottledTyping";
-import { typingTextFormat } from "@/app/lib/typingTextFormat";
-import { useFileUpload } from "@/app/lib/useFileUpload";
-import { useMessagePagination } from "@/app/lib/useMessagePagination";
+import { Hash, Lock, Headphones, Bell, Search, MoreVertical, Star, Users, PencilLine, File as FileIcon } from "lucide-react";
 import { cn } from "@/app/lib/utils";
-import { lastEditableMessageFind } from "@/app/lib/lastEditableMessageFind";
-import { messageGroupCheck } from "@/app/lib/messageGroupCheck";
-import { messageIdCreate } from "@/app/lib/messageIdCreate";
 
 export const channelRoute = createRoute({
   getParentRoute: () => chatLayoutRoute,
@@ -31,109 +20,12 @@ function ChannelPage() {
   const { orgSlug } = chatLayoutRoute.useParams();
   const navigate = useNavigate();
   const app = useApp();
-
   const channel = useStorage((s) => s.objects.channel[channelId]);
-  const messages = useStorage(
-    useShallow((s) => messagesForChannel(s.objects, channelId)),
-  );
-  const mutate = useStorage((s) => s.mutate);
-  const userId = useStorage((s) => s.objects.context.userId);
-  const presenceState = useStorage(useShallow((s) => s.objects.presence));
-  const typingUsers = useStorage(
-    useShallow((s) => typingUsersForChannel(s.objects, channelId, userId)),
-  );
 
-  const draft = useUiStore((s) => s.composerDrafts[channelId] ?? "");
-  const composerDraftSet = useUiStore((s) => s.composerDraftSet);
-  const failedMsgs = useUiStore(
-    useShallow((s) =>
-      Object.entries(s.failedMessages).filter(([, m]) => m.chatId === channelId),
-    ),
-  );
+  const conv = useConversation(channelId);
 
-  // File upload
-  const fileUpload = useFileUpload(app.api, app.token, app.orgId);
-
-  // Settings dialog
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Initial message loading state
-  const [messagesLoaded, setMessagesLoaded] = useState(false);
-
-  // Edit last own message (Up Arrow shortcut)
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-
-  const handleEditLastMessage = useCallback(() => {
-    const id = lastEditableMessageFind(messages, userId);
-    if (id) setEditingMessageId(id);
-  }, [messages, userId]);
-
-  const handleEditModeChange = useCallback((_messageId: string, editing: boolean) => {
-    if (!editing) {
-      setEditingMessageId(null);
-    }
-  }, []);
-
-  // Drag-and-drop state
-  const [isDragOver, setIsDragOver] = useState(false);
-  const dragCounterRef = useRef(0);
-
-  // Fetch messages when channel changes
-  useEffect(() => {
-    setMessagesLoaded(false);
-    app.syncMessages(channelId).then(
-      () => setMessagesLoaded(true),
-      () => setMessagesLoaded(true),
-    );
-  }, [app, channelId]);
-
-  // Sync presence for message senders
-  const presenceSyncedRef = useRef<string>("");
-  useEffect(() => {
-    const senderIds = [...new Set(messages.map((m) => m.senderUserId))];
-    const key = senderIds.sort().join(",");
-    if (key === presenceSyncedRef.current || senderIds.length === 0) return;
-    presenceSyncedRef.current = key;
-    app.syncPresence(senderIds);
-  }, [messages, app]);
-
-  // Mark as read on channel select
-  useEffect(() => {
-    mutate("readMark", { chatId: channelId });
-  }, [mutate, channelId]);
-
-  // Pagination
-  const pagination = useMessagePagination(app, channelId, messages);
-
-  // Mark read on new messages while viewing
-  const prevMessageCountRef = useRef(messages.length);
-  useEffect(() => {
-    if (messages.length > prevMessageCountRef.current && pagination.isAtBottomRef.current) {
-      mutate("readMark", { chatId: channelId });
-    }
-    prevMessageCountRef.current = messages.length;
-  }, [messages.length, mutate, channelId, pagination.isAtBottomRef]);
-
-  // Typing signal (throttled)
-  const emitTyping = useThrottledTyping(app, channelId);
-
-  // Send message with attachments
-  const handleSend = useCallback(
-    (text: string) => {
-      const attachments = fileUpload.getReadyAttachments();
-      const id = messageIdCreate();
-      mutate("messageSend", {
-        id,
-        chatId: channelId,
-        text,
-        ...(attachments.length > 0 ? { attachments } : {}),
-      });
-      fileUpload.clear();
-    },
-    [mutate, channelId, fileUpload],
-  );
-
-  // Thread open
   const handleThreadOpen = useCallback(
     (messageId: string) => {
       navigate({
@@ -144,117 +36,23 @@ function ChannelPage() {
     [navigate, orgSlug, channelId],
   );
 
-  // Reaction toggle
-  const handleReactionToggle = useCallback(
-    (messageId: string, shortcode: string) => {
-      mutate("reactionToggle", { messageId, shortcode });
-    },
-    [mutate],
-  );
-
-  // Message edit
-  const handleEdit = useCallback(
-    (messageId: string, text: string) => {
-      mutate("messageEdit", { id: messageId, text });
-    },
-    [mutate],
-  );
-
-  // Message delete
-  const handleDelete = useCallback(
-    (messageId: string) => {
-      mutate("messageDelete", { id: messageId });
-    },
-    [mutate],
-  );
-
-  // Retry failed message
-  const handleRetry = useCallback(
-    (failedId: string) => {
-      const msg = failedMsgs.find(([id]) => id === failedId)?.[1];
-      if (!msg) return;
-      failedMessageRemove(failedId);
-      const id = messageIdCreate();
-      mutate("messageSend", {
-        id,
-        chatId: channelId,
-        text: msg.text,
-        ...(msg.threadId ? { threadId: msg.threadId } : {}),
-        ...(msg.attachments.length > 0 ? { attachments: msg.attachments } : {}),
-      });
-    },
-    [failedMsgs, mutate, channelId],
-  );
-
-  // Dismiss failed message
-  const handleDismiss = useCallback((failedId: string) => {
-    failedMessageRemove(failedId);
-  }, []);
-
-  // Draft change
-  const handleDraftChange = useCallback(
-    (text: string) => {
-      composerDraftSet(channelId, text);
-    },
-    [composerDraftSet, channelId],
-  );
-
-  // Channel updated (from settings dialog)
   const handleChannelUpdated = useCallback(() => {
     app.syncChannels();
   }, [app]);
-
-  // Typing indicator text
-  const typingText = useMemo(() => typingTextFormat(typingUsers), [typingUsers]);
-
-  // Drag-and-drop handlers
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounterRef.current++;
-    if (e.dataTransfer.types.includes("Files")) {
-      setIsDragOver(true);
-    }
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    dragCounterRef.current--;
-    if (dragCounterRef.current === 0) {
-      setIsDragOver(false);
-    }
-  }, []);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-  }, []);
-
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      dragCounterRef.current = 0;
-      setIsDragOver(false);
-      const files = Array.from(e.dataTransfer.files);
-      if (files.length > 0) {
-        fileUpload.addFiles(files);
-      }
-    },
-    [fileUpload],
-  );
 
   return (
     <div className="flex flex-1 min-w-0">
       <div
         className={cn(
           "flex flex-1 flex-col min-w-0 relative",
-          isDragOver && "ring-2 ring-primary ring-inset",
+          conv.isDragOver && "ring-2 ring-primary ring-inset",
         )}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
+        onDragEnter={conv.handleDragEnter}
+        onDragLeave={conv.handleDragLeave}
+        onDragOver={conv.handleDragOver}
+        onDrop={conv.handleDrop}
       >
-        {/* Drag overlay */}
-        {isDragOver && (
+        {conv.isDragOver && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-primary/10 pointer-events-none">
             <div className="rounded-lg border-2 border-dashed border-primary bg-background/80 px-8 py-6">
               <p className="text-sm font-medium text-primary">
@@ -315,114 +113,48 @@ function ChannelPage() {
           </div>
         </div>
 
-        {/* Message list */}
-        <div className="relative flex-1 overflow-hidden">
-          <div
-            ref={pagination.scrollContainerRef}
-            onScroll={pagination.handleScroll}
-            className="h-full overflow-y-auto"
-          >
-            <div className="py-4 flex flex-col min-h-full">
-              {/* Spacer pushes messages to bottom when few */}
-              <div className="flex-1" />
+        <ConversationTimeline
+          messages={conv.messages}
+          messagesLoaded={conv.messagesLoaded}
+          failedMsgs={conv.failedMsgs}
+          userId={conv.userId}
+          presenceState={conv.presenceState}
+          editingMessageId={conv.editingMessageId}
+          pagination={conv.pagination}
+          onThreadOpen={handleThreadOpen}
+          onReactionToggle={conv.handleReactionToggle}
+          onEdit={conv.handleEdit}
+          onDelete={conv.handleDelete}
+          onEditModeChange={conv.handleEditModeChange}
+          onRetry={conv.handleRetry}
+          onDismiss={conv.handleDismiss}
+        />
 
-              {/* Loading spinner at top */}
-              {pagination.isLoadingOlder && (
-                <div className="flex items-center justify-center py-3">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              )}
-
-              {!pagination.hasMore && messages.length > 0 && (
-                <div className="flex items-center justify-center py-3">
-                  <p className="text-xs text-muted-foreground">
-                    Beginning of conversation
-                  </p>
-                </div>
-              )}
-
-              {messages.length === 0 && !messagesLoaded ? (
-                <MessageListSkeleton />
-              ) : messages.length === 0 ? (
-                <div className="flex items-center justify-center py-12">
-                  <p className="text-sm text-muted-foreground">
-                    No messages yet. Start the conversation!
-                  </p>
-                </div>
-              ) : (
-                messages.map((msg, i) => (
-                  <div key={msg.id} style={{ overflowAnchor: "none" }}>
-                    <MessageRow
-                      message={msg}
-                      currentUserId={userId}
-                      presence={presenceForUser(presenceState, msg.senderUserId)}
-                      startInEditMode={editingMessageId === msg.id}
-                      isGroupContinuation={messageGroupCheck(messages[i - 1], msg)}
-                      onThreadOpen={handleThreadOpen}
-                      onReactionToggle={handleReactionToggle}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      onEditModeChange={handleEditModeChange}
-                    />
-                  </div>
-                ))
-              )}
-              {failedMsgs.map(([id, msg]) => (
-                <FailedMessageRow
-                  key={id}
-                  id={id}
-                  message={msg}
-                  onRetry={handleRetry}
-                  onDismiss={handleDismiss}
-                />
-              ))}
-              <div ref={pagination.messagesEndRef} style={{ overflowAnchor: "auto" }} />
-            </div>
-          </div>
-
-          {/* Jump to bottom button */}
-          {pagination.showJumpToBottom && (
-            <button
-              onClick={pagination.scrollToBottom}
-              className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full bg-background/95 border shadow-md px-4 py-2 text-sm font-medium text-foreground hover:bg-background transition-colors"
-            >
-              <ArrowDown className="h-4 w-4" />
-              Jump to latest
-            </button>
-          )}
-        </div>
-
-        {/* Typing indicator */}
-        {typingText && (
+        {conv.typingText && (
           <div className="h-6 px-5 flex items-center">
             <span className="text-xs text-muted-foreground animate-pulse">
-              {typingText}
+              {conv.typingText}
             </span>
           </div>
         )}
 
-        {/* Composer */}
         <Composer
-          value={draft}
-          onChange={handleDraftChange}
-          onSend={handleSend}
-          onTyping={emitTyping}
-          onEditLastMessage={handleEditLastMessage}
-          placeholder={
-            channel ? `Message #${channel.name}` : "Type a message..."
-          }
-          uploadEntries={fileUpload.entries}
-          onFilesSelected={fileUpload.addFiles}
-          onFileRemove={fileUpload.removeFile}
-          hasReadyAttachments={fileUpload.hasReady}
-          isUploading={fileUpload.hasUploading}
+          value={conv.draft}
+          onChange={conv.handleDraftChange}
+          onSend={conv.handleSend}
+          onTyping={conv.emitTyping}
+          onEditLastMessage={conv.handleEditLastMessage}
+          placeholder={channel ? `Message #${channel.name}` : "Type a message..."}
+          uploadEntries={conv.fileUpload.entries}
+          onFilesSelected={conv.fileUpload.addFiles}
+          onFileRemove={conv.fileUpload.removeFile}
+          hasReadyAttachments={conv.fileUpload.hasReady}
+          isUploading={conv.fileUpload.hasUploading}
         />
       </div>
 
-      {/* Thread panel outlet */}
       <Outlet />
 
-      {/* Channel settings dialog */}
       {channel && (
         <ChannelSettings
           open={settingsOpen}
@@ -431,14 +163,13 @@ function ChannelPage() {
           channelName={channel.name}
           channelTopic={channel.topic}
           channelVisibility={channel.visibility}
-          currentUserId={userId}
+          currentUserId={conv.userId}
           api={app.api}
           token={app.token}
           orgId={app.orgId}
           onChannelUpdated={handleChannelUpdated}
         />
       )}
-
     </div>
   );
 }

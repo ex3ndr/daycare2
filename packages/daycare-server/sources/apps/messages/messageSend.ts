@@ -34,11 +34,13 @@ type MessageSendInput = {
 
 const logger = getLogger("messages.send");
 
-const FILE_URL_PATTERN = /^\/api\/org\/[^/]+\/files\/([^/?#]+)$/;
+const FILE_URL_PATTERN = /^\/api\/org\/([^/]+)\/files\/([^/?#]+)$/;
 
-function fileIdFromAttachmentUrl(url: string): string | null {
+function fileIdFromAttachmentUrl(url: string, organizationId: string): string | null {
   const match = FILE_URL_PATTERN.exec(url);
-  return match ? match[1]! : null;
+  if (!match) return null;
+  if (match[1] !== organizationId) return null;
+  return match[2]!;
 }
 
 export async function messageSend(
@@ -142,7 +144,7 @@ export async function messageSend(
             mimeType: attachment.mimeType,
             fileName: attachment.fileName,
             sizeBytes: attachment.sizeBytes,
-            fileId: fileIdFromAttachmentUrl(attachment.url)
+            fileId: fileIdFromAttachmentUrl(attachment.url, input.organizationId)
           }))
         }
       },

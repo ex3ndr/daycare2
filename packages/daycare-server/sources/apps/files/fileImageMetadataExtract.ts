@@ -39,17 +39,19 @@ export async function fileImageMetadataExtract(
     throw new Error(`File magic bytes do not match declared MIME type ${mimeType}`);
   }
 
-  const image = sharp(payload);
-  const metadata = await image.metadata();
-  const width = metadata.width!;
-  const height = metadata.height!;
+  const metadata = await sharp(payload, { limitInputPixels: 100_000_000 }).metadata();
+  const width = metadata.width;
+  const height = metadata.height;
+  if (!width || !height) {
+    throw new Error("Could not determine image dimensions");
+  }
 
   // Resize to fit within 100x100 for thumbhash (maintaining aspect ratio)
   const scale = Math.min(100 / width, 100 / height, 1);
   const thumbWidth = Math.max(1, Math.round(width * scale));
   const thumbHeight = Math.max(1, Math.round(height * scale));
 
-  const { data } = await image
+  const { data } = await sharp(payload, { limitInputPixels: 100_000_000 })
     .resize(thumbWidth, thumbHeight, { fit: "fill" })
     .ensureAlpha()
     .raw()

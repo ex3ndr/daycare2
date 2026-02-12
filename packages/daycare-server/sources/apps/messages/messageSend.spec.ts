@@ -175,4 +175,31 @@ describe("messageSend", () => {
     expect(message.attachments[0]!.file!.imageHeight).toBeNull();
     expect(message.attachments[0]!.file!.imageThumbhash).toBeNull();
   });
+
+  it("does not link fileId when attachment URL references a different org", async () => {
+    const { orgId, userId, channelId } = await seedBase();
+    const fileId = await seedFileAsset(orgId, userId, {
+      imageWidth: 800,
+      imageHeight: 600,
+      imageThumbhash: "dGVzdA=="
+    });
+
+    const message = await messageSend(live.context, {
+      organizationId: orgId,
+      channelId,
+      userId,
+      text: "cross-org attempt",
+      attachments: [{
+        kind: "image",
+        url: `/api/org/different-org-id/files/${fileId}`,
+        mimeType: "image/png",
+        fileName: "test.png",
+        sizeBytes: 12
+      }]
+    });
+
+    expect(message.attachments).toHaveLength(1);
+    expect(message.attachments[0]!.fileId).toBeNull();
+    expect(message.attachments[0]!.file).toBeNull();
+  });
 });

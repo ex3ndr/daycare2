@@ -53,8 +53,14 @@ export async function fileUploadCommit(
   if (file.mimeType.startsWith("image/")) {
     try {
       imageMetadata = await fileImageMetadataExtract(payload, file.mimeType);
-    } catch {
-      throw new ApiError(400, "VALIDATION_ERROR", "File content does not match declared image MIME type");
+    } catch (err) {
+      if (err instanceof Error && (
+        err.message.startsWith("File magic bytes do not match") ||
+        err.message.startsWith("Could not determine image dimensions")
+      )) {
+        throw new ApiError(400, "VALIDATION_ERROR", "File content does not match declared image MIME type");
+      }
+      throw err;
     }
   }
 

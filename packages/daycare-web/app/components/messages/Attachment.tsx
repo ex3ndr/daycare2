@@ -90,7 +90,7 @@ export function Attachment({ attachment, onImageClick }: AttachmentProps) {
   }, [attachment.url]);
 
   if (isPreviewableImage(attachment.mimeType)) {
-    const hasRealDimensions = attachment.imageWidth && attachment.imageHeight;
+    const hasRealDimensions = attachment.imageWidth != null && attachment.imageHeight != null && attachment.imageWidth > 0 && attachment.imageHeight > 0;
     const placeholderStyle: React.CSSProperties = !imageLoaded
       ? hasRealDimensions
         ? { aspectRatio: `${attachment.imageWidth}/${attachment.imageHeight}`, maxWidth: `min(20rem, ${attachment.imageWidth}px)` }

@@ -5,6 +5,7 @@ import { ApiError } from "@/apps/api/lib/apiError.js";
 import { databaseTransactionRun } from "@/modules/database/databaseTransactionRun.js";
 import { s3ObjectDelete } from "@/modules/s3/s3ObjectDelete.js";
 import { s3ObjectPut } from "@/modules/s3/s3ObjectPut.js";
+import { fileImageMetadataExtract } from "./fileImageMetadataExtract.js";
 
 type FileUploadCommitInput = {
   organizationId: string;
@@ -47,6 +48,16 @@ export async function fileUploadCommit(
     throw new ApiError(400, "VALIDATION_ERROR", "Uploaded payload hash does not match initialized hash");
   }
 
+  // Extract image metadata if the file is an image
+  let imageMetadata: { width: number; height: number; thumbhash: string } | null = null;
+  if (file.mimeType.startsWith("image/")) {
+    try {
+      imageMetadata = await fileImageMetadataExtract(payload, file.mimeType);
+    } catch {
+      throw new ApiError(400, "VALIDATION_ERROR", "File content does not match declared image MIME type");
+    }
+  }
+
   await s3ObjectPut({
     client: context.s3,
     bucket: context.s3Bucket,
@@ -68,7 +79,12 @@ export async function fileUploadCommit(
         data: {
           status: "COMMITTED",
           committedAt: new Date(),
-          expiresAt: null
+          expiresAt: null,
+          ...(imageMetadata && {
+            imageWidth: imageMetadata.width,
+            imageHeight: imageMetadata.height,
+            imageThumbhash: imageMetadata.thumbhash
+          })
         }
       });
 

@@ -49,12 +49,12 @@ When an image file is uploaded, the server validates it is PNG/JPG/GIF by readin
 - Modify: `packages/daycare-server/sources/apps/files/fileUploadCommit.ts`
 - Modify: `packages/daycare-server/sources/apps/api/routes/files/fileRoutesRegister.ts`
 
-- [ ] In `fileUploadCommit`, after hash validation and before S3 upload, call `fileImageMetadataExtract` if mimeType starts with `"image/"`
-- [ ] If image validation fails (MIME says image but magic bytes disagree), throw 400 VALIDATION_ERROR
-- [ ] Persist `imageWidth`, `imageHeight`, `imageThumbhash` on the FileAsset record in the commit transaction
-- [ ] Update `fileRoutesRegister` upload response to include `imageWidth`, `imageHeight`, `imageThumbhash`
-- [ ] Write/update tests for `fileUploadCommit` with image payloads
-- [ ] Run test suite
+- [x] In `fileUploadCommit`, after hash validation and before S3 upload, call `fileImageMetadataExtract` if mimeType starts with `"image/"`
+- [x] If image validation fails (MIME says image but magic bytes disagree), throw 400 VALIDATION_ERROR
+- [x] Persist `imageWidth`, `imageHeight`, `imageThumbhash` on the FileAsset record in the commit transaction
+- [x] Update `fileRoutesRegister` upload response to include `imageWidth`, `imageHeight`, `imageThumbhash`
+- [x] Write/update tests for `fileUploadCommit` with image payloads
+- [x] Run test suite
 
 ## Task 4: Link fileId on MessageAttachment and include image metadata in serialization
 

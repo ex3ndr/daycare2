@@ -103,7 +103,10 @@ export async function fileRoutesRegister(app: FastifyInstance, context: ApiConte
           sizeBytes: committed.sizeBytes,
           status: committed.status.toLowerCase(),
           createdAt: committed.createdAt.getTime(),
-          committedAt: committed.committedAt?.getTime() ?? null
+          committedAt: committed.committedAt?.getTime() ?? null,
+          imageWidth: committed.imageWidth ?? null,
+          imageHeight: committed.imageHeight ?? null,
+          imageThumbhash: committed.imageThumbhash ?? null
         }
       });
     });

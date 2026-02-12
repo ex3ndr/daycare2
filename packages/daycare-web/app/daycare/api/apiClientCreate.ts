@@ -307,7 +307,7 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
         })),
       };
     },
-    messageList: (token, orgId, channelId, query) => {
+    messageList: async (token, orgId, channelId, query) => {
       const params = new URLSearchParams();
       if (query?.limit) {
         params.set("limit", String(query.limit));
@@ -325,16 +325,51 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
         params.set("threadId", query.threadId);
       }
       const search = params.toString();
-      return request(
+      const result = await request(
         `/api/org/${orgId}/channels/${channelId}/messages${search ? `?${search}` : ""}`,
         apiSchemas.messageList,
         { token },
       );
+      return {
+        messages: result.messages.map((message) => ({
+          ...message,
+          attachments: message.attachments.map((attachment) => ({
+            ...attachment,
+            imageWidth: attachment.imageWidth ?? null,
+            imageHeight: attachment.imageHeight ?? null,
+            imageThumbhash: attachment.imageThumbhash ?? null,
+          })),
+        })),
+      };
     },
-    messageSend: (token, orgId, input) =>
-      request(`/api/org/${orgId}/messages/send`, apiSchemas.messageSend, { method: "POST", token, body: input }),
-    messageEdit: (token, orgId, messageId, input) =>
-      request(`/api/org/${orgId}/messages/${messageId}/edit`, apiSchemas.messageEdit, { method: "POST", token, body: input }),
+    messageSend: async (token, orgId, input) => {
+      const result = await request(`/api/org/${orgId}/messages/send`, apiSchemas.messageSend, { method: "POST", token, body: input });
+      return {
+        message: {
+          ...result.message,
+          attachments: result.message.attachments.map((attachment) => ({
+            ...attachment,
+            imageWidth: attachment.imageWidth ?? null,
+            imageHeight: attachment.imageHeight ?? null,
+            imageThumbhash: attachment.imageThumbhash ?? null,
+          })),
+        },
+      };
+    },
+    messageEdit: async (token, orgId, messageId, input) => {
+      const result = await request(`/api/org/${orgId}/messages/${messageId}/edit`, apiSchemas.messageEdit, { method: "POST", token, body: input });
+      return {
+        message: {
+          ...result.message,
+          attachments: result.message.attachments.map((attachment) => ({
+            ...attachment,
+            imageWidth: attachment.imageWidth ?? null,
+            imageHeight: attachment.imageHeight ?? null,
+            imageThumbhash: attachment.imageThumbhash ?? null,
+          })),
+        },
+      };
+    },
     messageDelete: (token, orgId, messageId) =>
       request(`/api/org/${orgId}/messages/${messageId}/delete`, apiSchemas.messageDelete, { method: "POST", token }),
     messageReactionAdd: (token, orgId, messageId, input) =>
@@ -365,6 +400,9 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
           ...result.file,
           expiresAt: result.file.expiresAt ?? null,
           committedAt: result.file.committedAt ?? null,
+          imageWidth: result.file.imageWidth ?? null,
+          imageHeight: result.file.imageHeight ?? null,
+          imageThumbhash: result.file.imageThumbhash ?? null,
         },
       };
     },
@@ -379,6 +417,9 @@ export function apiClientCreate(baseUrl: string = DEFAULT_BASE_URL): ApiClient {
           ...result.file,
           expiresAt: result.file.expiresAt ?? null,
           committedAt: result.file.committedAt ?? null,
+          imageWidth: result.file.imageWidth ?? null,
+          imageHeight: result.file.imageHeight ?? null,
+          imageThumbhash: result.file.imageThumbhash ?? null,
         },
       };
     },

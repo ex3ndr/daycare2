@@ -3,6 +3,17 @@ import { z } from "zod";
 const idSchema = z.string().min(1);
 const unixMsSchema = z.number().int();
 const nullableUnixMsSchema = unixMsSchema.nullable();
+const nullableIntOrNullSchema = z
+  .number()
+  .int()
+  .nullable()
+  .nullish()
+  .transform((value) => value ?? null);
+const nullableStringOrNullSchema = z
+  .string()
+  .nullable()
+  .nullish()
+  .transform((value) => value ?? null);
 const orgRoleWireSchema = z.enum(["OWNER", "MEMBER", "owner", "member"]);
 const orgRoleSchema = z.enum(["owner", "member"]);
 const userKindSchema = z.enum(["human", "ai"]);
@@ -105,6 +116,9 @@ const messageAttachmentSchema = z.object({
   fileName: z.string().nullable(),
   sizeBytes: z.number().int().nullable(),
   sortOrder: z.number().int(),
+  imageWidth: nullableIntOrNullSchema,
+  imageHeight: nullableIntOrNullSchema,
+  imageThumbhash: nullableStringOrNullSchema,
 });
 
 const messageReactionSchema = z.object({
@@ -160,6 +174,9 @@ const fileAssetSchema = z.object({
   createdAt: unixMsSchema,
   expiresAt: nullableUnixMsSchema.optional(),
   committedAt: nullableUnixMsSchema.optional(),
+  imageWidth: nullableIntOrNullSchema,
+  imageHeight: nullableIntOrNullSchema,
+  imageThumbhash: nullableStringOrNullSchema,
 });
 
 const messageSearchResultSchema = z.object({

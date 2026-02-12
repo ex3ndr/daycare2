@@ -8,66 +8,66 @@
   :root {
     color-scheme: light;
 
-    /* M3 light — from happy-app theme.light.json + theme.ts */
-    --background: 300 100% 99%;          /* #fffbff */
-    --foreground: 255 8% 11%;            /* #1c1b1f */
+    /* Warm coral + clean gray */
+    --background: 30 12% 96%;            /* #F7F5F3 light warm gray */
+    --foreground: 275 3% 17%;            /* #2D2B2E cool dark */
 
-    --card: 300 100% 99%;
-    --card-foreground: 255 8% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 275 3% 17%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 255 8% 11%;
+    --popover-foreground: 275 3% 17%;
 
-    --primary: 249 34% 49%;              /* #5e52a7 */
-    --primary-foreground: 0 0% 100%;     /* #ffffff */
+    --primary: 13 68% 55%;               /* warm coral — deeper for contrast */
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 254 68% 93%;            /* #e5dff9 */
-    --secondary-foreground: 252 21% 14%; /* #1c192b */
+    --secondary: 13 45% 94%;             /* pale coral wash */
+    --secondary-foreground: 275 3% 20%;
 
-    --muted: 265 24% 90%;               /* #e5e0ec — surfaceVariant */
-    --muted-foreground: 252 8% 29%;     /* #48454f — onSurfaceVariant */
+    --muted: 30 8% 91%;                 /* clean warm gray */
+    --muted-foreground: 270 2% 42%;     /* cool medium gray */
 
-    --accent: 254 68% 93%;
-    --accent-foreground: 252 21% 14%;
+    --accent: 13 45% 94%;
+    --accent-foreground: 275 3% 20%;
 
     --destructive: 0 76% 42%;            /* #ba1a1a */
     --destructive-foreground: 0 0% 100%;
 
     --success: 145 63% 42%;              /* #34C759 */
 
-    --border: 262 10% 79%;              /* #c9c5d0 — outlineVariant */
-    --input: 262 10% 79%;
-    --ring: 249 34% 49%;
+    --border: 30 6% 87%;                /* clean light border */
+    --input: 30 6% 87%;
+    --ring: 13 68% 55%;
 
     --radius: 12px;
 
-    /* Sidebar — M3 light surfaces */
-    --sidebar: 0 0% 100%;                /* white */
-    --sidebar-foreground: 255 8% 11%;    /* #1c1b1f — onSurface */
-    --sidebar-border: 262 10% 79%;       /* #c9c5d0 — outlineVariant */
-    --sidebar-accent: 254 68% 93%;       /* #e5dff9 — secondaryContainer */
-    --sidebar-accent-foreground: 252 21% 14%; /* #1c192b — onSecondaryContainer */
-    --sidebar-muted: 265 24% 95%;        /* light surfaceVariant */
-    --sidebar-muted-foreground: 252 8% 29%; /* #48454f — onSurfaceVariant */
+    /* Sidebar — warm tinted */
+    --sidebar: 30 15% 97%;               /* subtle warm tint */
+    --sidebar-foreground: 275 3% 17%;
+    --sidebar-border: 30 8% 90%;
+    --sidebar-accent: 13 55% 93%;        /* light coral highlight */
+    --sidebar-accent-foreground: 13 50% 35%;
+    --sidebar-muted: 30 10% 95%;
+    --sidebar-muted-foreground: 270 2% 45%;
 
     /* Rail / Shell */
-    --rail: 0 0% 96%;                    /* #F5F5F5 */
-    --rail-foreground: 252 8% 29%;       /* #48454f — onSurfaceVariant */
+    --rail: 30 10% 95%;
+    --rail-foreground: 270 2% 45%;
 
     /* Sidebar header */
-    --sidebar-header: 265 24% 96%;
+    --sidebar-header: 30 12% 96%;
 
-    /* Legacy tokens — from happy-app theme.ts light */
-    --bg: #fffbff;
-    --bg-accent: #2a3ad9;
-    --surface: #ffffff;
-    --ink: #1c1b1f;
-    --ink-soft: #48454f;
-    --shadow: 0 18px 40px rgba(0, 0, 0, 0.1);
-    --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.06);
+    /* Direct-value tokens */
+    --bg: #F7F5F3;
+    --bg-accent: #E07A5F;
+    --surface: #FFFFFF;
+    --ink: #2D2B2E;
+    --ink-soft: #6B686E;
+    --shadow: 0 18px 40px rgba(45, 43, 46, 0.08);
+    --shadow-soft: 0 10px 24px rgba(45, 43, 46, 0.05);
     --presence-online: hsl(var(--success));
     --presence-away: #f59e0b;
-    --presence-offline: #9ca3af;
+    --presence-offline: #9A9698;
 
     /* App color aliases for JS/TS style usage */
     --color-background: hsl(var(--background));
@@ -93,51 +93,51 @@
   }
 
   .dark {
-    /* M3 dark — from happy-app theme.dark.json + theme.ts */
-    --background: 255 8% 11%;            /* #1c1b1f */
-    --foreground: 288 9% 89%;            /* #e5e1e6 */
+    /* Cool dark with coral accent */
+    --background: 280 5% 12%;            /* #1F1D20 */
+    --foreground: 30 8% 90%;             /* #E8E5E2 */
 
-    --card: 258 7% 15%;
-    --card-foreground: 288 9% 89%;
+    --card: 280 4% 15%;
+    --card-foreground: 30 8% 90%;
 
-    --popover: 258 7% 15%;
-    --popover-foreground: 288 9% 89%;
+    --popover: 280 4% 15%;
+    --popover-foreground: 30 8% 90%;
 
-    --primary: 248 100% 87%;             /* #c8bfff */
-    --primary-foreground: 250 56% 30%;   /* #2f2176 */
+    --primary: 13 75% 68%;              /* light coral */
+    --primary-foreground: 275 3% 12%;
 
-    --secondary: 249 13% 31%;            /* #474459 */
-    --secondary-foreground: 254 68% 93%; /* #e5dff9 */
+    --secondary: 280 4% 20%;
+    --secondary-foreground: 13 45% 94%;
 
-    --muted: 258 7% 18%;                /* #2C2C2E — surfaceHigh */
-    --muted-foreground: 262 10% 79%;    /* #c9c5d0 — onSurfaceVariant */
+    --muted: 280 4% 15%;
+    --muted-foreground: 30 5% 60%;
 
-    --accent: 249 13% 31%;
-    --accent-foreground: 254 68% 93%;
+    --accent: 280 4% 20%;
+    --accent-foreground: 13 45% 94%;
 
     --destructive: 6 100% 84%;           /* #ffb4ab */
     --destructive-foreground: 0 75% 21%; /* #690005 */
 
     --success: 145 63% 42%;
 
-    --border: 258 7% 23%;               /* #38383A — divider */
-    --input: 258 7% 23%;
-    --ring: 248 100% 87%;
+    --border: 280 4% 22%;
+    --input: 280 4% 22%;
+    --ring: 13 75% 68%;
 
-    /* Sidebar — M3 dark surfaces */
-    --sidebar: 255 12% 8%;
-    --sidebar-foreground: 288 9% 89%;
-    --sidebar-border: 258 7% 15%;
-    --sidebar-accent: 258 7% 15%;
-    --sidebar-accent-foreground: 288 9% 89%;
-    --sidebar-muted: 255 10% 11%;
-    --sidebar-muted-foreground: 258 5% 58%;
+    /* Sidebar */
+    --sidebar: 280 5% 9%;
+    --sidebar-foreground: 30 8% 90%;
+    --sidebar-border: 280 4% 15%;
+    --sidebar-accent: 280 4% 15%;
+    --sidebar-accent-foreground: 30 8% 90%;
+    --sidebar-muted: 280 5% 11%;
+    --sidebar-muted-foreground: 280 3% 55%;
 
     /* Rail / Shell */
-    --rail: 255 15% 6%;
-    --rail-foreground: 288 9% 89%;
+    --rail: 280 5% 7%;
+    --rail-foreground: 30 8% 90%;
 
-    --sidebar-header: 255 13% 7%;
+    --sidebar-header: 280 5% 8%;
   }
 
   * {

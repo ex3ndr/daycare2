@@ -60,10 +60,10 @@ export function WorkspaceRailUserMenu() {
         <Tooltip>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
-              <button className="rounded-full ring-2 ring-transparent transition-all hover:ring-foreground/15 focus-visible:outline-none focus-visible:ring-foreground/25">
+              <button className="rounded-full ring-2 ring-white/30 transition-all hover:ring-white/60 focus-visible:outline-none focus-visible:ring-white/70">
                 <Avatar size="sm">
                   {avatarUrl && <AvatarImage src={avatarUrl} alt={displayName} />}
-                  <AvatarFallback className="bg-primary/20 text-primary text-[10px]">
+                  <AvatarFallback className="bg-white text-foreground text-[11px] font-semibold">
                     {userInitials}
                   </AvatarFallback>
                 </Avatar>

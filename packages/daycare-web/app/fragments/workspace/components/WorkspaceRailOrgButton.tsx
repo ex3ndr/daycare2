@@ -9,16 +9,17 @@ export function WorkspaceRailOrgButton({
   orgSlug: string;
 }) {
   const navigate = useNavigate();
+  const initial = orgName?.[0]?.toUpperCase() ?? "?";
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           onClick={() => navigate({ to: "/$orgSlug", params: { orgSlug } })}
-          className="rounded-[10px] transition-opacity hover:opacity-90"
+          className="rounded-xl transition-opacity hover:opacity-90"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-primary/15 text-[15px] text-primary">
-            <span className="-translate-y-[0.5px]">{"\u2197"}</span>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-base font-bold text-foreground shadow-sm">
+            {initial}
           </div>
         </button>
       </TooltipTrigger>

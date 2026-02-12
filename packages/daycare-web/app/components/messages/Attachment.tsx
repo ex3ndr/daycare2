@@ -63,6 +63,12 @@ function useResolvedUrl(url: string) {
 
 export function Attachment({ attachment, onImageClick }: AttachmentProps) {
   const resolvedUrl = useResolvedUrl(attachment.url);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  // Reset loading state when URL changes
+  useEffect(() => {
+    setImageLoaded(false);
+  }, [attachment.url]);
 
   if (isPreviewableImage(attachment.mimeType)) {
     return (
@@ -71,12 +77,18 @@ export function Attachment({ attachment, onImageClick }: AttachmentProps) {
         onClick={onImageClick}
         className="mt-1 inline-block max-w-sm text-left cursor-pointer"
       >
-        <img
-          src={resolvedUrl}
-          alt={attachment.fileName ?? "Image"}
-          className="rounded-md border max-h-64 object-contain"
-          loading="lazy"
-        />
+        <div
+          className="rounded-md border overflow-hidden bg-muted/30"
+          style={!imageLoaded ? { aspectRatio: "16/9", width: "20rem" } : undefined}
+        >
+          <img
+            src={resolvedUrl}
+            alt={attachment.fileName ?? "Image"}
+            className="rounded-md max-h-64 object-contain"
+            loading="lazy"
+            onLoad={() => setImageLoaded(true)}
+          />
+        </div>
         {attachment.fileName && (
           <span className="mt-0.5 block text-xs text-muted-foreground truncate">
             {attachment.fileName}

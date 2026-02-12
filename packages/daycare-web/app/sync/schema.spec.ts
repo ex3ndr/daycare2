@@ -340,6 +340,238 @@ describe("schema", () => {
     });
   });
 
+  describe("optimistic lifecycle", () => {
+    it("optimistic send + rebase(client ID) + commit preserves message with stable ID", () => {
+      engine.mutate("messageSend", {
+        id: "client-msg-1",
+        chatId: "ch-1",
+        text: "Hello",
+      });
+
+      expect(engine.state.message["client-msg-1"]).toBeDefined();
+      expect(engine.state.message["client-msg-1"].pending).toBe(true);
+
+      const mutId = engine.pendingMutations[0].id;
+
+      // Rebase with server-confirmed data using the client ID
+      engine.rebase({
+        message: [
+          {
+            id: "client-msg-1",
+            chatId: "ch-1",
+            senderUserId: "user-1",
+            threadId: null,
+            text: "Hello",
+            createdAt: 5000,
+            editedAt: null,
+            deletedAt: null,
+            threadReplyCount: 0,
+            threadLastReplyAt: null,
+            sender: {
+              id: "user-1",
+              kind: "human",
+              username: "testuser",
+              firstName: "Test",
+              lastName: "User",
+              avatarUrl: null,
+            },
+            attachments: [],
+            reactions: [],
+          },
+        ],
+      });
+
+      engine.commit(mutId);
+
+      // Message persists with same ID, pending cleared
+      const msg = engine.state.message["client-msg-1"];
+      expect(msg).toBeDefined();
+      expect(msg.text).toBe("Hello");
+      expect(msg.createdAt).toBe(5000);
+      expect(msg.pending).toBe(false);
+      expect(engine.pendingMutations).toHaveLength(0);
+    });
+
+    it("optimistic send + commit on failure removes message from state", () => {
+      engine.mutate("messageSend", {
+        id: "fail-msg-1",
+        chatId: "ch-1",
+        text: "This will fail",
+      });
+
+      expect(engine.state.message["fail-msg-1"]).toBeDefined();
+
+      const mutId = engine.pendingMutations[0].id;
+
+      // No rebase (API failed) — just commit to discard
+      engine.commit(mutId);
+
+      expect(engine.state.message["fail-msg-1"]).toBeUndefined();
+      expect(engine.pendingMutations).toHaveLength(0);
+    });
+
+    it("optimistic reaction + rebase(full msg) + commit preserves reaction", () => {
+      // Set up a server-confirmed message
+      engine.rebase({
+        message: [
+          {
+            id: "msg-1",
+            chatId: "ch-1",
+            senderUserId: "user-2",
+            threadId: null,
+            text: "React to me",
+            createdAt: 1000,
+            editedAt: null,
+            deletedAt: null,
+            threadReplyCount: 0,
+            threadLastReplyAt: null,
+            sender: {
+              id: "user-2",
+              kind: "human",
+              username: "bob",
+              firstName: "Bob",
+              lastName: null,
+              avatarUrl: null,
+            },
+            attachments: [],
+            reactions: [],
+          },
+        ],
+      });
+
+      // Optimistic reaction toggle
+      engine.mutate("reactionToggle", {
+        messageId: "msg-1",
+        shortcode: ":fire:",
+      });
+
+      expect(engine.state.message["msg-1"].reactions).toHaveLength(1);
+      expect(engine.state.message["msg-1"].reactions[0].shortcode).toBe(":fire:");
+
+      const mutId = engine.pendingMutations[0].id;
+
+      // Rebase with the full message (including the reaction from optimistic state)
+      engine.rebase({
+        message: [
+          {
+            id: "msg-1",
+            chatId: "ch-1",
+            senderUserId: "user-2",
+            threadId: null,
+            text: "React to me",
+            createdAt: 1000,
+            editedAt: null,
+            deletedAt: null,
+            threadReplyCount: 0,
+            threadLastReplyAt: null,
+            sender: {
+              id: "user-2",
+              kind: "human",
+              username: "bob",
+              firstName: "Bob",
+              lastName: null,
+              avatarUrl: null,
+            },
+            attachments: [],
+            reactions: [
+              {
+                id: "user-1-:fire:",
+                userId: "user-1",
+                shortcode: ":fire:",
+                createdAt: 2000,
+              },
+            ],
+          },
+        ],
+      });
+
+      engine.commit(mutId);
+
+      // Reaction persists after commit
+      const msg = engine.state.message["msg-1"];
+      expect(msg.reactions).toHaveLength(1);
+      expect(msg.reactions[0].shortcode).toBe(":fire:");
+      expect(msg.reactions[0].userId).toBe("user-1");
+    });
+
+    it("message edit + rebase + commit preserves edit", () => {
+      // Create and confirm a message
+      engine.mutate("messageSend", {
+        id: "msg-1",
+        chatId: "ch-1",
+        text: "Original",
+      });
+      const sendMutId = engine.pendingMutations[0].id;
+      engine.rebase({
+        message: [
+          {
+            id: "msg-1",
+            chatId: "ch-1",
+            senderUserId: "user-1",
+            threadId: null,
+            text: "Original",
+            createdAt: 1000,
+            editedAt: null,
+            deletedAt: null,
+            threadReplyCount: 0,
+            threadLastReplyAt: null,
+            sender: {
+              id: "user-1",
+              kind: "human",
+              username: "testuser",
+              firstName: "Test",
+              lastName: "User",
+              avatarUrl: null,
+            },
+            attachments: [],
+            reactions: [],
+          },
+        ],
+      });
+      engine.commit(sendMutId);
+
+      // Now edit
+      engine.mutate("messageEdit", { id: "msg-1", text: "Edited" });
+      expect(engine.state.message["msg-1"].text).toBe("Edited");
+
+      const editMutId = engine.pendingMutations[0].id;
+
+      // Rebase with server-confirmed edit
+      engine.rebase({
+        message: [
+          {
+            id: "msg-1",
+            chatId: "ch-1",
+            senderUserId: "user-1",
+            threadId: null,
+            text: "Edited",
+            createdAt: 1000,
+            editedAt: 3000,
+            deletedAt: null,
+            threadReplyCount: 0,
+            threadLastReplyAt: null,
+            sender: {
+              id: "user-1",
+              kind: "human",
+              username: "testuser",
+              firstName: "Test",
+              lastName: "User",
+              avatarUrl: null,
+            },
+            attachments: [],
+            reactions: [],
+          },
+        ],
+      });
+      engine.commit(editMutId);
+
+      const msg = engine.state.message["msg-1"];
+      expect(msg.text).toBe("Edited");
+      expect(msg.editedAt).toBe(3000);
+      expect(engine.pendingMutations).toHaveLength(0);
+    });
+  });
+
   describe("engine operations", () => {
     it("rebase merges server data", () => {
       engine.rebase({

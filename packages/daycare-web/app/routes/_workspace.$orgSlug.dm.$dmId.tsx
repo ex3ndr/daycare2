@@ -4,8 +4,9 @@ import { useShallow } from "zustand/react/shallow";
 import { orgSlugRoute } from "./_workspace.$orgSlug";
 import { useApp, useStorage } from "@/app/sync/AppContext";
 import { messagesForChannel, typingUsersForChannel, presenceForUser } from "@/app/sync/selectors";
-import { useUiStore } from "@/app/stores/uiStoreContext";
+import { useUiStore, failedMessageRemove } from "@/app/stores/uiStoreContext";
 import { MessageRow } from "@/app/components/messages/MessageRow";
+import { FailedMessageRow } from "@/app/components/messages/FailedMessageRow";
 import { Composer } from "@/app/components/messages/Composer";
 import { Avatar, AvatarFallback, AvatarImage } from "@/app/components/ui/avatar";
 import { ArrowDown, Loader2 } from "lucide-react";
@@ -43,6 +44,11 @@ function DmPage() {
 
   const draft = useUiStore((s) => s.composerDrafts[dmId] ?? "");
   const composerDraftSet = useUiStore((s) => s.composerDraftSet);
+  const failedMsgs = useUiStore(
+    useShallow((s) =>
+      Object.entries(s.failedMessages).filter(([, m]) => m.chatId === dmId),
+    ),
+  );
 
   // File upload
   const fileUpload = useFileUpload(app.api, app.token, app.orgId);
@@ -161,6 +167,29 @@ function DmPage() {
     [mutate],
   );
 
+  // Retry failed message
+  const handleRetry = useCallback(
+    (failedId: string) => {
+      const msg = failedMsgs.find(([id]) => id === failedId)?.[1];
+      if (!msg) return;
+      failedMessageRemove(failedId);
+      const id = crypto.randomUUID();
+      mutate("messageSend", {
+        id,
+        chatId: dmId,
+        text: msg.text,
+        ...(msg.threadId ? { threadId: msg.threadId } : {}),
+        ...(msg.attachments.length > 0 ? { attachments: msg.attachments } : {}),
+      });
+    },
+    [failedMsgs, mutate, dmId],
+  );
+
+  // Dismiss failed message
+  const handleDismiss = useCallback((failedId: string) => {
+    failedMessageRemove(failedId);
+  }, []);
+
   // Draft change
   const handleDraftChange = useCallback(
     (text: string) => {
@@ -260,7 +289,10 @@ function DmPage() {
             onScroll={pagination.handleScroll}
             className="h-full overflow-y-auto"
           >
-            <div className="py-4">
+            <div className="py-4 flex flex-col min-h-full">
+              {/* Spacer pushes messages to bottom when few */}
+              <div className="flex-1" />
+
               {/* Loading spinner at top */}
               {pagination.isLoadingOlder && (
                 <div className="flex items-center justify-center py-3">
@@ -286,22 +318,32 @@ function DmPage() {
                 </div>
               ) : (
                 messages.map((msg, i) => (
-                  <MessageRow
-                    key={msg.id}
-                    message={msg}
-                    currentUserId={userId}
-                    presence={presenceForUser(presenceState, msg.senderUserId)}
-                    startInEditMode={editingMessageId === msg.id}
-                    isGroupContinuation={messageGroupCheck(messages[i - 1], msg)}
-                    onThreadOpen={handleThreadOpen}
-                    onReactionToggle={handleReactionToggle}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onEditModeChange={handleEditModeChange}
-                  />
+                  <div key={msg.id} style={{ overflowAnchor: "none" }}>
+                    <MessageRow
+                      message={msg}
+                      currentUserId={userId}
+                      presence={presenceForUser(presenceState, msg.senderUserId)}
+                      startInEditMode={editingMessageId === msg.id}
+                      isGroupContinuation={messageGroupCheck(messages[i - 1], msg)}
+                      onThreadOpen={handleThreadOpen}
+                      onReactionToggle={handleReactionToggle}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onEditModeChange={handleEditModeChange}
+                    />
+                  </div>
                 ))
               )}
-              <div ref={pagination.messagesEndRef} />
+              {failedMsgs.map(([id, msg]) => (
+                <FailedMessageRow
+                  key={id}
+                  id={id}
+                  message={msg}
+                  onRetry={handleRetry}
+                  onDismiss={handleDismiss}
+                />
+              ))}
+              <div ref={pagination.messagesEndRef} style={{ overflowAnchor: "auto" }} />
             </div>
           </div>
 
@@ -344,6 +386,7 @@ function DmPage() {
 
       {/* Thread panel outlet */}
       <Outlet />
+
     </div>
   );
 }

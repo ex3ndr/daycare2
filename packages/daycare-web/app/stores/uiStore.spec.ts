@@ -190,6 +190,92 @@ describe("uiStore", () => {
     });
   });
 
+  describe("failedMessageAdd", () => {
+    it("adds a failed message", () => {
+      store.getState().failedMessageAdd("fail-1", {
+        chatId: "ch-1",
+        text: "Hello",
+        threadId: null,
+        attachments: [],
+        failedAt: 1000,
+        error: "Network error",
+      });
+      expect(store.getState().failedMessages["fail-1"]).toEqual({
+        chatId: "ch-1",
+        text: "Hello",
+        threadId: null,
+        attachments: [],
+        failedAt: 1000,
+        error: "Network error",
+      });
+    });
+
+    it("adds multiple failed messages independently", () => {
+      store.getState().failedMessageAdd("fail-1", {
+        chatId: "ch-1",
+        text: "First",
+        threadId: null,
+        attachments: [],
+        failedAt: 1000,
+        error: "Error 1",
+      });
+      store.getState().failedMessageAdd("fail-2", {
+        chatId: "ch-2",
+        text: "Second",
+        threadId: "thread-1",
+        attachments: [{ kind: "file", url: "https://example.com/f.txt" }],
+        failedAt: 2000,
+        error: "Error 2",
+      });
+      expect(Object.keys(store.getState().failedMessages)).toHaveLength(2);
+      expect(store.getState().failedMessages["fail-1"].text).toBe("First");
+      expect(store.getState().failedMessages["fail-2"].text).toBe("Second");
+    });
+  });
+
+  describe("failedMessageRemove", () => {
+    it("removes a failed message", () => {
+      store.getState().failedMessageAdd("fail-1", {
+        chatId: "ch-1",
+        text: "Hello",
+        threadId: null,
+        attachments: [],
+        failedAt: 1000,
+        error: "Network error",
+      });
+      store.getState().failedMessageRemove("fail-1");
+      expect(store.getState().failedMessages["fail-1"]).toBeUndefined();
+      expect(Object.keys(store.getState().failedMessages)).toHaveLength(0);
+    });
+
+    it("only removes the specified message", () => {
+      store.getState().failedMessageAdd("fail-1", {
+        chatId: "ch-1",
+        text: "First",
+        threadId: null,
+        attachments: [],
+        failedAt: 1000,
+        error: "Error 1",
+      });
+      store.getState().failedMessageAdd("fail-2", {
+        chatId: "ch-1",
+        text: "Second",
+        threadId: null,
+        attachments: [],
+        failedAt: 2000,
+        error: "Error 2",
+      });
+      store.getState().failedMessageRemove("fail-1");
+      expect(store.getState().failedMessages["fail-1"]).toBeUndefined();
+      expect(store.getState().failedMessages["fail-2"].text).toBe("Second");
+    });
+
+    it("is a no-op for non-existent id", () => {
+      store.getState().failedMessageRemove("nonexistent");
+      expect(Object.keys(store.getState().failedMessages)).toHaveLength(0);
+    });
+  });
+
   describe("initial state", () => {
     it("has correct defaults", () => {
       const state = store.getState();
@@ -201,6 +287,7 @@ describe("uiStore", () => {
       expect(state.searchOpen).toBe(false);
       expect(state.searchQuery).toBe("");
       expect(state.photoViewer).toBe(null);
+      expect(state.failedMessages).toEqual({});
     });
   });
 });

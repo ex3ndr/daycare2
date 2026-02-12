@@ -119,9 +119,16 @@ describe("mutationApply", () => {
         attachments: undefined,
       });
       expect(result.snapshot.message).toHaveLength(1);
-      expect(result.snapshot.message![0].id).toBe("server-msg-1");
+      // Snapshot uses the client-generated ID for stable React keys
+      expect(result.snapshot.message![0].id).toBe("temp-msg-1");
       expect(result.snapshot.message![0].text).toBe("Hello");
       expect(result.snapshot.message![0].createdAt).toBe(2000);
+      // idMapping tracks client-to-server ID for SSE dedup
+      expect(result.idMapping).toEqual({
+        type: "message",
+        clientId: "temp-msg-1",
+        serverId: "server-msg-1",
+      });
     });
 
     it("sends empty text when message has attachments but no text", async () => {
@@ -238,7 +245,99 @@ describe("mutationApply", () => {
   });
 
   describe("reactionToggle", () => {
-    it("calls api.messageReactionAdd when optimistic state has the reaction", async () => {
+    const baseMessage = {
+      id: "msg-1",
+      chatId: "ch-1",
+      senderUserId: "user-2",
+      threadId: null,
+      text: "Hello",
+      createdAt: 1000,
+      editedAt: null,
+      deletedAt: null,
+      threadReplyCount: 0,
+      threadLastReplyAt: null,
+      sender: {
+        id: "user-2",
+        kind: "human" as const,
+        username: "bob",
+        firstName: "Bob",
+        lastName: null,
+        avatarUrl: null,
+      },
+      attachments: [],
+      reactions: [] as Array<{ id: string; userId: string; shortcode: string; createdAt: number }>,
+    };
+
+    it("calls api.messageReactionAdd and returns message snapshot with reaction", async () => {
+      const api = createMockApi();
+      vi.mocked(api.messageReactionAdd).mockResolvedValue({ added: true });
+
+      const mutation = makeMutation("reactionToggle", {
+        messageId: "msg-1",
+        shortcode: ":fire:",
+      });
+
+      const msgWithReaction = {
+        ...baseMessage,
+        reactions: [{ id: "user-1-:fire:", userId: "user-1", shortcode: ":fire:", createdAt: 2000 }],
+      };
+
+      const context = {
+        userId: "user-1",
+        messageReactions: {
+          "msg-1": [{ userId: "user-1", shortcode: ":fire:" }],
+        },
+        messages: { "msg-1": msgWithReaction },
+      };
+
+      const result = await mutationApply(api, token, orgId, mutation, context);
+
+      expect(api.messageReactionAdd).toHaveBeenCalledWith(
+        token,
+        orgId,
+        "msg-1",
+        { shortcode: ":fire:" },
+      );
+      expect(api.messageReactionRemove).not.toHaveBeenCalled();
+      expect(result.snapshot.message).toHaveLength(1);
+      expect(result.snapshot.message![0].id).toBe("msg-1");
+      expect(result.snapshot.message![0].reactions).toHaveLength(1);
+      expect(result.snapshot.message![0].reactions[0].shortcode).toBe(":fire:");
+    });
+
+    it("calls api.messageReactionRemove and returns message snapshot without reaction", async () => {
+      const api = createMockApi();
+      vi.mocked(api.messageReactionRemove).mockResolvedValue({
+        removed: true,
+      });
+
+      const mutation = makeMutation("reactionToggle", {
+        messageId: "msg-1",
+        shortcode: ":fire:",
+      });
+
+      const context = {
+        userId: "user-1",
+        messageReactions: {
+          "msg-1": [],
+        },
+        messages: { "msg-1": { ...baseMessage, reactions: [] } },
+      };
+
+      const result = await mutationApply(api, token, orgId, mutation, context);
+
+      expect(api.messageReactionAdd).not.toHaveBeenCalled();
+      expect(api.messageReactionRemove).toHaveBeenCalledWith(
+        token,
+        orgId,
+        "msg-1",
+        { shortcode: ":fire:" },
+      );
+      expect(result.snapshot.message).toHaveLength(1);
+      expect(result.snapshot.message![0].reactions).toHaveLength(0);
+    });
+
+    it("returns empty snapshot when no message context provided", async () => {
       const api = createMockApi();
       vi.mocked(api.messageReactionAdd).mockResolvedValue({ added: true });
 
@@ -255,44 +354,6 @@ describe("mutationApply", () => {
       };
 
       const result = await mutationApply(api, token, orgId, mutation, context);
-
-      expect(api.messageReactionAdd).toHaveBeenCalledWith(
-        token,
-        orgId,
-        "msg-1",
-        { shortcode: ":fire:" },
-      );
-      expect(api.messageReactionRemove).not.toHaveBeenCalled();
-      expect(result.snapshot).toEqual({});
-    });
-
-    it("calls api.messageReactionRemove when optimistic state lacks the reaction", async () => {
-      const api = createMockApi();
-      vi.mocked(api.messageReactionRemove).mockResolvedValue({
-        removed: true,
-      });
-
-      const mutation = makeMutation("reactionToggle", {
-        messageId: "msg-1",
-        shortcode: ":fire:",
-      });
-
-      const context = {
-        userId: "user-1",
-        messageReactions: {
-          "msg-1": [],
-        },
-      };
-
-      const result = await mutationApply(api, token, orgId, mutation, context);
-
-      expect(api.messageReactionAdd).not.toHaveBeenCalled();
-      expect(api.messageReactionRemove).toHaveBeenCalledWith(
-        token,
-        orgId,
-        "msg-1",
-        { shortcode: ":fire:" },
-      );
       expect(result.snapshot).toEqual({});
     });
   });

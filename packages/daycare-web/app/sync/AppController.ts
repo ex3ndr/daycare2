@@ -10,6 +10,7 @@ import { mutationApply } from "./mutationApply";
 import { connectionStatusSet } from "../stores/connectionStoreContext";
 import { toastAdd } from "../stores/toastStoreContext";
 import { apiRequestFireDeactivated } from "../daycare/api/apiRequest";
+import { failedMessageAdd } from "../stores/uiStoreContext";
 
 const STORAGE_KEY = "daycare:engine";
 const HEARTBEAT_INTERVAL_MS = 60_000;
@@ -30,6 +31,14 @@ export class AppController {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private sseReconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private sseReconnectAttempts = 0;
+
+  // Maps client-generated message IDs to server-assigned IDs (and reverse)
+  // so SSE events and syncs that reference the server ID can be reconciled
+  // with the optimistic entry already keyed by the client ID.
+  private clientToServerIds = new Map<string, string>();
+  private serverToClientIds = new Map<string, string>();
+  private idMappingTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private static ID_MAPPING_TTL_MS = 30_000;
 
   private constructor(
     engine: SyncEngine<Schema>,
@@ -256,6 +265,12 @@ export class AppController {
     for (const update of updates) {
       const result = mapEventToRebase(update);
       if (result.rebase) {
+        // Rewrite server-assigned message IDs to client IDs for pending sends
+        if (result.rebase.message) {
+          result.rebase.message = this.rewriteMessageIds(
+            result.rebase.message,
+          ) as typeof result.rebase.message;
+        }
         this.engine.rebase(result.rebase);
       }
       if (result.resyncChannels) needChannelSync = true;
@@ -419,7 +434,8 @@ export class AppController {
       this.orgId,
       channelId,
     );
-    const messages = this.mapMessages(result.messages);
+    let messages = this.mapMessages(result.messages);
+    messages = this.rewriteMessageIds(messages) as typeof messages;
 
     this.engine.rebase({ message: messages });
     this.storage.getState().updateObjects();
@@ -442,7 +458,8 @@ export class AppController {
       channelId,
       { before: options.before, limit: options.limit },
     );
-    const messages = this.mapMessages(result.messages);
+    let messages = this.mapMessages(result.messages);
+    messages = this.rewriteMessageIds(messages) as typeof messages;
 
     this.engine.rebase({ message: messages });
     this.storage.getState().updateObjects();
@@ -492,11 +509,46 @@ export class AppController {
       channelId,
       { threadId },
     );
-    const messages = this.mapMessages(result.messages);
+    let messages = this.mapMessages(result.messages);
+    messages = this.rewriteMessageIds(messages) as typeof messages;
 
     this.engine.rebase({ message: messages });
     this.storage.getState().updateObjects();
     this.persist();
+  }
+
+  private addIdMapping(clientId: string, serverId: string): void {
+    this.clientToServerIds.set(clientId, serverId);
+    this.serverToClientIds.set(serverId, clientId);
+    // Auto-cleanup after TTL to avoid leaks
+    const timer = setTimeout(() => {
+      this.removeIdMapping(clientId, serverId);
+    }, AppController.ID_MAPPING_TTL_MS);
+    this.idMappingTimers.set(clientId, timer);
+  }
+
+  private removeIdMapping(clientId: string, serverId: string): void {
+    this.clientToServerIds.delete(clientId);
+    this.serverToClientIds.delete(serverId);
+    const timer = this.idMappingTimers.get(clientId);
+    if (timer) {
+      clearTimeout(timer);
+      this.idMappingTimers.delete(clientId);
+    }
+  }
+
+  /** Rewrite server-assigned message IDs to client IDs in a message array. */
+  private rewriteMessageIds(
+    messages: Array<{ id: string; [key: string]: unknown }>,
+  ): Array<{ id: string; [key: string]: unknown }> {
+    return messages.map((msg) => {
+      const clientId = this.serverToClientIds.get(msg.id);
+      if (clientId) {
+        this.removeIdMapping(clientId, msg.id);
+        return { ...msg, id: clientId };
+      }
+      return msg;
+    });
   }
 
   private invalidateSync(): void {
@@ -523,6 +575,14 @@ export class AppController {
                 msg.reactions.map((r) => ({ userId: r.userId, shortcode: r.shortcode })),
               ]),
             ),
+            messages: this.engine.state.message as Record<string, {
+              id: string; chatId: string; senderUserId: string; threadId: string | null;
+              text: string; createdAt: number; editedAt: number | null; deletedAt: number | null;
+              threadReplyCount: number; threadLastReplyAt: number | null;
+              sender: { id: string; kind: string; username: string; firstName: string; lastName: string | null; avatarUrl: string | null };
+              attachments: Array<{ id: string; kind: string; url: string; mimeType: string | null; fileName: string | null; sizeBytes: number | null; sortOrder: number }>;
+              reactions: Array<{ id: string; userId: string; shortcode: string; createdAt: number }>;
+            }>,
           };
 
           const result = await mutationApply(
@@ -536,21 +596,47 @@ export class AppController {
           if (Object.keys(result.snapshot).length > 0) {
             this.engine.rebase(result.snapshot);
           }
+          if (result.idMapping) {
+            this.addIdMapping(result.idMapping.clientId, result.idMapping.serverId);
+          }
           this.engine.commit(mutation.id);
           this.storage.getState().updateObjects();
           this.persist();
         } catch (error) {
-          // Mutation failed — remove it and let the UI reflect rollback
+          const errorMsg = error instanceof Error ? error.message : "unknown error";
           console.error(
             `Mutation ${mutation.name} failed:`,
             error,
           );
+
+          // For messageSend, preserve the message in a failed state for retry
+          if (mutation.name === "messageSend") {
+            const input = mutation.input as {
+              id: string;
+              chatId: string;
+              text: string;
+              threadId?: string | null;
+              attachments?: Array<{
+                kind: string;
+                url: string;
+                mimeType?: string | null;
+                fileName?: string | null;
+                sizeBytes?: number | null;
+              }>;
+            };
+            failedMessageAdd(input.id, {
+              chatId: input.chatId,
+              text: input.text,
+              threadId: input.threadId ?? null,
+              attachments: input.attachments ?? [],
+              failedAt: Date.now(),
+              error: errorMsg,
+            });
+          }
+
           this.engine.commit(mutation.id);
           this.storage.getState().updateObjects();
-          toastAdd(
-            `Failed to send: ${error instanceof Error ? error.message : "unknown error"}`,
-            "error",
-          );
+          toastAdd(`Failed to send: ${errorMsg}`, "error");
           break;
         }
       }
@@ -617,6 +703,12 @@ export class AppController {
       clearTimeout(this.sseReconnectTimer);
       this.sseReconnectTimer = null;
     }
+    for (const timer of this.idMappingTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.idMappingTimers.clear();
+    this.clientToServerIds.clear();
+    this.serverToClientIds.clear();
     this.sequencer.destroy();
   }
 }

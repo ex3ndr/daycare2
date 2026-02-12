@@ -10,11 +10,29 @@ type PendingMutation = {
 
 type ApplyResult = {
   snapshot: RebaseShape;
+  idMapping?: { type: string; clientId: string; serverId: string };
+};
+
+type MessageShape = {
+  id: string;
+  chatId: string;
+  senderUserId: string;
+  threadId: string | null;
+  text: string;
+  createdAt: number;
+  editedAt: number | null;
+  deletedAt: number | null;
+  threadReplyCount: number;
+  threadLastReplyAt: number | null;
+  sender: { id: string; kind: string; username: string; firstName: string; lastName: string | null; avatarUrl: string | null };
+  attachments: Array<{ id: string; kind: string; url: string; mimeType: string | null; fileName: string | null; sizeBytes: number | null; sortOrder: number }>;
+  reactions: Array<{ id: string; userId: string; shortcode: string; createdAt: number }>;
 };
 
 type MutationContext = {
   userId: string;
   messageReactions?: Record<string, Array<{ userId: string; shortcode: string }>>;
+  messages?: Record<string, MessageShape>;
 };
 
 // Maps each mutation name to the correct REST API call and returns
@@ -48,11 +66,14 @@ export async function mutationApply(
         attachments: input.attachments,
       });
       const msg = result.message;
+      // Use the client-generated ID in the snapshot so the React key stays
+      // stable. The idMapping lets AppController rewrite SSE/sync data
+      // that arrives with the server-assigned ID.
       return {
         snapshot: {
           message: [
             {
-              id: msg.id,
+              id: input.id,
               chatId: msg.chatId,
               senderUserId: msg.senderUserId,
               threadId: msg.threadId,
@@ -75,6 +96,7 @@ export async function mutationApply(
             },
           ],
         },
+        idMapping: { type: "message", clientId: input.id, serverId: msg.id },
       };
     }
 
@@ -141,7 +163,31 @@ export async function mutationApply(
           shortcode: input.shortcode,
         });
       }
-      // Server confirms via SSE; no snapshot needed
+      // Return the optimistic message state so reactions survive commit()
+      const msg = context?.messages?.[input.messageId];
+      if (msg) {
+        return {
+          snapshot: {
+            message: [
+              {
+                id: msg.id,
+                chatId: msg.chatId,
+                senderUserId: msg.senderUserId,
+                threadId: msg.threadId,
+                text: msg.text,
+                createdAt: msg.createdAt,
+                editedAt: msg.editedAt,
+                deletedAt: msg.deletedAt,
+                threadReplyCount: msg.threadReplyCount,
+                threadLastReplyAt: msg.threadLastReplyAt,
+                sender: msg.sender,
+                attachments: msg.attachments,
+                reactions: msg.reactions,
+              },
+            ],
+          },
+        };
+      }
       return { snapshot: {} };
     }
 

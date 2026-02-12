@@ -29,7 +29,9 @@ export function useMessagePagination(
   }, [chatId]);
 
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    });
   }, []);
 
   // Scroll to bottom on initial load and chat change
@@ -37,12 +39,25 @@ export function useMessagePagination(
     scrollToBottom();
   }, [chatId, scrollToBottom]);
 
-  // Scroll to bottom on new messages if user is already at bottom
+  // Auto-scroll on content resize when user is at bottom (e.g. new messages, images loading)
   useEffect(() => {
-    if (isAtBottomRef.current) {
-      scrollToBottom();
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+      if (isAtBottomRef.current) {
+        scrollToBottom();
+      }
+    });
+
+    // Observe the inner content area (first child) for size changes
+    const content = container.firstElementChild;
+    if (content) {
+      observer.observe(content);
     }
-  }, [messages.length, scrollToBottom]);
+
+    return () => observer.disconnect();
+  }, [chatId, scrollToBottom]);
 
   const loadOlderMessages = useCallback(async () => {
     if (loadingRef.current || !hasMore || messages.length === 0) return;

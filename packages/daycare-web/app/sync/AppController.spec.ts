@@ -156,6 +156,38 @@ describe("AppController", () => {
     });
   });
 
+  describe("syncMessages ID rewriting", () => {
+    it("rewrites server IDs to client IDs for pending sends", async () => {
+      // Optimistically send a message with client-generated ID
+      controller.storage.getState().mutate("messageSend", {
+        id: "client-msg-1",
+        chatId: "ch-1",
+        text: "Hello",
+      });
+
+      // Simulate the ID mapping that processPendingMutations would create
+      // by accessing the private method via any cast
+      (controller as any).addIdMapping("client-msg-1", "server-msg-1");
+
+      // Now sync messages — server returns the server ID
+      vi.mocked(api.messageList).mockResolvedValue({
+        messages: [
+          makeMessage("server-msg-1", "ch-1", 1000),
+          makeMessage("msg-2", "ch-1", 2000),
+        ],
+      });
+
+      await controller.syncMessages("ch-1");
+
+      const state = controller.storage.getState().objects;
+      // Server ID should have been rewritten to client ID
+      expect(state.message["client-msg-1"]).toBeDefined();
+      expect(state.message["client-msg-1"].text).toBe("Message server-msg-1");
+      // Other messages should be untouched
+      expect(state.message["msg-2"]).toBeDefined();
+    });
+  });
+
   describe("syncMessagesPage", () => {
     it("fetches messages with before cursor and limit", async () => {
       const messages = [

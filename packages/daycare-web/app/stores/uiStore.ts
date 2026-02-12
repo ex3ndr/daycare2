@@ -16,6 +16,21 @@ export type PhotoViewerState = {
   currentIndex: number;
 };
 
+export type FailedMessageData = {
+  chatId: string;
+  text: string;
+  threadId: string | null;
+  attachments: Array<{
+    kind: string;
+    url: string;
+    mimeType?: string | null;
+    fileName?: string | null;
+    sizeBytes?: number | null;
+  }>;
+  failedAt: number;
+  error: string;
+};
+
 export type UiStore = {
   sidebarCollapsed: boolean;
   composerDrafts: Record<string, string>;
@@ -25,6 +40,7 @@ export type UiStore = {
   searchOpen: boolean;
   searchQuery: string;
   photoViewer: PhotoViewerState | null;
+  failedMessages: Record<string, FailedMessageData>;
 
   sidebarToggle: () => void;
   composerDraftSet: (channelId: string, text: string) => void;
@@ -38,6 +54,8 @@ export type UiStore = {
   photoViewerClose: () => void;
   photoViewerNext: () => void;
   photoViewerPrev: () => void;
+  failedMessageAdd: (id: string, data: FailedMessageData) => void;
+  failedMessageRemove: (id: string) => void;
 };
 
 export const uiStoreCreate = () =>
@@ -50,6 +68,7 @@ export const uiStoreCreate = () =>
     searchOpen: false,
     searchQuery: "",
     photoViewer: null,
+    failedMessages: {},
 
     sidebarToggle: () =>
       set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
@@ -100,5 +119,16 @@ export const uiStoreCreate = () =>
         const len = s.photoViewer.images.length;
         const prev = (s.photoViewer.currentIndex - 1 + len) % len;
         return { photoViewer: { ...s.photoViewer, currentIndex: prev } };
+      }),
+
+    failedMessageAdd: (id, data) =>
+      set((s) => ({
+        failedMessages: { ...s.failedMessages, [id]: data },
+      })),
+
+    failedMessageRemove: (id) =>
+      set((s) => {
+        const { [id]: _, ...rest } = s.failedMessages;
+        return { failedMessages: rest };
       }),
   }));

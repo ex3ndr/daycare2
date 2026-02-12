@@ -1,4 +1,4 @@
-import type { ApiResponse } from "../types";
+import { z } from "zod";
 
 export class ApiError extends Error {
   code?: string;
@@ -12,12 +12,13 @@ export class ApiError extends Error {
   }
 }
 
-type ApiRequestArgs = {
+type ApiRequestArgs<T> = {
   baseUrl: string;
   path: string;
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   token?: string | null;
   body?: unknown;
+  schema: z.ZodType<T>;
 };
 
 let onUnauthorized: (() => void) | null = null;
@@ -43,7 +44,14 @@ export function apiRequestFireDeactivated() {
   onDeactivated?.();
 }
 
-export async function apiRequest<T>({ baseUrl, path, method = "GET", token, body }: ApiRequestArgs): Promise<T> {
+export async function apiRequest<T>({
+  baseUrl,
+  path,
+  method = "GET",
+  token,
+  body,
+  schema,
+}: ApiRequestArgs<T>): Promise<T> {
   const headers: Record<string, string> = {
     ...(token ? { Authorization: `Bearer ${token}` } : {})
   };
@@ -63,20 +71,43 @@ export async function apiRequest<T>({ baseUrl, path, method = "GET", token, body
     throw new ApiError("Session expired", "UNAUTHORIZED", 401);
   }
 
-  let payload: ApiResponse<T>;
+  let payloadRaw: unknown;
   try {
-    payload = (await response.json()) as ApiResponse<T>;
+    payloadRaw = await response.json();
   } catch {
     throw new ApiError(`HTTP ${response.status}`, "HTTP_ERROR", response.status);
   }
 
-  if (!payload.ok) {
-    // Detect deactivation: 403 with message containing "deactivated"
-    if (response.status === 403 && payload.error.message?.toLowerCase().includes("deactivated")) {
-      apiRequestFireDeactivated();
-    }
-    throw new ApiError(payload.error.message, payload.error.code, response.status);
+  const successPayloadSchema = z.object({
+    ok: z.literal(true),
+    data: schema,
+  });
+  const errorPayloadSchema = z.object({
+    ok: z.literal(false),
+    error: z.object({
+      code: z.string(),
+      message: z.string(),
+      details: z.record(z.string(), z.unknown()).optional(),
+    }),
+  });
+
+  const successPayload = successPayloadSchema.safeParse(payloadRaw);
+  if (successPayload.success) {
+    return successPayload.data.data as T;
   }
 
-  return payload.data;
+  const errorPayload = errorPayloadSchema.safeParse(payloadRaw);
+  if (errorPayload.success) {
+    // Detect deactivation: 403 with message containing "deactivated"
+    if (response.status === 403 && errorPayload.data.error.message?.toLowerCase().includes("deactivated")) {
+      apiRequestFireDeactivated();
+    }
+    throw new ApiError(errorPayload.data.error.message, errorPayload.data.error.code, response.status);
+  }
+
+  throw new ApiError(
+    `Invalid response envelope: ${successPayload.error.issues[0]?.message ?? "schema mismatch"}`,
+    "INVALID_RESPONSE",
+    response.status,
+  );
 }

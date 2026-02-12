@@ -21,7 +21,7 @@ import {
 import { ScrollArea } from "@/app/components/ui/scroll-area";
 import { Hash, Lock, Archive, Bell, UserMinus, Shield, ChevronDown, UserPlus, Search, Loader2 } from "lucide-react";
 import type { ApiClient } from "@/app/daycare/api/apiClientCreate";
-import type { User, ChannelMember } from "@/app/daycare/types";
+import type { ChannelMember, OrganizationMember, UserSummary } from "@/app/daycare/types";
 import { cn } from "@/app/lib/utils";
 import { toastAdd } from "@/app/stores/toastStoreContext";
 
@@ -71,7 +71,7 @@ export function ChannelSettings({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // Members state
-  const [members, setMembers] = useState<Array<ChannelMember & { user: User }>>([]);
+  const [members, setMembers] = useState<Array<ChannelMember & { user: UserSummary }>>([]);
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
 
@@ -84,7 +84,7 @@ export function ChannelSettings({
 
   // Add member state
   const [showAddMember, setShowAddMember] = useState(false);
-  const [orgMembers, setOrgMembers] = useState<User[]>([]);
+  const [orgMembers, setOrgMembers] = useState<OrganizationMember[]>([]);
   const [orgMembersLoading, setOrgMembersLoading] = useState(false);
   const [addMemberSearch, setAddMemberSearch] = useState("");
   const [addingUserId, setAddingUserId] = useState<string | null>(null);
@@ -116,7 +116,7 @@ export function ChannelSettings({
       .then((result) => {
         setMembers(result.members);
         // Initialize notification setting from current user's membership
-        const myMembership = result.members.find((m: ChannelMember & { user: User }) => m.userId === currentUserId);
+        const myMembership = result.members.find((m: ChannelMember & { user: UserSummary }) => m.userId === currentUserId);
         if (myMembership?.notificationLevel) {
           const level = myMembership.notificationLevel.toUpperCase() as NotificationSetting;
           setNotifSetting(level);
@@ -516,7 +516,7 @@ function MemberRow({
   onKick,
   onRoleChange,
 }: {
-  member: ChannelMember & { user: User };
+  member: ChannelMember & { user: UserSummary };
   isOwner: boolean;
   isSelf: boolean;
   onKick: () => void;
@@ -595,7 +595,7 @@ function AddableMemberRow({
   adding,
   onAdd,
 }: {
-  user: User;
+  user: OrganizationMember;
   adding: boolean;
   onAdd: () => void;
 }) {

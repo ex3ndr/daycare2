@@ -56,6 +56,18 @@ export type User = {
   updatedAt: UnixMs;
 };
 
+export type UserSummary = Pick<
+  User,
+  "id" | "kind" | "username" | "firstName" | "lastName" | "avatarUrl"
+>;
+
+export type OrganizationMember = UserSummary & {
+  orgRole?: OrgRole;
+  deactivatedAt: UnixMs | null;
+  createdAt: UnixMs;
+  updatedAt: UnixMs;
+};
+
 export type Channel = {
   id: Id;
   organizationId: Id;
@@ -175,7 +187,7 @@ export type Presence = {
 export type OrgInvite = {
   id: Id;
   organizationId: Id;
-  invitedByUserId?: Id;
+  invitedByUserId?: Id | null;
   email: string;
   expired?: boolean;
   expiresAt: UnixMs;

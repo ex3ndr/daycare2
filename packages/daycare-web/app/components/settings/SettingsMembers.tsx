@@ -22,7 +22,7 @@ import {
 import { Search, MoreVertical, Shield, UserX, UserCheck } from "lucide-react";
 import { toastAdd } from "@/app/stores/toastStoreContext";
 import { orgRoleNormalize } from "@/app/daycare/orgRoleNormalize";
-import type { User } from "@/app/daycare/types";
+import type { OrganizationMember } from "@/app/daycare/types";
 
 type SettingsMembersProps = {
   isOwner: boolean;
@@ -31,13 +31,13 @@ type SettingsMembersProps = {
 export function SettingsMembers({ isOwner }: SettingsMembersProps) {
   const app = useApp();
 
-  const [members, setMembers] = useState<User[]>([]);
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   // Deactivation confirmation dialog
-  const [confirmTarget, setConfirmTarget] = useState<User | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<OrganizationMember | null>(null);
 
   const currentUserId = useStorage((s) => s.objects.context.userId);
 
@@ -83,7 +83,7 @@ export function SettingsMembers({ isOwner }: SettingsMembersProps) {
   );
 
   const handleDeactivate = useCallback(
-    async (user: User) => {
+    async (user: OrganizationMember) => {
       try {
         await app.api.orgMemberDeactivate(app.token, app.orgId, user.id);
         setMembers((prev) =>
@@ -99,7 +99,7 @@ export function SettingsMembers({ isOwner }: SettingsMembersProps) {
   );
 
   const handleReactivate = useCallback(
-    async (user: User) => {
+    async (user: OrganizationMember) => {
       try {
         await app.api.orgMemberReactivate(app.token, app.orgId, user.id);
         setMembers((prev) =>
@@ -185,7 +185,7 @@ function MemberRow({
   onDeactivateClick,
   onReactivate,
 }: {
-  member: User;
+  member: OrganizationMember;
   isOwner: boolean;
   isSelf: boolean;
   onRoleChange: (userId: string, role: "OWNER" | "MEMBER") => void;
@@ -282,8 +282,8 @@ function DeactivateConfirmDialog({
   onConfirm,
   onCancel,
 }: {
-  user: User | null;
-  onConfirm: (user: User) => void;
+  user: OrganizationMember | null;
+  onConfirm: (user: OrganizationMember) => void;
   onCancel: () => void;
 }) {
   const [loading, setLoading] = useState(false);

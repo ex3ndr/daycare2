@@ -1,8 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { z } from "zod";
 import { apiRequest, ApiError, apiRequestSetUnauthorizedHandler, apiRequestSetDeactivatedHandler } from "./apiRequest";
 
 describe("apiRequest", () => {
   const originalFetch = globalThis.fetch;
+  const dataSchema = z.object({ id: z.string() });
+  const emptySchema = z.object({});
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
@@ -19,6 +22,7 @@ describe("apiRequest", () => {
     const result = await apiRequest<{ id: string }>({
       baseUrl: "http://test",
       path: "/api/test",
+      schema: dataSchema,
     });
 
     expect(result).toEqual({ id: "1" });
@@ -32,7 +36,7 @@ describe("apiRequest", () => {
     });
 
     try {
-      await apiRequest({ baseUrl: "http://test", path: "/api/test" });
+      await apiRequest({ baseUrl: "http://test", path: "/api/test", schema: emptySchema });
       expect.fail("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(ApiError);
@@ -54,7 +58,7 @@ describe("apiRequest", () => {
     });
 
     try {
-      await apiRequest({ baseUrl: "http://test", path: "/api/test", token: "expired" });
+      await apiRequest({ baseUrl: "http://test", path: "/api/test", token: "expired", schema: emptySchema });
       expect.fail("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(ApiError);
@@ -75,7 +79,7 @@ describe("apiRequest", () => {
     });
 
     try {
-      await apiRequest({ baseUrl: "http://test", path: "/api/test" });
+      await apiRequest({ baseUrl: "http://test", path: "/api/test", schema: emptySchema });
     } catch {
       // expected
     }
@@ -89,7 +93,7 @@ describe("apiRequest", () => {
       json: () => Promise.resolve({ ok: true, data: {} }),
     });
 
-    await apiRequest({ baseUrl: "http://test", path: "/api/test", token: "mytoken" });
+    await apiRequest({ baseUrl: "http://test", path: "/api/test", token: "mytoken", schema: emptySchema });
 
     const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(opts.headers.Authorization).toBe("Bearer mytoken");
@@ -106,6 +110,7 @@ describe("apiRequest", () => {
       path: "/api/test",
       method: "POST",
       body: { key: "value" },
+      schema: emptySchema,
     });
 
     const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
@@ -124,7 +129,7 @@ describe("apiRequest", () => {
     });
 
     try {
-      await apiRequest({ baseUrl: "http://test", path: "/api/test", token: "tok" });
+      await apiRequest({ baseUrl: "http://test", path: "/api/test", token: "tok", schema: emptySchema });
       expect.fail("should have thrown");
     } catch (err) {
       expect(err).toBeInstanceOf(ApiError);
@@ -145,7 +150,7 @@ describe("apiRequest", () => {
     });
 
     try {
-      await apiRequest({ baseUrl: "http://test", path: "/api/test", token: "tok" });
+      await apiRequest({ baseUrl: "http://test", path: "/api/test", token: "tok", schema: emptySchema });
     } catch {
       // expected
     }
@@ -164,11 +169,26 @@ describe("apiRequest", () => {
     });
 
     try {
-      await apiRequest({ baseUrl: "http://test", path: "/api/test" });
+      await apiRequest({ baseUrl: "http://test", path: "/api/test", schema: emptySchema });
     } catch {
       // expected
     }
 
     expect(handler).not.toHaveBeenCalled();
+  });
+
+  it("throws INVALID_RESPONSE when payload does not match schema", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      status: 200,
+      json: () => Promise.resolve({ ok: true, data: { id: 123 } }),
+    });
+
+    try {
+      await apiRequest<{ id: string }>({ baseUrl: "http://test", path: "/api/test", schema: dataSchema });
+      expect.fail("should have thrown");
+    } catch (err) {
+      expect(err).toBeInstanceOf(ApiError);
+      expect((err as ApiError).code).toBe("INVALID_RESPONSE");
+    }
   });
 });

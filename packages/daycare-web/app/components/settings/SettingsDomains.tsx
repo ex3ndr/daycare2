@@ -13,7 +13,7 @@ import {
 } from "@/app/components/ui/dialog";
 import { Globe, X } from "lucide-react";
 import { toastAdd } from "@/app/stores/toastStoreContext";
-import type { OrgDomain, User } from "@/app/daycare/types";
+import type { OrgDomain, OrganizationMember } from "@/app/daycare/types";
 
 type SettingsDomainsProps = {
   isOwner: boolean;
@@ -38,7 +38,7 @@ export function SettingsDomains({ isOwner }: SettingsDomainsProps) {
   const app = useApp();
 
   const [domains, setDomains] = useState<OrgDomain[]>([]);
-  const [members, setMembers] = useState<User[]>([]);
+  const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,7 +73,7 @@ export function SettingsDomains({ isOwner }: SettingsDomainsProps) {
 
   // Member lookup by ID for "added by" display
   const memberById = useMemo(() => {
-    const map = new Map<string, User>();
+    const map = new Map<string, OrganizationMember>();
     for (const m of members) {
       map.set(m.id, m);
     }
